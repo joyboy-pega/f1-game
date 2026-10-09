@@ -1494,6 +1494,21 @@ function gameLoop(timestamp){
     myCar.x += myCar.vx * dt;
     myCar.y += myCar.vy * dt;
 
+    // ---- TRACK BOUNDARY ENFORCEMENT ----
+    // Pull car back if it wanders too far from track center
+    const [boundIdx2, boundDist2] = getNearestTrackIndex(myCar.x, myCar.y, myCar.idx);
+    const MAX_OFF = TW / 2 + 80;
+    if(boundDist2 > MAX_OFF){
+      const bpullX = pts[boundIdx2][0] - myCar.x;
+      const bpullY = pts[boundIdx2][1] - myCar.y;
+      const blen = Math.hypot(bpullX, bpullY) || 1;
+      const bovershoot = boundDist2 - MAX_OFF;
+      myCar.x += (bpullX/blen) * bovershoot * 0.4;
+      myCar.y += (bpullY/blen) * bovershoot * 0.4;
+      myCar.vx *= 0.5;
+      myCar.vy *= 0.5;
+    }
+
     const kmh = Math.abs(vf) * 0.37;
     myCar.kmh = kmh;
     myCar.drs = drsOn;
@@ -1752,33 +1767,105 @@ function gameLoop(timestamp){
 function renderLocalCockpit(ctx, W, H, car){
   const livery = LIVERY_COLORS[car.team] || LIVERY_COLORS.redbull;
   const u = H / 600;
-  const cx = W / 2 + (car.roll || 0) * u;
-  const cy = H + (car.pitch || 0) * u;
+  const cx = W / 2 + (car.roll || 0) * u * 1.8;
+  const cy = H + (car.pitch || 0) * u * 0.6;
 
-  ctx.save();
-  ctx.translate(cx, cy * 0.98);
-  ctx.rotate(car.steer * 1.1);
-
-  const ww = W * 0.24, wh = H * 0.17;
-  ctx.fillStyle = "#121418";
+  // --- FRONT WING ---
+  const fwY = H*0.645 + (car.pitch||0)*u*0.3;
+  const fwW = W*0.22;
+  ctx.fillStyle='rgba(0,0,0,0.35)';
   ctx.beginPath();
-  ctx.roundRect(-ww/2, -wh/2, ww, wh, 14 * u);
+  ctx.ellipse(cx, fwY+18*u, fwW*1.08, 7*u, 0, 0, Math.PI*2);
   ctx.fill();
-  ctx.strokeStyle = livery.primary;
-  ctx.lineWidth = 3.5 * u;
-  ctx.stroke();
+  const fwG=ctx.createLinearGradient(cx-fwW,fwY,cx+fwW,fwY);
+  fwG.addColorStop(0,'#101215');fwG.addColorStop(0.5,'#1e2230');fwG.addColorStop(1,'#101215');
+  ctx.fillStyle=fwG;
+  ctx.beginPath();
+  ctx.moveTo(cx-fwW,fwY+10*u);ctx.lineTo(cx+fwW,fwY+10*u);
+  ctx.lineTo(cx+fwW*0.88,fwY+18*u);ctx.lineTo(cx-fwW*0.88,fwY+18*u);
+  ctx.closePath();ctx.fill();
+  ctx.fillStyle = livery.primary;
+  [-1,1].forEach(sd=>{
+    ctx.beginPath();
+    ctx.moveTo(cx+sd*fwW*0.92,fwY+8*u);ctx.lineTo(cx+sd*W*0.044,fwY+11*u);
+    ctx.lineTo(cx+sd*W*0.044,fwY+15*u);ctx.lineTo(cx+sd*fwW*0.84,fwY+13*u);
+    ctx.closePath();ctx.fill();
+    ctx.fillStyle='#0d1014';
+    ctx.beginPath();
+    ctx.roundRect(cx+sd*fwW*0.94-3*u,fwY,6*u,22*u,2*u);
+    ctx.fill();ctx.fillStyle=livery.primary;
+  });
 
+  // --- SIDEPODS + BRAKE LIGHTS ---
+  [-1,1].forEach(sd=>{
+    const spG=ctx.createLinearGradient(cx+sd*W*0.21,0,cx+sd*W*0.47,0);
+    spG.addColorStop(0,'#8a929c');spG.addColorStop(0.4,'#eef0f2');
+    spG.addColorStop(0.75,'#d0d5dc');spG.addColorStop(1,'#787e88');
+    ctx.fillStyle=spG;
+    ctx.beginPath();
+    ctx.moveTo(cx+sd*W*0.21,cy*0.845);ctx.lineTo(cx+sd*W*0.47,cy*0.875);
+    ctx.lineTo(cx+sd*W*0.49,cy);ctx.lineTo(cx+sd*W*0.185,cy);
+    ctx.closePath();ctx.fill();
+    ctx.fillStyle='#040507';
+    ctx.beginPath();
+    ctx.moveTo(cx+sd*W*0.22,cy*0.855);ctx.lineTo(cx+sd*W*0.36,cy*0.868);
+    ctx.lineTo(cx+sd*W*0.355,cy*0.93);ctx.lineTo(cx+sd*W*0.215,cy*0.915);
+    ctx.closePath();ctx.fill();
+    // Brake light glow
+    const bAlpha = (car.brk || car.isBraking) ? 0.9 : 0.1;
+    const bG=ctx.createRadialGradient(cx+sd*W*0.44,cy*0.88,2*u,cx+sd*W*0.44,cy*0.88,13*u);
+    bG.addColorStop(0,`rgba(255,40,0,${bAlpha})`);bG.addColorStop(1,'rgba(200,0,0,0)');
+    ctx.fillStyle=bG;ctx.beginPath();ctx.arc(cx+sd*W*0.44,cy*0.88,13*u,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=(car.brk||car.isBraking)?'#ff2800':'rgba(160,10,0,0.3)';
+    ctx.beginPath();ctx.roundRect(cx+sd*W*0.42,cy*0.87,10*u,5*u,2*u);ctx.fill();
+  });
+
+  // --- HALO ---
+  const hBY=cy*0.97, hMY=H*0.20, hW=W*0.38;
+  const hG=ctx.createLinearGradient(cx-hW,hMY,cx+hW,hMY);
+  hG.addColorStop(0,'#0b0d11');hG.addColorStop(0.48,'#1c2030');hG.addColorStop(0.52,'#1c2030');hG.addColorStop(1,'#0b0d11');
+  ctx.strokeStyle=hG;ctx.lineWidth=26*u;ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(cx-hW*0.82,hBY);
+  ctx.bezierCurveTo(cx-hW*0.78,hMY*1.4,cx-hW*0.15,hMY*0.7,cx,hMY);
+  ctx.bezierCurveTo(cx+hW*0.15,hMY*0.7,cx+hW*0.78,hMY*1.4,cx+hW*0.82,hBY);
+  ctx.stroke();
+  ctx.strokeStyle='#272d3c';ctx.lineWidth=19*u;
+  ctx.beginPath();ctx.moveTo(cx,hBY);ctx.lineTo(cx,hMY*1.05);ctx.stroke();
+  // Team color stripe on halo
+  ctx.strokeStyle=livery.primary;ctx.lineWidth=3*u;ctx.globalAlpha=0.65;
+  ctx.beginPath();
+  ctx.moveTo(cx-hW*0.78,hBY);
+  ctx.bezierCurveTo(cx-hW*0.74,hMY*1.38,cx-hW*0.13,hMY*0.68,cx,hMY+1*u);
+  ctx.bezierCurveTo(cx+hW*0.13,hMY*0.68,cx+hW*0.74,hMY*1.38,cx+hW*0.78,hBY);
+  ctx.stroke();ctx.globalAlpha=1;
+
+  // --- STEERING WHEEL ---
+  ctx.save();
+  ctx.translate(cx, H*0.875 + (car.pitch||0)*u*0.4);
+  ctx.rotate((car.steer||0) * 1.1);
+  const ww = W * 0.24, wh = H * 0.17;
+  ctx.fillStyle='rgba(0,0,0,0.48)';
+  ctx.beginPath();ctx.roundRect(-ww/2+4*u,4*u,ww,wh,13*u);ctx.fill();
+  ctx.shadowColor=livery.primary;ctx.shadowBlur=9*u;
+  ctx.strokeStyle=livery.primary;ctx.lineWidth=3.5*u;
+  ctx.beginPath();ctx.roundRect(-ww/2,-wh/2,ww,wh,14*u);ctx.stroke();
+  ctx.shadowBlur=0;
+  ctx.fillStyle="#121418";
+  ctx.beginPath();ctx.roundRect(-ww/2,-wh/2,ww,wh,14*u);ctx.fill();
   // Mini Digital Screen
   ctx.fillStyle = "#06090e";
   ctx.fillRect(-ww * 0.4, -wh * 0.35, ww * 0.8, wh * 0.7);
   ctx.fillStyle = livery.accent;
   ctx.font = `800 ${Math.round(28 * u)}px "Cabinet Grotesk",sans-serif`;
-  ctx.textAlign = "center";
-  ctx.fillText(car.gear || "N", 0, 4 * u);
-
+  ctx.textAlign = "center";ctx.textBaseline='middle';
+  ctx.fillText(car.gear || "N", 0, wh*0.06);
   ctx.fillStyle = "#fff";
   ctx.font = `700 ${Math.round(14 * u)}px "JetBrains Mono",monospace`;
-  ctx.fillText(Math.round(car.kmh || 0) + " KM/H", 0, -wh * 0.12);
+  ctx.fillText(Math.round(car.kmh || 0) + " KM/H", 0, -wh * 0.18);
+  // DRS dot
+  ctx.fillStyle=car.drs?'#3ddc84':'rgba(80,80,80,0.4)';
+  ctx.beginPath();ctx.arc(-ww*0.28,-wh*0.3,4*u,0,Math.PI*2);ctx.fill();
   ctx.restore();
 }
 

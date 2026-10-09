@@ -303,6 +303,28 @@ canvas.game-canvas{
   z-index:30;
   pointer-events:none;
 }
+
+/* Lap Complete Popup */
+#lap-popup{
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  z-index:28;
+  background:rgba(10,14,22,0.94);
+  border:2px solid rgba(255,255,255,0.2);
+  border-radius:14px;
+  padding:16px 32px;
+  text-align:center;
+  font-family:"JetBrains Mono",monospace;
+  font-size:15px;
+  font-weight:700;
+  letter-spacing:0.08em;
+  box-shadow:0 12px 40px rgba(0,0,0,0.8),0 0 30px rgba(255,215,0,0.2);
+  backdrop-filter:blur(16px);
+  pointer-events:none;
+  animation:pop-in 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
 #race-lights span{
   width:32px;
   height:32px;
@@ -517,6 +539,9 @@ canvas.game-canvas{
 <div id="race-lights"><span></span><span></span><span></span><span></span><span></span></div>
 <div id="big-msg"></div>
 
+<!-- Lap Complete Popup -->
+<div id="lap-popup" hidden></div>
+
 <!-- Winner Celebration Modal -->
 <div id="winner-modal" hidden>
   <div class="trophy-icon">🏆</div>
@@ -606,6 +631,8 @@ const p2={id:2, name:'PLAYER 2 (CYAN)', num:'44', color:'#00d2be', x:0,y:0,a:0,v
 let keys={}, gameState='lights', lightsT=0, go=false, T=0, winner=null;
 let weather=(new URLSearchParams(location.search).get('weather')||localStorage.getItem('f1_weather')||'sunny').toLowerCase();
 let audioEnabled=true;
+const TOTAL_LAPS_DUO = 3; // Duo race requires completing this many laps to win
+let lapPopupTimer = 0; // Timer for lap-complete popup notification
 
 // Set Weather
 function setDuoWeather(w){
@@ -626,8 +653,9 @@ function resetGrid(){
   const n2=pts[(i2+1)%N]; p2.a=Math.atan2(n2[1]-pts[i2][1],n2[0]-pts[i2][0]);
   p2.vx=p2.vy=0; p2.steer=0; p2.idx=i2; p2.ers=1; p2.lapT=0; p2.lapNo=1; p2.best=null; p2.halfway=false;
 
-  gameState='lights'; lightsT=0; go=false; winner=null;
+  gameState='lights'; lightsT=0; go=false; winner=null; lapPopupTimer=0;
   $('winner-modal').hidden=true;
+  $('lap-popup').hidden=true;
   $('big-msg').textContent='';
   $('lap-p1').textContent='1'; $('lap-p2').textContent='1';
   $('best-p1').textContent='–'; $('best-p2').textContent='–';
@@ -742,19 +770,43 @@ function updateCarPhysics(car, dt, thrKey, brkKey, leftKey, rightKey, drsKey, er
   }
   car.x+=car.vx*dt;car.y+=car.vy*dt;
 
+  // ---- TRACK BOUNDARY ENFORCEMENT ----
+  // Find nearest track point and push car back if too far off
+  const [boundIdx, boundDist] = nearestCar(car);
+  const MAX_OFF_TRACK = TW/2 + 80; // max distance from track center
+  if(boundDist > MAX_OFF_TRACK){
+    // Pull car back toward nearest track point
+    const pullX = pts[boundIdx][0] - car.x;
+    const pullY = pts[boundIdx][1] - car.y;
+    const pullLen = Math.hypot(pullX, pullY) || 1;
+    const overshoot = boundDist - MAX_OFF_TRACK;
+    car.x += (pullX / pullLen) * overshoot * 0.35;
+    car.y += (pullY / pullLen) * overshoot * 0.35;
+    // Kill speed toward outside
+    car.vx *= 0.55;
+    car.vy *= 0.55;
+  }
+
   const prev=car.idx;car.idx=ni;
   if(go&&!winner){
     car.lapT+=dt;
+    // HALFWAY CHECK: must cross the halfway point to prevent shortcut wins
     if(ni>N*0.45&&ni<N*0.55)car.halfway=true;
     if(prev>N*0.9&&ni<N*0.1&&car.halfway&&vf>0){
-      if(!winner){
+      if(car.best===null||car.lapT<car.best)car.best=car.lapT;
+      const completedLap = car.lapNo;
+      car.lapNo++;car.lapT=0;car.halfway=false;
+      $(prefix==='p1'?'lap-p1':'lap-p2').textContent=Math.min(car.lapNo,TOTAL_LAPS_DUO);
+      $(prefix==='p1'?'best-p1':'best-p2').textContent=fmt(car.best);
+      // Show lap complete popup (only if race not over)
+      if(completedLap < TOTAL_LAPS_DUO){
+        showLapPopup(car, completedLap);
+      }
+      // Win condition: must complete TOTAL_LAPS_DUO full laps via correct route
+      if(completedLap >= TOTAL_LAPS_DUO && !winner){
         winner=car;
         triggerWinner(car);
       }
-      if(car.best===null||car.lapT<car.best)car.best=car.lapT;
-      car.lapNo++;car.lapT=0;car.halfway=false;
-      $(prefix==='p1'?'lap-p1':'lap-p2').textContent=car.lapNo;
-      $(prefix==='p1'?'best-p1':'best-p2').textContent=fmt(car.best);
     }
   }
 
@@ -774,11 +826,21 @@ function updateCarPhysics(car, dt, thrKey, brkKey, leftKey, rightKey, drsKey, er
   const targetRoll=car.steer*Math.min(1,kmh/160)*6.5;car.roll+=(targetRoll-car.roll)*Math.min(1,8*dt);
 }
 
+function showLapPopup(car, lapNum){
+  const popup = $('lap-popup');
+  if(!popup) return;
+  const playerName = car.id === 1 ? 'P1' : 'P2';
+  const color = car.id === 1 ? '#e10600' : '#00d2be';
+  popup.innerHTML = `<span style="color:${color};font-size:14px;font-weight:900">${playerName}</span> <span style="color:#fff">LAP ${lapNum} COMPLETE</span> <span style="color:#ffd700;font-size:12px">${fmt(car.best)}</span>`;
+  popup.hidden = false;
+  lapPopupTimer = 2.5; // seconds to show
+}
+
 function triggerWinner(wCar){
   const other = wCar.id === 1 ? p2 : p1;
-  const gap = Math.abs(wCar.lapT - other.lapT);
   $('winner-name').textContent = wCar.id === 1 ? '🥇 PLAYER 1 WINS (RED)!' : '🥇 PLAYER 2 WINS (CYAN)!';
-  $('winner-meta').textContent = `Winning Lap Time: ${fmt(wCar.lapT)} • Defeated Player ${other.id}`;
+  $('winner-meta').textContent = `Winning Lap: ${fmt(wCar.best)} • Race: ${TOTAL_LAPS_DUO} Laps`;
+  $('lap-popup').hidden = true;
   $('winner-modal').hidden = false;
 }
 
@@ -1026,35 +1088,296 @@ function renderPlayerView(ctx, car, oppCar, primaryColor){
   }
   ctx.restore();
 
-  // Cockpit view for Player
-  const u=H/600;
-  const cx=W/2+(car.roll||0)*u;
-  const cy=H+(car.pitch||0)*u;
+  // ================================================================
+  // FULL F1 COCKPIT VIEW (Halo, Front Wing, Sidepods, Steering Wheel)
+  // ================================================================
+  const u = H / 600;
+  const kSpeed = Math.min(1, (car.kmh||0) / 300);
+  const roadVibe = car.onTrack ? Math.sin(T*85)*kSpeed*0.8*u : Math.sin(T*90)*2.5*u;
+  const cx = W/2 + (car.roll||0)*u*1.8;
+  const cy = H + (car.pitch||0)*u*0.6 + roadVibe;
 
-  // Steering Wheel
-  ctx.save();
-  ctx.translate(cx,cy*0.98);
-  ctx.rotate(car.steer*1.1);
-  const ww=W*0.22, wh=H*0.16;
-  ctx.fillStyle='#121418';
+  // --- 1. FRONT WING (visible ahead) ---
+  const fwY = H*0.64 + (car.pitch||0)*u*0.3;
+  const fwW = W*0.21;
+  // Shadow under front wing
+  ctx.fillStyle='rgba(0,0,0,0.38)';
   ctx.beginPath();
-  ctx.roundRect(-ww/2,-wh/2,ww,wh,12*u);
+  ctx.ellipse(cx, fwY+18*u, fwW*1.1, 7*u, 0, 0, Math.PI*2);
   ctx.fill();
-  ctx.strokeStyle=primaryColor;
-  ctx.lineWidth=3*u;
-  ctx.stroke();
-
-  // Mini Dashboard Screen
-  ctx.fillStyle='#06090e';
-  ctx.fillRect(-ww*0.4,-wh*0.35,ww*0.8,wh*0.7);
-  ctx.fillStyle=primaryColor;
-  ctx.font=`800 ${Math.round(28*u)}px "Chakra Petch",sans-serif`;
-  ctx.textAlign='center';
-  ctx.fillText(car.gear||'N', 0, 4*u);
-
+  // Main wing plane (carbon fiber gradient)
+  const fwGrad = ctx.createLinearGradient(cx-fwW, fwY, cx+fwW, fwY);
+  fwGrad.addColorStop(0,'#111317');
+  fwGrad.addColorStop(0.5,'#21252d');
+  fwGrad.addColorStop(1,'#111317');
+  ctx.fillStyle=fwGrad;
+  ctx.beginPath();
+  ctx.moveTo(cx-fwW, fwY+10*u);
+  ctx.lineTo(cx+fwW, fwY+10*u);
+  ctx.lineTo(cx+fwW*0.88, fwY+18*u);
+  ctx.lineTo(cx-fwW*0.88, fwY+18*u);
+  ctx.closePath();
+  ctx.fill();
+  // Colored cascade flaps
+  ctx.fillStyle = primaryColor;
+  [-1,1].forEach(sd => {
+    ctx.beginPath();
+    ctx.moveTo(cx+sd*fwW*0.92, fwY+8*u);
+    ctx.lineTo(cx+sd*W*0.042, fwY+11*u);
+    ctx.lineTo(cx+sd*W*0.042, fwY+15*u);
+    ctx.lineTo(cx+sd*fwW*0.84, fwY+13*u);
+    ctx.closePath();
+    ctx.fill();
+    // Endplates
+    ctx.fillStyle='#0d1014';
+    ctx.beginPath();
+    ctx.roundRect(cx+sd*fwW*0.94-3*u, fwY, 6*u, 22*u, 2*u);
+    ctx.fill();
+    ctx.fillStyle = primaryColor;
+  });
+  // Car number on nose
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  ctx.roundRect(cx-14*u, fwY+1*u, 28*u, 13*u, 3*u);
+  ctx.fill();
   ctx.fillStyle='#fff';
-  ctx.font=`700 ${Math.round(14*u)}px "Chakra Petch",sans-serif`;
-  ctx.fillText(Math.round(car.kmh||0)+' KM/H', 0, -wh*0.12);
+  ctx.font=`900 ${Math.round(9*u)}px "Chakra Petch",sans-serif`;
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText(car.id===1?'16':'44', cx, fwY+8*u);
+
+  // --- 2. SIDEPODS ---
+  [-1,1].forEach(sd => {
+    const spX1=cx+sd*W*0.21, spY1=cy*0.845;
+    const spX2=cx+sd*W*0.47, spY2=cy*0.875;
+    const spX3=cx+sd*W*0.49, spY3=cy;
+    const spX4=cx+sd*W*0.185, spY4=cy;
+    const spG = ctx.createLinearGradient(spX1, 0, spX2, 0);
+    spG.addColorStop(0,'#8a929c');
+    spG.addColorStop(0.4,'#eef0f2');
+    spG.addColorStop(0.75,'#d0d5dc');
+    spG.addColorStop(1,'#787e88');
+    ctx.fillStyle=spG;
+    ctx.beginPath();
+    ctx.moveTo(spX1,spY1);
+    ctx.lineTo(spX2,spY2);
+    ctx.lineTo(spX3,spY3);
+    ctx.lineTo(spX4,spY4);
+    ctx.closePath();
+    ctx.fill();
+    // Sidepod intake mouth
+    ctx.fillStyle='#050608';
+    ctx.beginPath();
+    ctx.moveTo(cx+sd*W*0.22, cy*0.855);
+    ctx.lineTo(cx+sd*W*0.36, cy*0.868);
+    ctx.lineTo(cx+sd*W*0.355, cy*0.93);
+    ctx.lineTo(cx+sd*W*0.215, cy*0.915);
+    ctx.closePath();
+    ctx.fill();
+    // BRAKE LIGHT — glows red when braking!
+    const brkAlpha = car.brk ? 0.9 : 0.12;
+    const brkGrad = ctx.createRadialGradient(
+      cx+sd*W*0.44, cy*0.88, 2*u,
+      cx+sd*W*0.44, cy*0.88, 14*u
+    );
+    brkGrad.addColorStop(0, `rgba(255,40,0,${brkAlpha})`);
+    brkGrad.addColorStop(1, 'rgba(200,0,0,0)');
+    ctx.fillStyle = brkGrad;
+    ctx.beginPath();
+    ctx.arc(cx+sd*W*0.44, cy*0.88, 14*u, 0, Math.PI*2);
+    ctx.fill();
+    // Brake light lens
+    ctx.fillStyle = car.brk ? '#ff2800' : 'rgba(180,20,0,0.3)';
+    ctx.beginPath();
+    ctx.roundRect(cx+sd*W*0.42, cy*0.87, 10*u, 5*u, 2*u);
+    ctx.fill();
+  });
+
+  // --- 3. FRONT SUSPENSION ARMS ---
+  [-1,1].forEach(sd => {
+    const wheelCx = cx+sd*W*0.265;
+    const hubY = H*0.745;
+    // Lower wishbone
+    ctx.strokeStyle='#14161a';
+    ctx.lineWidth=5.5*u;
+    ctx.beginPath();
+    ctx.moveTo(cx+sd*W*0.062, H*0.775);
+    ctx.lineTo(wheelCx-sd*20*u, H*0.765);
+    ctx.stroke();
+    // Upper wishbone
+    ctx.strokeStyle='#1e2228';
+    ctx.lineWidth=4.5*u;
+    ctx.beginPath();
+    ctx.moveTo(cx+sd*W*0.044, H*0.728);
+    ctx.lineTo(wheelCx-sd*20*u, H*0.716);
+    ctx.stroke();
+    // Steering tie rod (moves with steer!)
+    const stOff = car.steer * 7 * u;
+    ctx.strokeStyle='#0f1115';
+    ctx.lineWidth=3.2*u;
+    ctx.beginPath();
+    ctx.moveTo(cx+sd*W*0.054, H*0.752);
+    ctx.lineTo(wheelCx-sd*20*u, H*0.747 + stOff);
+    ctx.stroke();
+  });
+
+  // --- 4. FRONT WHEELS ---
+  [-1,1].forEach(sd => {
+    const wx = cx+sd*W*0.265;
+    const wy = H*0.74;
+    ctx.save();
+    ctx.translate(wx, wy);
+    ctx.rotate(car.steer*0.36);
+    const tw=52*u, th=142*u;
+    // Shadow
+    ctx.fillStyle='rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(0, th*0.48, tw*0.78, 11*u, 0, 0, Math.PI*2);
+    ctx.fill();
+    // Tire body
+    const tG=ctx.createLinearGradient(-tw/2,0,tw/2,0);
+    tG.addColorStop(0,'#090a0c');
+    tG.addColorStop(0.22,'#191b20');
+    tG.addColorStop(0.5,'#252830');
+    tG.addColorStop(0.78,'#18191e');
+    tG.addColorStop(1,'#0b0c0f');
+    ctx.fillStyle=tG;
+    ctx.beginPath();
+    ctx.roundRect(-tw/2,-th/2,tw,th,13*u);
+    ctx.fill();
+    // Tread grooves
+    ctx.strokeStyle='#111316';
+    ctx.lineWidth=1.6*u;
+    ctx.beginPath();
+    ctx.moveTo(0,-th*0.42);ctx.lineTo(0,th*0.42);
+    ctx.moveTo(-tw*0.27,-th*0.44);ctx.lineTo(-tw*0.27,th*0.44);
+    ctx.moveTo(tw*0.27,-th*0.44);ctx.lineTo(tw*0.27,th*0.44);
+    ctx.stroke();
+    // Rim recess
+    const rimR=th*0.31;
+    ctx.fillStyle='#0e1013';
+    ctx.beginPath();
+    ctx.ellipse(0,0,tw*0.35,rimR,0,0,Math.PI*2);
+    ctx.fill();
+    // Pirelli compound ring (color by car)
+    ctx.strokeStyle = primaryColor;
+    ctx.lineWidth=3*u;
+    ctx.beginPath();
+    ctx.ellipse(0,0,tw*0.38,rimR*1.06,0,0,Math.PI*2);
+    ctx.stroke();
+    // Center lock nut
+    ctx.fillStyle=sd<0?primaryColor:'#0070f3';
+    ctx.beginPath();
+    ctx.arc(0,0,5*u,0,Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle='#fff';
+    ctx.lineWidth=1*u;
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // --- 5. HALO SAFETY ARCH ---
+  const haloBaseY = cy*0.97;
+  const haloMidY = H*0.20;
+  const haloW = W*0.38;
+  // Halo shadow
+  ctx.fillStyle='rgba(0,0,0,0.32)';
+  ctx.beginPath();
+  ctx.ellipse(cx, haloBaseY+12*u, haloW*0.55, 8*u, 0, 0, Math.PI*2);
+  ctx.fill();
+  // Draw main halo arch shape
+  const haloGrad = ctx.createLinearGradient(cx-haloW, haloMidY, cx+haloW, haloMidY);
+  haloGrad.addColorStop(0,'#0c0e12');
+  haloGrad.addColorStop(0.45,'#1f2330');
+  haloGrad.addColorStop(0.55,'#1f2330');
+  haloGrad.addColorStop(1,'#0c0e12');
+  ctx.strokeStyle = haloGrad;
+  ctx.lineWidth = 28*u;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx-haloW*0.82, haloBaseY);
+  ctx.bezierCurveTo(cx-haloW*0.78, haloMidY*1.4, cx-haloW*0.15, haloMidY*0.7, cx, haloMidY);
+  ctx.bezierCurveTo(cx+haloW*0.15, haloMidY*0.7, cx+haloW*0.78, haloMidY*1.4, cx+haloW*0.82, haloBaseY);
+  ctx.stroke();
+  // Halo center strut (titanium pillar)
+  ctx.strokeStyle = '#2a2f3d';
+  ctx.lineWidth = 20*u;
+  ctx.beginPath();
+  ctx.moveTo(cx, haloBaseY);
+  ctx.lineTo(cx, haloMidY*1.05);
+  ctx.stroke();
+  // Metallic sheen highlights on halo
+  ctx.strokeStyle='rgba(255,255,255,0.06)';
+  ctx.lineWidth=6*u;
+  ctx.beginPath();
+  ctx.moveTo(cx-haloW*0.8, haloBaseY-4*u);
+  ctx.bezierCurveTo(cx-haloW*0.76, haloMidY*1.35, cx-haloW*0.12, haloMidY*0.66, cx, haloMidY-2*u);
+  ctx.bezierCurveTo(cx+haloW*0.12, haloMidY*0.66, cx+haloW*0.76, haloMidY*1.35, cx+haloW*0.8, haloBaseY-4*u);
+  ctx.stroke();
+  // Colored halo stripe (team color)
+  ctx.strokeStyle = primaryColor;
+  ctx.lineWidth = 3.5*u;
+  ctx.globalAlpha = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(cx-haloW*0.78, haloBaseY);
+  ctx.bezierCurveTo(cx-haloW*0.74, haloMidY*1.38, cx-haloW*0.13, haloMidY*0.68, cx, haloMidY+1*u);
+  ctx.bezierCurveTo(cx+haloW*0.13, haloMidY*0.68, cx+haloW*0.74, haloMidY*1.38, cx+haloW*0.78, haloBaseY);
+  ctx.stroke();
+  ctx.globalAlpha = 1.0;
+
+  // --- 6. STEERING WHEEL (at bottom, rotates with input) ---
+  const swCx = cx;
+  const swCy = H*0.87 + (car.pitch||0)*u*0.4;
+  ctx.save();
+  ctx.translate(swCx, swCy);
+  ctx.rotate((car.steer||0) * 1.2);
+  const swW = W*0.22, swH = H*0.175;
+  // Wheel shadow
+  ctx.fillStyle='rgba(0,0,0,0.5)';
+  ctx.beginPath();
+  ctx.roundRect(-swW/2+4*u, 4*u, swW, swH, 13*u);
+  ctx.fill();
+  // Wheel rim (glowing team color)
+  ctx.shadowColor = primaryColor;
+  ctx.shadowBlur = 10*u;
+  ctx.strokeStyle = primaryColor;
+  ctx.lineWidth = 4.5*u;
+  ctx.beginPath();
+  ctx.roundRect(-swW/2, -swH/2, swW, swH, 13*u);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  // Wheel body
+  ctx.fillStyle='#0b0d12';
+  ctx.beginPath();
+  ctx.roundRect(-swW/2, -swH/2, swW, swH, 13*u);
+  ctx.fill();
+  // Carbon texture
+  ctx.strokeStyle='rgba(255,255,255,0.07)';
+  ctx.lineWidth=1.5*u;
+  ctx.beginPath();
+  ctx.moveTo(0,-swH*0.4);ctx.lineTo(0,swH*0.4);
+  ctx.moveTo(-swW*0.37,0);ctx.lineTo(swW*0.37,0);
+  ctx.stroke();
+  // Digital dash screen
+  ctx.fillStyle='#050810';
+  ctx.beginPath();
+  ctx.roundRect(-swW*0.3,-swH*0.26,swW*0.6,swH*0.52,5*u);
+  ctx.fill();
+  // Gear readout
+  ctx.fillStyle = primaryColor;
+  ctx.font=`900 ${Math.round(32*u)}px "Chakra Petch",sans-serif`;
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText(car.gear||'N', 0, swH*0.09);
+  // Speed readout
+  ctx.fillStyle='rgba(255,255,255,0.65)';
+  ctx.font=`700 ${Math.round(11*u)}px "JetBrains Mono",monospace`;
+  ctx.fillText(Math.round(car.kmh||0)+' KM/H', 0, -swH*0.15);
+  // DRS indicator dot
+  ctx.fillStyle = (car.drs) ? '#3ddc84' : 'rgba(100,100,100,0.4)';
+  ctx.beginPath();
+  ctx.arc(-swW*0.28, -swH*0.28, 4*u, 0, Math.PI*2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -1153,6 +1476,32 @@ function loop(now){
     updateCarPhysics(p1, dt, keys.KeyW||keys.Keyw, keys.KeyS||keys.Keys, keys.KeyA||keys.Keya, keys.KeyD||keys.Keyd, keys.Space, keys.ShiftLeft||keys.ShiftRight, 'p1');
     // Update P2 (ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Enter, Control)
     updateCarPhysics(p2, dt, keys.ArrowUp, keys.ArrowDown, keys.ArrowLeft, keys.ArrowRight, keys.Enter||keys.Numpad0, keys.ControlLeft||keys.ControlRight, 'p2');
+
+    // ---- CAR-TO-CAR COLLISION / OVERTAKING PHYSICS ----
+    const cdx = p2.x - p1.x, cdy = p2.y - p1.y;
+    const cDist = Math.hypot(cdx, cdy);
+    const CAR_RADIUS = 22; // collision radius per car
+    if(cDist < CAR_RADIUS * 2 && cDist > 0.1){
+      // Push cars apart with elastic-style repulsion
+      const nx = cdx / cDist, ny = cdy / cDist;
+      const overlap = CAR_RADIUS * 2 - cDist;
+      const pushX = nx * overlap * 0.4;
+      const pushY = ny * overlap * 0.4;
+      // Transfer momentum (partial)
+      const relVx = p2.vx - p1.vx, relVy = p2.vy - p1.vy;
+      const relVn = relVx * nx + relVy * ny;
+      if(relVn < 0){
+        const impulse = relVn * 0.6;
+        p1.vx += nx * impulse; p1.vy += ny * impulse;
+        p2.vx -= nx * impulse; p2.vy -= ny * impulse;
+      }
+      // Separate positions
+      p1.x -= pushX; p1.y -= pushY;
+      p2.x += pushX; p2.y += pushY;
+    }
+
+    // Lap popup timer
+    if(lapPopupTimer > 0){ lapPopupTimer -= dt; if(lapPopupTimer <= 0){ $('lap-popup').hidden=true; } }
 
     // Update Live Interval Gap
     const gapTime = Math.abs(p1.lapT - p2.lapT);
