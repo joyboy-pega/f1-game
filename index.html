@@ -12,25 +12,25 @@
 </head>
 <body>
 
-  <!-- Screen Wrapper (Responsive PC & Phone) -->
-  <div class="screen-wrapper">
-    <div class="screen-glow"></div>
+  <!-- Full-Screen Responsive F1 Game Lobby Container -->
+  <main class="app-lobby-container" id="canvas-lobby" role="main" aria-label="Buddh F1 Racing Game Lobby">
 
-    <!-- Responsive Game Canvas Container -->
-    <main class="canvas-container" id="canvas-lobby" role="main" aria-label="F1 Racing Game Lobby">
+    <!-- Ambient Glowing Backdrop -->
+    <div class="ambient-glow"></div>
 
-      <!-- BACKGROUND GRAPHIC LAYERS -->
-      <div class="bg-layer-diagonal"></div>
-      <div class="bg-layer-checker"></div>
-      <div class="bg-layer-ghost-text" id="ghost-title">BUDDH</div>
-      <div class="bg-layer-radial"></div>
+    <!-- BACKGROUND GRAPHIC LAYERS -->
+    <div class="bg-layer-diagonal"></div>
+    <div class="bg-layer-checker"></div>
+    <div class="bg-layer-ghost-text" id="ghost-title">BUDDH GP</div>
+    <div class="bg-layer-radial"></div>
 
-      <!-- Ink Brush Stroke SVG -->
-      <svg class="bg-layer-brush" aria-hidden="true" width="390" height="120" viewBox="0 0 390 120">
-        <path d="M-10 40 C60 20 120 52 200 34 C270 20 330 44 400 28 L400 62 C330 76 270 56 200 70 C120 88 60 62 -10 78 Z" fill="#0A0A0A" opacity="0.92"></path>
-      </svg>
+    <!-- Ink Brush Stroke SVG -->
+    <svg class="bg-layer-brush" aria-hidden="true" viewBox="0 0 1200 120" preserveAspectRatio="none">
+      <path d="M-20 40 C180 18 360 52 600 32 C840 18 1020 44 1220 26 L1220 64 C1020 80 840 58 600 72 C360 90 180 62 -20 80 Z" fill="#0A0A0A" opacity="0.94"></path>
+    </svg>
 
-      <!-- ═══════════ TOP BAR ═══════════ -->
+    <!-- ═══════════ TOP BAR (FLUID RESPONSIVE) ═══════════ -->
+    <div class="top-bar-outer">
       <header class="top-bar">
         <!-- Player Profile Chip with Arigatoo Club Subtitle -->
         <div class="profile-chip" id="btn-profile" title="Driver Profile · Arigatoo Club">
@@ -47,7 +47,7 @@
           </div>
         </div>
 
-        <!-- Currencies Row (Integrated into header on PC) -->
+        <!-- Currencies Row -->
         <section class="currency-row" aria-label="Player Currencies">
           <!-- Cash / Credits -->
           <div class="curr-pill cash" id="btn-curr-cash" title="F1 Credits">
@@ -77,28 +77,33 @@
           </div>
         </section>
 
-        <!-- Fuel / Push Laps Chip -->
-        <div class="energy-chip" id="btn-energy" title="Push Laps / ERS: 3/7">
-          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 8h10v12H6z"></path>
-            <path d="M16 11l3-2v6"></path>
-            <path d="M8 8V5h5"></path>
-          </svg>
-          <div class="energy-val" id="display-energy">3<span class="energy-sub">/7</span></div>
+        <!-- Right Side: Fuel & Settings Button -->
+        <div class="top-bar-right">
+          <!-- Push Laps / Fuel Chip -->
+          <div class="energy-chip" id="btn-energy" title="Push Laps / ERS: 3/7">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 8h10v12H6z"></path>
+              <path d="M16 11l3-2v6"></path>
+              <path d="M8 8V5h5"></path>
+            </svg>
+            <div class="energy-val" id="display-energy">3<span class="energy-sub">/7</span></div>
+          </div>
+
+          <!-- Menu Button -->
+          <button type="button" class="menu-btn" id="btn-open-menu" aria-label="Open Settings Menu">
+            <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" stroke-width="3.2" stroke-linecap="round">
+              <path d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </button>
         </div>
-
-        <!-- Menu Button -->
-        <button type="button" class="menu-btn" id="btn-open-menu" aria-label="Open Settings Menu">
-          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" stroke-width="3.2" stroke-linecap="round">
-            <path d="M4 6h16M4 12h16M4 18h16"></path>
-          </svg>
-        </button>
       </header>
+    </div>
 
-      <!-- ═══════════ RESPONSIVE MAIN GRID (PC 2-Column / Mobile 1-Column) ═══════════ -->
+    <!-- ═══════════ MAIN RESPONSIVE STAGE ═══════════ -->
+    <div class="main-stage-wrap">
       <div class="responsive-main-grid">
 
-        <!-- ─── LEFT COLUMN: BUDDH RACE TRACK & TELEMETRY ─── -->
+        <!-- ─── LEFT COLUMN: BUDDH CIRCUIT TRACK & LIVE TELEMETRY ─── -->
         <div class="desktop-left-hero">
           <section class="hero-area" aria-label="Buddh International Circuit Track">
             <!-- Left Sticker: Speed Trap DRS -->
@@ -109,7 +114,7 @@
 
             <!-- Right Sticker: 1:27.249 Pole Starburst -->
             <div class="starburst-badge" id="sticker-boost">
-              <svg aria-hidden="true" width="68" height="68" viewBox="0 0 66 66">
+              <svg aria-hidden="true" width="72" height="72" viewBox="0 0 66 66">
                 <path d="M33 2l8 12 14-4-4 14 12 9-12 8 3 14-14-3-7 12-7-12-14 3 3-14L2 33l12-9-4-14 14 4z" fill="#C8FF2E" stroke="#0A0A0A" stroke-width="3" stroke-linejoin="round"></path>
               </svg>
               <div class="starburst-text">POLE<br>1:27.2</div>
@@ -148,7 +153,7 @@
                   <line x1="570" y1="0" x2="570" y2="440"/>
                 </g>
 
-                <!-- Rotated Track System (fills 760x440 landscape hero box) -->
+                <!-- Rotated Track System (fills landscape hero box) -->
                 <g id="track-rot-group" transform="translate(760, 10) rotate(90)">
                   <!-- Outer Glow Layer -->
                   <path id="track-glow-path" d="" fill="none" stroke="#C8FF2E" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" filter="url(#track-lime-glow)"/>
@@ -282,15 +287,17 @@
 
         </div>
       </div>
+    </div>
 
-      <!-- ═══════════ TICKER STRIP ═══════════ -->
-      <div class="ticker-strip">
-        <div class="ticker-content">
-          MADE BY ARIGATOO CLUB FOR FUN &nbsp;/&nbsp; BOX BOX NOW &nbsp;/&nbsp; DRS ENABLED &nbsp;/&nbsp; SECTOR 2 PURPLE &nbsp;/&nbsp; 1:27.249 VETTEL RECORD &nbsp;/&nbsp; PUSH LAP NOW &nbsp;/&nbsp; MAXIMUM ATTACK &nbsp;/&nbsp; FULL THROTTLE &nbsp;/&nbsp; BUDDH INTERNATIONAL CIRCUIT &nbsp;/&nbsp; MADE BY ARIGATOO CLUB FOR FUN &nbsp;/&nbsp;
-        </div>
+    <!-- ═══════════ TICKER STRIP (FULL WIDTH) ═══════════ -->
+    <div class="ticker-strip">
+      <div class="ticker-content">
+        MADE BY ARIGATOO CLUB FOR FUN &nbsp;/&nbsp; BOX BOX NOW &nbsp;/&nbsp; DRS ENABLED &nbsp;/&nbsp; SECTOR 2 PURPLE &nbsp;/&nbsp; 1:27.249 VETTEL RECORD &nbsp;/&nbsp; PUSH LAP NOW &nbsp;/&nbsp; MAXIMUM ATTACK &nbsp;/&nbsp; FULL THROTTLE &nbsp;/&nbsp; BUDDH INTERNATIONAL CIRCUIT &nbsp;/&nbsp; MADE BY ARIGATOO CLUB FOR FUN &nbsp;/&nbsp;
       </div>
+    </div>
 
-      <!-- ═══════════ BOTTOM NAV ═══════════ -->
+    <!-- ═══════════ BOTTOM NAV (FULL WIDTH DOCK) ═══════════ -->
+    <div class="bottom-nav-outer">
       <nav class="bottom-nav" aria-label="Main Navigation">
         <!-- Store / Shop -->
         <button type="button" class="nav-tab" id="nav-btn-shop" aria-label="Store">
@@ -340,200 +347,200 @@
           <span class="nav-tab-badge">!</span>
         </button>
       </nav>
+    </div>
 
-      <!-- ═══════════ RETRO POPUP TOAST ═══════════ -->
-      <div class="retro-toast" id="toast">CLAIMED +500 CASH!</div>
+    <!-- ═══════════ RETRO POPUP TOAST ═══════════ -->
+    <div class="retro-toast" id="toast">CLAIMED +500 CASH!</div>
 
-      <!-- ═══════════ MODALS ═══════════ -->
+    <!-- ═══════════ MODALS ═══════════ -->
 
-      <!-- 1. RACE MODE SELECTION MODAL -->
-      <div class="modal-overlay" id="modal-race-modes">
-        <div class="modal-card">
-          <div class="modal-card-inner">
-            <div class="modal-header">
-              <div class="modal-title">SELECT F1 RACE MODE</div>
-              <button type="button" class="modal-close-btn" data-close="modal-race-modes">X</button>
+    <!-- 1. RACE MODE SELECTION MODAL -->
+    <div class="modal-overlay" id="modal-race-modes">
+      <div class="modal-card">
+        <div class="modal-card-inner">
+          <div class="modal-header">
+            <div class="modal-title">SELECT F1 RACE MODE</div>
+            <button type="button" class="modal-close-btn" data-close="modal-race-modes">X</button>
+          </div>
+
+          <!-- Mode 1: Cockpit Solo -->
+          <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="mode-option-btn">
+            <div class="mode-opt-header">
+              <span class="mode-opt-title" style="color:var(--neon-lime)">1. 3D COCKPIT TIME TRIAL</span>
+              <span class="mode-tag-pill">SOLO F1</span>
+            </div>
+            <div class="mode-opt-desc">Full 3D cockpit simulation at Buddh International Circuit. Realistic steering, DRS zones, 16 turns, gear shifting.</div>
+          </a>
+
+          <!-- Mode 2: Duo Split Screen -->
+          <a href="duo_race.html" class="mode-option-btn">
+            <div class="mode-opt-header">
+              <span class="mode-opt-title" style="color:var(--hot-orange)">2. DUO SPLIT-SCREEN</span>
+              <span class="mode-tag-pill">1 DEVICE</span>
+            </div>
+            <div class="mode-opt-desc">2 drivers on 1 device! Player 1 (WASD) vs Player 2 (Arrow Keys) in split-screen Grand Prix combat.</div>
+          </a>
+
+          <!-- Mode 3: Online GP -->
+          <a href="multiplayer_race.html" class="mode-option-btn">
+            <div class="mode-opt-header">
+              <span class="mode-opt-title" style="color:var(--pure-white)">3. ONLINE GP MULTIPLAYER</span>
+              <span class="mode-tag-pill">ROOMS</span>
+            </div>
+            <div class="mode-opt-desc">Create or join rooms with invite codes. Race friends with live sync and Top 3 Podium celebrations.</div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. CHALLENGES MODAL -->
+    <div class="modal-overlay" id="modal-challenges">
+      <div class="modal-card">
+        <div class="modal-card-inner">
+          <div class="modal-header">
+            <div class="modal-title">CIRCUIT CHALLENGES</div>
+            <button type="button" class="modal-close-btn" data-close="modal-challenges">X</button>
+          </div>
+          <div style="font-size:12px; margin-bottom:12px; color:#c0c0c0">Complete daily Buddh Circuit challenges to earn gold tokens & super license points:</div>
+
+          <div class="mode-option-btn" style="cursor:default">
+            <div class="mode-opt-header">
+              <span class="mode-opt-title" style="font-size:18px">APEX HUNTER · 16 TURNS</span>
+              <span class="mode-tag-pill">+500 CREDITS</span>
+            </div>
+            <div class="mode-opt-desc">Hit all 16 apexes at Buddh Circuit with zero track limits warnings. Progress: 14/16</div>
+          </div>
+
+          <div class="mode-option-btn" style="cursor:default">
+            <div class="mode-opt-header">
+              <span class="mode-opt-title" style="font-size:18px">DRS SPEED TRAP: 320+ KM/H</span>
+              <span class="mode-tag-pill">+2 TOKENS</span>
+            </div>
+            <div class="mode-opt-desc">Reach 320+ km/h on the 1.06km straight into Turn 4 braking zone. Completed!</div>
+          </div>
+
+          <div class="mode-option-btn" style="cursor:default">
+            <div class="mode-opt-header">
+              <span class="mode-opt-title" style="font-size:18px">VETTEL'S RECORD CHASE</span>
+              <span class="mode-tag-pill">+10 LICENSE</span>
+            </div>
+            <div class="mode-opt-desc">Lap under 1:32.000 in dry cockpit conditions. Target: 1:27.249 record.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. GARAGE & TRACK TELEMETRY MODAL -->
+    <div class="modal-overlay" id="modal-garage">
+      <div class="modal-card">
+        <div class="modal-card-inner">
+          <div class="modal-header">
+            <div class="modal-title">GARAGE & TRACK SETUP</div>
+            <button type="button" class="modal-close-btn" data-close="modal-garage">X</button>
+          </div>
+
+          <!-- Weather switcher -->
+          <div style="margin-bottom:14px">
+            <div style="font-family:var(--font-display); font-size:16px; margin-bottom:6px; color:var(--neon-lime)">TRACK WEATHER & GRIP:</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px">
+              <button type="button" class="weather-toggle-btn active" data-weather="sunny" style="background:var(--ink-black); border:2px solid var(--neon-lime); color:var(--neon-lime); padding:6px; font-weight:800; font-size:11px; cursor:pointer">SUNNY · 100% GRIP</button>
+              <button type="button" class="weather-toggle-btn" data-weather="cloudy" style="background:var(--ink-black); border:2px solid #555; color:#fff; padding:6px; font-weight:800; font-size:11px; cursor:pointer">CLOUDY · 98% GRIP</button>
+              <button type="button" class="weather-toggle-btn" data-weather="rain" style="background:var(--ink-black); border:2px solid #555; color:#fff; padding:6px; font-weight:800; font-size:11px; cursor:pointer">RAIN · 60% GRIP</button>
+              <button type="button" class="weather-toggle-btn" data-weather="snow" style="background:var(--ink-black); border:2px solid #555; color:#fff; padding:6px; font-weight:800; font-size:11px; cursor:pointer">SNOW · 35% GRIP</button>
+            </div>
+          </div>
+
+          <!-- Circuit specs -->
+          <div style="background:var(--dark-gray); border:2px solid var(--ink-black); padding:10px; margin-bottom:12px; font-size:11px; line-height:1.6">
+            <div><b>CIRCUIT:</b> Buddh International Circuit (Greater Noida, India)</div>
+            <div><b>TRACK LENGTH:</b> 5.125 KM (3.185 mi) · 16 Turns (Clockwise)</div>
+            <div><b>LONGEST STRAIGHT:</b> 1,060 Meters (Turn 3 to Turn 4)</div>
+            <div><b>LAP RECORD:</b> 1:27.249 — Sebastian Vettel (Red Bull Racing)</div>
+            <div style="margin-top:4px; color:var(--neon-lime)"><b>CREATORS:</b> Made by Arigatoo Club for fun</div>
+          </div>
+
+          <!-- Launch cockpit button -->
+          <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="mode-option-btn" style="text-align:center; background:var(--neon-lime); color:var(--ink-black); font-family:var(--font-display); font-size:20px; letter-spacing:1px">
+            START 3D COCKPIT SIMULATOR →
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. SHOP MODAL -->
+    <div class="modal-overlay" id="modal-shop">
+      <div class="modal-card">
+        <div class="modal-card-inner">
+          <div class="modal-header">
+            <div class="modal-title">F1 PADDOCK STORE</div>
+            <button type="button" class="modal-close-btn" data-close="modal-shop">X</button>
+          </div>
+
+          <div class="mode-option-btn" id="shop-item-1">
+            <div class="mode-opt-header">
+              <span class="mode-opt-title" style="font-size:18px">PIRELLI SOFT SLICKS SET</span>
+              <span class="mode-tag-pill">2,500 CREDITS</span>
+            </div>
+            <div class="mode-opt-desc">Maximum dry grip compound. Optimum braking into Turn 1 and Turn 4.</div>
+          </div>
+
+          <div class="mode-option-btn" id="shop-item-2">
+            <div class="mode-opt-header">
+              <span class="mode-opt-title" style="font-size:18px">HIGH DOWNFORCE AERO WING</span>
+              <span class="mode-tag-pill">5,000 CREDITS</span>
+            </div>
+            <div class="mode-opt-desc">+12% cornering grip through Turn 10-11 parabolic curve.</div>
+          </div>
+
+          <div class="mode-option-btn" id="shop-item-3">
+            <div class="mode-opt-header">
+              <span class="mode-opt-title" style="font-size:18px">ARIGATOO CLUB SPECIAL LIVERY</span>
+              <span class="mode-tag-pill">3 TOKENS</span>
+            </div>
+            <div class="mode-opt-desc">Neon lime & matte carbon black F1 livery with gold race number 16. Made for fun!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. MENU / SETTINGS MODAL -->
+    <div class="modal-overlay" id="modal-menu">
+      <div class="modal-card">
+        <div class="modal-card-inner">
+          <div class="modal-header">
+            <div class="modal-title">PADDOCK SETTINGS</div>
+            <button type="button" class="modal-close-btn" data-close="modal-menu">X</button>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:10px; font-size:13px">
+            <div style="display:flex; justify-content:space-between; align-items:center; background:var(--dark-gray); padding:10px; border:2px solid #333">
+              <span>SOUND EFFECTS</span>
+              <button type="button" id="btn-toggle-sound" style="background:var(--neon-lime); color:#000; border:2px solid #000; font-family:var(--font-display); padding:4px 12px; cursor:pointer">ON</button>
             </div>
 
-            <!-- Mode 1: Cockpit Solo -->
-            <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="mode-option-btn">
-              <div class="mode-opt-header">
-                <span class="mode-opt-title" style="color:var(--neon-lime)">1. 3D COCKPIT TIME TRIAL</span>
-                <span class="mode-tag-pill">SOLO F1</span>
-              </div>
-              <div class="mode-opt-desc">Full 3D cockpit simulation at Buddh International Circuit. Realistic steering, DRS zones, 16 turns, gear shifting.</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; background:var(--dark-gray); padding:10px; border:2px solid #333">
+              <span>TRACK: BUDDH INTERNATIONAL</span>
+              <span style="color:var(--neon-lime); font-weight:800">16 TURNS</span>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; background:var(--dark-gray); padding:10px; border:2px solid #333">
+              <span>PROJECT</span>
+              <span style="color:var(--hot-orange); font-weight:800">ARIGATOO CLUB · FOR FUN</span>
+            </div>
+
+            <a href="duo_race.html" class="mode-option-btn" style="text-align:center; margin-top:8px">
+              OPEN DUO SPLIT-SCREEN RACE
             </a>
 
-            <!-- Mode 2: Duo Split Screen -->
-            <a href="duo_race.html" class="mode-option-btn">
-              <div class="mode-opt-header">
-                <span class="mode-opt-title" style="color:var(--hot-orange)">2. DUO SPLIT-SCREEN</span>
-                <span class="mode-tag-pill">1 DEVICE</span>
-              </div>
-              <div class="mode-opt-desc">2 drivers on 1 device! Player 1 (WASD) vs Player 2 (Arrow Keys) in split-screen Grand Prix combat.</div>
-            </a>
-
-            <!-- Mode 3: Online GP -->
-            <a href="multiplayer_race.html" class="mode-option-btn">
-              <div class="mode-opt-header">
-                <span class="mode-opt-title" style="color:var(--pure-white)">3. ONLINE GP MULTIPLAYER</span>
-                <span class="mode-tag-pill">ROOMS</span>
-              </div>
-              <div class="mode-opt-desc">Create or join rooms with invite codes. Race friends with live sync and Top 3 Podium celebrations.</div>
+            <a href="multiplayer_race.html" class="mode-option-btn" style="text-align:center">
+              OPEN MULTIPLAYER LOBBY
             </a>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- 2. CHALLENGES MODAL -->
-      <div class="modal-overlay" id="modal-challenges">
-        <div class="modal-card">
-          <div class="modal-card-inner">
-            <div class="modal-header">
-              <div class="modal-title">CIRCUIT CHALLENGES</div>
-              <button type="button" class="modal-close-btn" data-close="modal-challenges">X</button>
-            </div>
-            <div style="font-size:12px; margin-bottom:12px; color:#c0c0c0">Complete daily Buddh Circuit challenges to earn gold tokens & super license points:</div>
-
-            <div class="mode-option-btn" style="cursor:default">
-              <div class="mode-opt-header">
-                <span class="mode-opt-title" style="font-size:18px">APEX HUNTER · 16 TURNS</span>
-                <span class="mode-tag-pill">+500 CREDITS</span>
-              </div>
-              <div class="mode-opt-desc">Hit all 16 apexes at Buddh Circuit with zero track limits warnings. Progress: 14/16</div>
-            </div>
-
-            <div class="mode-option-btn" style="cursor:default">
-              <div class="mode-opt-header">
-                <span class="mode-opt-title" style="font-size:18px">DRS SPEED TRAP: 320+ KM/H</span>
-                <span class="mode-tag-pill">+2 TOKENS</span>
-              </div>
-              <div class="mode-opt-desc">Reach 320+ km/h on the 1.06km straight into Turn 4 braking zone. Completed!</div>
-            </div>
-
-            <div class="mode-option-btn" style="cursor:default">
-              <div class="mode-opt-header">
-                <span class="mode-opt-title" style="font-size:18px">VETTEL'S RECORD CHASE</span>
-                <span class="mode-tag-pill">+10 LICENSE</span>
-              </div>
-              <div class="mode-opt-desc">Lap under 1:32.000 in dry cockpit conditions. Target: 1:27.249 record.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 3. GARAGE & TRACK TELEMETRY MODAL -->
-      <div class="modal-overlay" id="modal-garage">
-        <div class="modal-card">
-          <div class="modal-card-inner">
-            <div class="modal-header">
-              <div class="modal-title">GARAGE & TRACK SETUP</div>
-              <button type="button" class="modal-close-btn" data-close="modal-garage">X</button>
-            </div>
-
-            <!-- Weather switcher -->
-            <div style="margin-bottom:14px">
-              <div style="font-family:var(--font-display); font-size:16px; margin-bottom:6px; color:var(--neon-lime)">TRACK WEATHER & GRIP:</div>
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px">
-                <button type="button" class="weather-toggle-btn active" data-weather="sunny" style="background:var(--ink-black); border:2px solid var(--neon-lime); color:var(--neon-lime); padding:6px; font-weight:800; font-size:11px; cursor:pointer">SUNNY · 100% GRIP</button>
-                <button type="button" class="weather-toggle-btn" data-weather="cloudy" style="background:var(--ink-black); border:2px solid #555; color:#fff; padding:6px; font-weight:800; font-size:11px; cursor:pointer">CLOUDY · 98% GRIP</button>
-                <button type="button" class="weather-toggle-btn" data-weather="rain" style="background:var(--ink-black); border:2px solid #555; color:#fff; padding:6px; font-weight:800; font-size:11px; cursor:pointer">RAIN · 60% GRIP</button>
-                <button type="button" class="weather-toggle-btn" data-weather="snow" style="background:var(--ink-black); border:2px solid #555; color:#fff; padding:6px; font-weight:800; font-size:11px; cursor:pointer">SNOW · 35% GRIP</button>
-              </div>
-            </div>
-
-            <!-- Circuit specs -->
-            <div style="background:var(--dark-gray); border:2px solid var(--ink-black); padding:10px; margin-bottom:12px; font-size:11px; line-height:1.6">
-              <div><b>CIRCUIT:</b> Buddh International Circuit (Greater Noida, India)</div>
-              <div><b>TRACK LENGTH:</b> 5.125 KM (3.185 mi) · 16 Turns (Clockwise)</div>
-              <div><b>LONGEST STRAIGHT:</b> 1,060 Meters (Turn 3 to Turn 4)</div>
-              <div><b>LAP RECORD:</b> 1:27.249 — Sebastian Vettel (Red Bull Racing)</div>
-              <div style="margin-top:4px; color:var(--neon-lime)"><b>CREATORS:</b> Made by Arigatoo Club for fun</div>
-            </div>
-
-            <!-- Launch cockpit button -->
-            <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="mode-option-btn" style="text-align:center; background:var(--neon-lime); color:var(--ink-black); font-family:var(--font-display); font-size:20px; letter-spacing:1px">
-              START 3D COCKPIT SIMULATOR →
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4. SHOP MODAL -->
-      <div class="modal-overlay" id="modal-shop">
-        <div class="modal-card">
-          <div class="modal-card-inner">
-            <div class="modal-header">
-              <div class="modal-title">F1 PADDOCK STORE</div>
-              <button type="button" class="modal-close-btn" data-close="modal-shop">X</button>
-            </div>
-
-            <div class="mode-option-btn" id="shop-item-1">
-              <div class="mode-opt-header">
-                <span class="mode-opt-title" style="font-size:18px">PIRELLI SOFT SLICKS SET</span>
-                <span class="mode-tag-pill">2,500 CREDITS</span>
-              </div>
-              <div class="mode-opt-desc">Maximum dry grip compound. Optimum braking into Turn 1 and Turn 4.</div>
-            </div>
-
-            <div class="mode-option-btn" id="shop-item-2">
-              <div class="mode-opt-header">
-                <span class="mode-opt-title" style="font-size:18px">HIGH DOWNFORCE AERO WING</span>
-                <span class="mode-tag-pill">5,000 CREDITS</span>
-              </div>
-              <div class="mode-opt-desc">+12% cornering grip through Turn 10-11 parabolic curve.</div>
-            </div>
-
-            <div class="mode-option-btn" id="shop-item-3">
-              <div class="mode-opt-header">
-                <span class="mode-opt-title" style="font-size:18px">ARIGATOO CLUB SPECIAL LIVERY</span>
-                <span class="mode-tag-pill">3 TOKENS</span>
-              </div>
-              <div class="mode-opt-desc">Neon lime & matte carbon black F1 livery with gold race number 16. Made for fun!</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 5. MENU / SETTINGS MODAL -->
-      <div class="modal-overlay" id="modal-menu">
-        <div class="modal-card">
-          <div class="modal-card-inner">
-            <div class="modal-header">
-              <div class="modal-title">PADDOCK SETTINGS</div>
-              <button type="button" class="modal-close-btn" data-close="modal-menu">X</button>
-            </div>
-
-            <div style="display:flex; flex-direction:column; gap:10px; font-size:13px">
-              <div style="display:flex; justify-content:space-between; align-items:center; background:var(--dark-gray); padding:10px; border:2px solid #333">
-                <span>SOUND EFFECTS</span>
-                <button type="button" id="btn-toggle-sound" style="background:var(--neon-lime); color:#000; border:2px solid #000; font-family:var(--font-display); padding:4px 12px; cursor:pointer">ON</button>
-              </div>
-
-              <div style="display:flex; justify-content:space-between; align-items:center; background:var(--dark-gray); padding:10px; border:2px solid #333">
-                <span>TRACK: BUDDH INTERNATIONAL</span>
-                <span style="color:var(--neon-lime); font-weight:800">16 TURNS</span>
-              </div>
-
-              <div style="display:flex; justify-content:space-between; align-items:center; background:var(--dark-gray); padding:10px; border:2px solid #333">
-                <span>PROJECT</span>
-                <span style="color:var(--hot-orange); font-weight:800">ARIGATOO CLUB · FOR FUN</span>
-              </div>
-
-              <a href="duo_race.html" class="mode-option-btn" style="text-align:center; margin-top:8px">
-                OPEN DUO SPLIT-SCREEN RACE
-              </a>
-
-              <a href="multiplayer_race.html" class="mode-option-btn" style="text-align:center">
-                OPEN MULTIPLAYER LOBBY
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </main>
-  </div>
+  </main>
 
   <!-- Interactive JavaScript Engine -->
   <script src="assets/js/app.js"></script>

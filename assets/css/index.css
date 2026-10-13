@@ -1,13 +1,6 @@
 /* ==========================================================================
-   BUDDH F1 GAME — RESPONSIVE PC & PHONE NEO-BRUTALIST DESIGN SYSTEM
+   BUDDH F1 GAME — FULLY FLUID & RESPONSIVE DESIGN SYSTEM (PC & MOBILE)
    "MADE BY ARIGATOO CLUB FOR FUN"
-   
-   Color Tokens:
-   - Neon Lime:   #C8FF2E (hero color)
-   - Ink Black:   #0A0A0A (backgrounds, outlines, shadows)
-   - Hot Orange:  #FF6B1A (alerts, fuel, DRS, highlights)
-   - Pure White:  #FFFFFF (secondary buttons, banners)
-   - Deep Gray:   #111111 (bottom nav dock)
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap');
@@ -42,17 +35,23 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  width: 100%;
+  height: 100%;
+  background: var(--ink-black);
+}
+
 body {
   margin: 0;
   padding: 0;
-  background: #000000;
-  color: var(--pure-white);
-  font-family: var(--font-ui);
+  width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
+  background: var(--ink-black);
+  color: var(--pure-white);
+  font-family: var(--font-ui);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   overflow-x: hidden;
   user-select: none;
   -webkit-font-smoothing: antialiased;
@@ -68,53 +67,42 @@ button:active {
   transform: translate(2px, 2px) !important;
 }
 
-/* ─── Screen Wrapper ─────────────────────────────────────── */
-.screen-wrapper {
+/* ─── FULL SCREEN FLUID APP CONTAINER ────────────────────── */
+.app-lobby-container {
   position: relative;
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0;
+  flex-direction: column;
+  background: var(--ink-black);
+  overflow-x: hidden;
+  flex: 1;
 }
 
-.screen-glow {
+/* Ambient glow */
+.ambient-glow {
   position: fixed;
-  width: 800px;
-  height: 800px;
-  background: radial-gradient(ellipse at center, rgba(200, 255, 46, 0.12) 0%, transparent 70%);
+  width: 70vw;
+  height: 70vw;
+  max-width: 900px;
+  max-height: 900px;
+  background: radial-gradient(circle at center, rgba(200, 255, 46, 0.10) 0%, transparent 70%);
+  top: 10%;
+  left: 20%;
   pointer-events: none;
   z-index: 0;
 }
 
-/* ─── Canvas Container (Mobile Portrait Base) ───────────── */
-.canvas-container {
-  position: relative;
-  width: 390px;
-  min-height: 844px;
-  height: 844px;
-  max-height: 844px;
-  overflow: hidden;
-  background: var(--ink-black);
-  color: var(--pure-white);
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95), 0 0 45px rgba(200, 255, 46, 0.22);
-  border: 4px solid var(--ink-black);
-  z-index: 1;
-}
-
-/* ─── Background Graphic Layers ─────────────────────────── */
+/* ─── BACKGROUND GRAPHICS (FLUID 100% WIDTH) ─────────────── */
 .bg-layer-diagonal {
   position: absolute;
   left: 0;
   top: 0;
   width: 100%;
-  height: 330px;
+  height: 320px;
   background: var(--neon-lime);
-  clip-path: polygon(0 0, 100% 0, 100% 34%, 0 78%);
+  clip-path: polygon(0 0, 100% 0, 100% 32%, 0 74%);
   pointer-events: none;
   z-index: 0;
 }
@@ -122,9 +110,9 @@ button:active {
 .bg-layer-checker {
   position: absolute;
   left: 0;
-  top: 196px;
-  width: 150px;
-  height: 48px;
+  top: 180px;
+  width: 180px;
+  height: 52px;
   background: repeating-conic-gradient(var(--ink-black) 0% 25%, var(--neon-lime) 0% 50%) 0 0 / 16px 16px;
   opacity: 0.9;
   transform: rotate(-9deg);
@@ -134,17 +122,17 @@ button:active {
 
 .bg-layer-ghost-text {
   position: absolute;
-  left: -10px;
-  top: 290px;
-  width: 420px;
+  left: 2vw;
+  top: 240px;
+  width: 100%;
   font-family: var(--font-display);
-  font-size: 170px;
+  font-size: clamp(100px, 15vw, 240px);
   line-height: 0.88;
   color: transparent;
-  -webkit-text-stroke: 2px rgba(200, 255, 46, 0.35);
-  letter-spacing: 2px;
+  -webkit-text-stroke: 2px rgba(200, 255, 46, 0.28);
+  letter-spacing: 4px;
   white-space: nowrap;
-  transform: rotate(-4deg);
+  transform: rotate(-3deg);
   pointer-events: none;
   z-index: 1;
 }
@@ -152,10 +140,10 @@ button:active {
 .bg-layer-radial {
   position: absolute;
   left: 0;
-  top: 310px;
+  top: 260px;
   width: 100%;
-  height: 330px;
-  background: radial-gradient(ellipse 65% 55% at 50% 48%, rgba(200, 255, 46, 0.32), rgba(10, 10, 10, 0) 72%);
+  height: 400px;
+  background: radial-gradient(ellipse 65% 55% at 50% 50%, rgba(200, 255, 46, 0.26), rgba(10, 10, 10, 0) 75%);
   pointer-events: none;
   z-index: 1;
 }
@@ -163,33 +151,40 @@ button:active {
 .bg-layer-brush {
   position: absolute;
   left: 0;
-  top: 108px;
+  top: 90px;
+  width: 100%;
+  height: 120px;
   pointer-events: none;
   z-index: 1;
 }
 
-/* ─── Top Bar ───────────────────────────────────────────── */
-.top-bar {
+/* ─── TOP BAR (RESPONSIVE FLUID) ─────────────────────────── */
+.top-bar-outer {
   position: relative;
+  width: 100%;
+  z-index: 20;
+  padding: 14px 16px 0 16px;
+}
+
+.top-bar {
+  max-width: 1560px;
+  margin: 0 auto;
   display: flex;
-  align-items: stretch;
-  gap: 8px;
-  padding: 16px 12px 0 12px;
-  height: 52px;
-  box-sizing: content-box;
-  z-index: 10;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .profile-chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
   min-width: 0;
   background: var(--ink-black);
   border: 3px solid var(--ink-black);
   box-shadow: 4px 4px 0 var(--neon-lime);
-  padding: 4px 8px;
+  padding: 4px 10px;
   transform: skewX(-6deg);
   cursor: pointer;
 }
@@ -228,50 +223,12 @@ button:active {
   letter-spacing: 0.5px;
 }
 
-.energy-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--hot-orange);
-  color: var(--ink-black);
-  border: 3px solid var(--ink-black);
-  box-shadow: 4px 4px 0 var(--ink-black);
-  padding: 0 10px;
-  transform: skewX(-6deg);
-  cursor: pointer;
-}
-
-.energy-val {
-  font-family: var(--font-display);
-  font-size: 20px;
-  letter-spacing: 0.5px;
-}
-
-.energy-sub {
-  font-size: 13px;
-  opacity: 0.75;
-}
-
-.menu-btn {
-  width: 46px;
-  border: 3px solid var(--ink-black);
-  background: var(--pure-white);
-  box-shadow: 4px 4px 0 var(--ink-black);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  cursor: pointer;
-  transform: skewX(-6deg);
-}
-
-/* ─── Currency Row ──────────────────────────────────────── */
+/* Currency Row (In header on desktop, fluid) */
 .currency-row {
-  position: relative;
   display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 12px 12px 0 12px;
-  z-index: 10;
+  flex-wrap: wrap;
 }
 
 .curr-pill {
@@ -279,7 +236,7 @@ button:active {
   align-items: center;
   gap: 6px;
   background: var(--ink-black);
-  padding: 5px 10px;
+  padding: 5px 12px;
   transform: skewX(-6deg);
   cursor: pointer;
 }
@@ -314,12 +271,145 @@ button:active {
   color: var(--pure-white);
 }
 
-/* ─── Row A: Sponsor + Super License ────────────────────── */
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.energy-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--hot-orange);
+  color: var(--ink-black);
+  border: 3px solid var(--ink-black);
+  box-shadow: 4px 4px 0 var(--ink-black);
+  padding: 0 12px;
+  height: 42px;
+  transform: skewX(-6deg);
+  cursor: pointer;
+}
+
+.energy-val {
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 0.5px;
+}
+
+.energy-sub {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.menu-btn {
+  width: 44px;
+  height: 42px;
+  border: 3px solid var(--ink-black);
+  background: var(--pure-white);
+  box-shadow: 4px 4px 0 var(--ink-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transform: skewX(-6deg);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN RESPONSIVE GRID (FULL SCREEN FOR PC & PHONE)
+   ═══════════════════════════════════════════════════════════ */
+.main-stage-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 1560px;
+  margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px 20px 16px;
+  z-index: 5;
+}
+
+/* Desktop 2-column layout (min-width: 920px) */
+@media (min-width: 920px) {
+  .responsive-main-grid {
+    display: grid;
+    grid-template-columns: 1fr 440px;
+    gap: 28px;
+    align-items: stretch;
+    flex: 1;
+  }
+
+  .desktop-left-hero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 480px;
+    background: rgba(10, 10, 10, 0.72);
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    box-shadow: var(--shadow-black);
+    padding: 16px;
+    border-radius: 8px;
+  }
+
+  .desktop-left-hero .hero-area {
+    min-height: 420px;
+    height: 100%;
+  }
+
+  .desktop-left-hero .track-svg-canvas {
+    max-height: 440px;
+  }
+
+  .desktop-right-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    justify-content: space-between;
+  }
+}
+
+/* Mobile & Tablet 1-column layout (< 920px) */
+@media (max-width: 919px) {
+  .responsive-main-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1;
+  }
+
+  .currency-row {
+    margin-top: 6px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .desktop-left-hero {
+    position: relative;
+    min-height: 250px;
+  }
+
+  .desktop-left-hero .hero-area {
+    min-height: 250px;
+  }
+
+  .desktop-left-hero .track-svg-canvas {
+    max-height: 240px;
+  }
+
+  .desktop-right-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+/* ─── ROW A: SPONSOR CRATE + SUPER LICENSE (FLUID) ──────── */
 .row-a {
   position: relative;
   display: flex;
   gap: 10px;
-  padding: 16px 12px 0 12px;
   height: 88px;
   box-sizing: content-box;
   z-index: 10;
@@ -378,7 +468,7 @@ button:active {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 0 10px;
+  padding: 0 12px;
 }
 
 .rep-label {
@@ -409,7 +499,7 @@ button:active {
 
 .rep-collect-btn {
   position: relative;
-  width: 78px;
+  width: 84px;
   flex: none;
   background: var(--neon-lime);
   color: var(--ink-black);
@@ -424,7 +514,7 @@ button:active {
 
 .collect-title {
   font-family: var(--font-display);
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 1px;
 }
 
@@ -455,14 +545,13 @@ button:active {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 16px 12px 0 12px;
+  gap: 12px;
   background: var(--pure-white);
   color: var(--ink-black);
   border: 3px solid var(--ink-black);
   box-shadow: var(--shadow-black);
-  padding: 5px 12px;
-  height: 38px;
+  padding: 6px 14px;
+  min-height: 42px;
   transform: skewX(-4deg);
   cursor: pointer;
   z-index: 10;
@@ -478,7 +567,7 @@ button:active {
 
 .event-title {
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 20px;
   letter-spacing: 0.5px;
 }
 
@@ -498,7 +587,7 @@ button:active {
 
 .event-count {
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 22px;
 }
 
 .event-count small {
@@ -512,20 +601,21 @@ button:active {
   transform: skewX(4deg);
 }
 
-/* ─── Hero Area: Race Track Centerpiece ─────────────────── */
+/* ─── HERO AREA: BUDDH TRACK CENTERPIECE ────────────────── */
 .hero-area {
   position: relative;
   flex: 1;
-  min-height: 240px;
+  width: 100%;
+  min-height: 250px;
   z-index: 5;
 }
 
 /* Left Sticker: Speed Trap DRS */
 .offer-sticker {
   position: absolute;
-  left: 12px;
-  top: 10px;
-  width: 78px;
+  left: 8px;
+  top: 8px;
+  width: 82px;
   background: var(--hot-orange);
   border: 3px solid var(--ink-black);
   box-shadow: 4px 4px 0 var(--ink-black);
@@ -560,10 +650,10 @@ button:active {
 /* Right Sticker: 1:27.249 Pole Starburst */
 .starburst-badge {
   position: absolute;
-  right: 12px;
-  top: 14px;
-  width: 68px;
-  height: 68px;
+  right: 8px;
+  top: 8px;
+  width: 72px;
+  height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -588,37 +678,36 @@ button:active {
   letter-spacing: 0.5px;
 }
 
-/* Special "Arigatoo Club" Sticker */
+/* Special "Arigatoo Club" Badge Sticker */
 .arigatoo-sticker {
   position: absolute;
-  left: 12px;
+  left: 8px;
   bottom: 8px;
   background: var(--neon-lime);
   color: var(--ink-black);
   border: 2px solid var(--ink-black);
   box-shadow: 3px 3px 0 var(--ink-black);
   font-family: var(--font-display);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1px;
-  padding: 2px 8px;
+  padding: 3px 10px;
   transform: rotate(-3deg) skewX(-6deg);
   z-index: 12;
 }
 
-/* Track Map Visual Stage */
+/* Track Map Stage */
 .track-hero-stage {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 10px;
+  padding: 4px;
 }
 
 .track-svg-canvas {
   width: 100%;
   height: 100%;
-  max-height: 250px;
   overflow: visible;
   filter: drop-shadow(0 14px 22px rgba(0,0,0,0.85));
 }
@@ -627,17 +716,17 @@ button:active {
 .track-live-hud {
   position: absolute;
   left: 50%;
-  bottom: 6px;
+  bottom: 8px;
   transform: translateX(-50%) skewX(-6deg);
   background: var(--ink-black);
   border: 2px solid var(--neon-lime);
   box-shadow: 3px 3px 0 var(--hot-orange);
-  padding: 4px 10px;
+  padding: 4px 12px;
   display: flex;
   align-items: center;
   gap: 8px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--pure-white);
   z-index: 12;
   white-space: nowrap;
@@ -652,17 +741,16 @@ button:active {
   background: var(--hot-orange);
   color: var(--ink-black);
   font-weight: 800;
-  padding: 1px 4px;
+  padding: 1px 5px;
   font-size: 9px;
 }
 
-/* ─── Action Buttons ────────────────────────────────────── */
+/* ─── ACTION BUTTONS (FLUID & BOLD) ──────────────────────── */
 .action-buttons-wrap {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 0 20px 10px 20px;
   z-index: 10;
 }
 
@@ -673,7 +761,7 @@ button:active {
   color: var(--ink-black);
   box-shadow: var(--shadow-race);
   height: 84px;
-  padding: 0 16px 6px 16px;
+  padding: 0 18px 6px 18px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -692,8 +780,8 @@ button:active {
 
 .btn-race-primary .race-subtag {
   position: absolute;
-  right: 8px;
-  bottom: 5px;
+  right: 10px;
+  bottom: 6px;
   font-weight: 800;
   font-size: 10px;
   letter-spacing: 1.5px;
@@ -712,7 +800,7 @@ button:active {
   background: var(--pure-white);
   color: var(--ink-black);
   box-shadow: var(--shadow-lime);
-  height: 44px;
+  height: 46px;
   font-family: var(--font-display);
   font-size: 21px;
   letter-spacing: 1.5px;
@@ -737,7 +825,7 @@ button:active {
   background: var(--ink-black);
   color: var(--neon-lime);
   box-shadow: var(--shadow-orange);
-  height: 44px;
+  height: 46px;
   font-family: var(--font-display);
   font-size: 20px;
   letter-spacing: 1px;
@@ -756,15 +844,16 @@ button:active {
   font-weight: 800;
   font-size: 11px;
   letter-spacing: 1.5px;
-  padding: 3px 12px;
+  padding: 3px 14px;
   transform: skewX(-8deg);
   box-shadow: 2px 2px 0 var(--ink-black);
 }
 
-/* ─── Ticker Strip ──────────────────────────────────────── */
+/* ─── TICKER STRIP (FULL WIDTH) ─────────────────────────── */
 .ticker-strip {
   position: relative;
-  height: 22px;
+  width: 100%;
+  height: 24px;
   background: var(--neon-lime);
   color: var(--ink-black);
   overflow: hidden;
@@ -772,7 +861,7 @@ button:active {
   display: flex;
   align-items: center;
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 2px;
   z-index: 10;
 }
@@ -787,22 +876,27 @@ button:active {
   100% { transform: translateX(-50%); }
 }
 
-/* ─── Bottom Nav Dock ───────────────────────────────────── */
-.bottom-nav {
+/* ─── BOTTOM NAV (RESPONSIVE DOCK) ───────────────────────── */
+.bottom-nav-outer {
   position: relative;
+  width: 100%;
+  background: var(--deep-gray);
+  z-index: 20;
+}
+
+.bottom-nav {
+  max-width: 1560px;
+  margin: 0 auto;
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: space-around;
   height: 76px;
-  padding: 0 8px 14px 8px;
-  background: var(--deep-gray);
-  box-sizing: border-box;
-  z-index: 20;
+  padding: 0 12px 12px 12px;
 }
 
 .nav-tab {
   position: relative;
-  width: 64px;
+  width: 68px;
   height: 52px;
   border: 0;
   background: transparent;
@@ -823,7 +917,7 @@ button:active {
 
 .nav-tab-badge {
   position: absolute;
-  right: 6px;
+  right: 8px;
   top: -4px;
   width: 16px;
   height: 16px;
@@ -839,7 +933,7 @@ button:active {
 
 .nav-race-center {
   position: relative;
-  width: 104px;
+  width: 110px;
   height: 78px;
   margin-top: -26px;
   background: var(--neon-lime);
@@ -862,148 +956,9 @@ button:active {
   color: var(--ink-black);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   RESPONSIVE PC & TABLET WIDESCREEN DASHBOARD (>= 960px)
-   ═══════════════════════════════════════════════════════════ */
-@media (min-width: 960px) {
-  .screen-wrapper {
-    padding: 30px 24px;
-    align-items: center;
-  }
-
-  .canvas-container {
-    width: 100%;
-    max-width: 1220px;
-    height: auto;
-    min-height: 820px;
-    max-height: none;
-    border-radius: 14px;
-    box-shadow: 0 35px 80px rgba(0, 0, 0, 0.95), 0 0 60px rgba(200, 255, 46, 0.28);
-  }
-
-  /* Header spans wide with integrated currencies */
-  .top-bar {
-    padding: 20px 24px 0 24px;
-    height: 56px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .profile-chip {
-    max-width: 320px;
-  }
-
-  .currency-row {
-    position: static;
-    padding: 0;
-    margin-left: auto;
-    margin-right: 16px;
-  }
-
-  /* 2-Column Responsive Body Layout */
-  .responsive-main-grid {
-    display: grid;
-    grid-template-columns: 1fr 420px;
-    gap: 24px;
-    padding: 16px 24px 20px 24px;
-    flex: 1;
-    z-index: 5;
-  }
-
-  .desktop-left-hero {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    min-height: 480px;
-    background: rgba(10, 10, 10, 0.6);
-    border: 3px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    padding: 12px;
-  }
-
-  .desktop-left-hero .hero-area {
-    min-height: 420px;
-    height: 100%;
-  }
-
-  .desktop-left-hero .track-svg-canvas {
-    max-height: 420px;
-  }
-
-  .desktop-right-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    z-index: 10;
-  }
-
-  .row-a {
-    padding: 0;
-    height: 88px;
-  }
-
-  .event-banner {
-    margin: 0;
-    height: 42px;
-  }
-
-  .action-buttons-wrap {
-    padding: 0;
-    margin-top: auto;
-  }
-
-  .bg-layer-diagonal {
-    height: 260px;
-    clip-path: polygon(0 0, 100% 0, 100% 28%, 0 65%);
-  }
-
-  .bg-layer-ghost-text {
-    font-size: 200px;
-    top: 260px;
-    left: 40px;
-  }
-
-  .bottom-nav {
-    padding: 0 40px 16px 40px;
-    height: 82px;
-  }
-}
-
-/* ─── Mobile View Adaptations (< 440px) ─────────────────── */
-@media (max-width: 440px) {
-  .canvas-container {
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
-    max-height: none;
-    border: none;
-    box-shadow: none;
-  }
-
-  .responsive-main-grid {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .desktop-left-hero {
-    position: relative;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .desktop-right-actions {
-    display: flex;
-    flex-direction: column;
-    flex: none;
-  }
-}
-
-/* ─── Modals ────────────────────────────────────────────── */
+/* ─── MODALS & OVERLAYS ─────────────────────────────────── */
 .modal-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(10, 10, 10, 0.9);
   backdrop-filter: blur(8px);
@@ -1012,7 +967,7 @@ button:active {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px;
+  padding: 16px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
@@ -1026,14 +981,14 @@ button:active {
 .modal-card {
   position: relative;
   width: 100%;
-  max-width: 460px;
-  max-height: 94%;
+  max-width: 520px;
+  max-height: 90vh;
   overflow-y: auto;
   background: var(--ink-black);
   border: 4px solid var(--ink-black);
   box-shadow: 8px 8px 0 var(--neon-lime);
   transform: skewX(-4deg);
-  padding: 18px 16px;
+  padding: 22px 18px;
 }
 
 .modal-card-inner {
@@ -1122,7 +1077,7 @@ button:active {
 }
 
 .retro-toast {
-  position: absolute;
+  position: fixed;
   top: 75px;
   left: 50%;
   transform: translateX(-50%) translateY(-20px) skewX(-6deg);
