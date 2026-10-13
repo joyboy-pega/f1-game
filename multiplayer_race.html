@@ -4,26 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Buddh Circuit – F1 Online Multiplayer Grand Prix</title>
-<link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@700;800;900&family=Chakra+Petch:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 <style>
 :root{
-  --bg:#070a0e;
-  --panel:rgba(12,16,24,0.92);
-  --panel-border:rgba(255,255,255,0.18);
-  --f1-red:#e10600;
-  --f1-gold:#ffd700;
-  --f1-silver:#e2e8f0;
-  --f1-bronze:#cd7f32;
-  --neon-cyan:#00f2fe;
-  --neon-green:#3ddc84;
-  --neon-purple:#b56cff;
-  --text-main:#f8fafc;
-  --text-muted:#94a3b8;
+  --neon-lime:#C8FF2E;
+  --ink-black:#0A0A0A;
+  --hot-orange:#FF6B1A;
+  --pure-white:#FFFFFF;
+  --deep-gray:#111111;
+  --dark-gray:#1E1E1E;
+  --f1-red:#E10600;
+  --f1-gold:#FFD700;
+  --neon-cyan:#00F2FE;
+  --font-display:'Anton',Impact,sans-serif;
+  --font-ui:'Archivo',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--text-main);font-family:"Chakra Petch",sans-serif;user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--pure-white);font-family:var(--font-ui);user-select:none}
 
 /* Main Canvas Layers */
 #game-canvas{display:block;width:100vw;height:100vh;position:absolute;inset:0}
@@ -35,9 +35,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
 /* Top Live Header */
 .top-header{
   position:absolute;
-  top:14px;
-  left:18px;
-  right:18px;
+  top:12px;
+  left:16px;
+  right:16px;
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
@@ -48,56 +48,58 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
   display:flex;
   align-items:center;
   gap:10px;
-  background:rgba(10,14,22,0.88);
-  border:1px solid var(--panel-border);
-  padding:8px 16px;
-  border-radius:100px;
-  backdrop-filter:blur(12px);
-  box-shadow:0 8px 30px rgba(0,0,0,0.6);
+  background:var(--ink-black);
+  border:2.5px solid var(--ink-black);
+  box-shadow:4px 4px 0 var(--pure-white);
+  padding:6px 14px;
+  transform:skewX(-6deg);
+  font-family:var(--font-display);
+  font-size:14px;
+  letter-spacing:.06em;
 }
 .f1-badge{
-  background:var(--f1-red);
-  color:#fff;
-  font-weight:900;
-  font-size:12px;
+  background:var(--neon-lime);
+  color:#000;
+  font-family:var(--font-display);
+  font-size:13px;
   padding:2px 8px;
-  border-radius:4px;
-  letter-spacing:1px;
+  border:1.5px solid var(--ink-black);
+  letter-spacing:.06em;
 }
 .room-badge{
-  font-family:"JetBrains Mono",monospace;
-  font-size:13px;
-  font-weight:700;
-  color:var(--neon-cyan);
+  font-family:var(--font-mono);
+  font-size:12px;
+  font-weight:800;
+  color:var(--pure-white);
   display:flex;
   align-items:center;
-  gap:6px;
+  gap:8px;
 }
 .copy-code-btn{
-  background:rgba(255,255,255,0.12);
-  border:none;
-  color:#fff;
-  padding:3px 8px;
-  border-radius:4px;
-  font-size:11px;
-  font-weight:700;
+  background:var(--hot-orange);
+  border:1.5px solid var(--ink-black);
+  color:#000;
+  padding:3px 10px;
+  font-family:var(--font-display);
+  font-size:12px;
+  letter-spacing:.06em;
   cursor:pointer;
-  transition:all 0.2s;
+  box-shadow:2px 2px 0 var(--pure-white);
+  transform:skewX(-4deg);
+  transition:all .1s ease;
 }
-.copy-code-btn:hover{background:rgba(255,255,255,0.25);transform:scale(1.05)}
+.copy-code-btn:hover{background:var(--neon-lime);transform:translate(-1px,-1px) skewX(-4deg)}
 
 /* Upper Mini-Map Widget */
 .minimap-panel{
   position:fixed;
-  top:14px;
+  top:12px;
   left:50%;
-  transform:translateX(-50%);
-  background:rgba(10,14,22,0.9);
-  border:1px solid var(--panel-border);
-  border-radius:14px;
-  padding:6px 12px;
-  backdrop-filter:blur(14px);
-  box-shadow:0 10px 30px rgba(0,0,0,0.8);
+  transform:translateX(-50%) skewX(-4deg);
+  background:var(--ink-black);
+  border:3px solid var(--ink-black);
+  box-shadow:4px 4px 0 var(--neon-lime);
+  padding:6px 10px;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -109,11 +111,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
   display:flex;
   justify-content:space-between;
   align-items:center;
-  font-family:"JetBrains Mono",monospace;
-  font-size:10px;
-  font-weight:800;
-  color:var(--text-muted);
-  letter-spacing:1px;
+  font-family:var(--font-display);
+  font-size:11px;
+  color:var(--neon-lime);
+  letter-spacing:.08em;
   margin-bottom:2px;
 }
 #minimap-canvas{
@@ -125,184 +126,180 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
 /* Action Buttons */
 .top-actions{display:flex;gap:8px}
 .btn-ui{
-  background:rgba(12,17,26,0.88);
-  border:1px solid var(--panel-border);
+  background:var(--ink-black);
+  border:2.5px solid var(--ink-black);
   color:#fff;
-  font-family:"Chakra Petch",sans-serif;
-  font-weight:700;
-  font-size:12px;
-  letter-spacing:0.5px;
-  padding:8px 16px;
-  border-radius:999px;
+  font-family:var(--font-display);
+  font-size:13px;
+  letter-spacing:.06em;
+  padding:7px 14px;
   cursor:pointer;
+  transform:skewX(-6deg);
+  box-shadow:3px 3px 0 var(--neon-lime);
   display:flex;
   align-items:center;
   gap:6px;
-  backdrop-filter:blur(8px);
-  transition:all 0.2s;
-  box-shadow:0 4px 15px rgba(0,0,0,0.4);
+  transition:all .1s ease;
   text-decoration:none;
 }
 .btn-ui:hover{
-  background:rgba(255,255,255,0.18);
-  border-color:rgba(255,255,255,0.4);
-  transform:translateY(-1px);
+  background:#222;
+  transform:translate(-1px,-1px) skewX(-6deg);
+  box-shadow:4px 4px 0 var(--pure-white);
 }
-.btn-ui.danger:hover{
-  background:rgba(225,6,0,0.35);
-  border-color:var(--f1-red);
-}
+.btn-ui.danger{color:var(--hot-orange);box-shadow:3px 3px 0 var(--hot-orange)}
+.btn-ui.danger:hover{color:#fff;background:var(--hot-orange);border-color:var(--ink-black)}
 
 /* Live Standings Leaderboard (Left Side) */
 .standings-panel{
   position:absolute;
   top:78px;
-  left:18px;
+  left:16px;
   width:270px;
-  background:rgba(10,14,22,0.88);
-  border:1px solid var(--panel-border);
-  border-radius:12px;
-  padding:12px;
-  backdrop-filter:blur(14px);
-  box-shadow:0 10px 30px rgba(0,0,0,0.7);
+  background:var(--ink-black);
+  border:3px solid var(--ink-black);
+  box-shadow:4px 4px 0 var(--hot-orange);
+  transform:skewX(-4deg);
+  padding:10px 14px;
   pointer-events:none;
 }
 .standings-title{
-  font-size:11px;
-  font-weight:800;
-  letter-spacing:1.5px;
-  color:var(--text-muted);
+  font-family:var(--font-display);
+  font-size:12px;
+  letter-spacing:.1em;
+  color:var(--neon-lime);
   text-transform:uppercase;
   margin-bottom:8px;
   display:flex;
   justify-content:space-between;
-  border-bottom:1px solid rgba(255,255,255,0.1);
+  border-bottom:2px solid var(--neon-lime);
   padding-bottom:4px;
 }
 .driver-row{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:6px 8px;
-  border-radius:6px;
+  padding:5px 8px;
   margin-bottom:4px;
-  background:rgba(255,255,255,0.04);
-  font-family:"JetBrains Mono",monospace;
+  background:#141414;
+  border:1.5px solid #282828;
+  font-family:var(--font-ui);
   font-size:12px;
-  transition:all 0.3s;
+  font-weight:700;
+  transition:all 0.2s;
 }
 .driver-row.is-me{
-  background:rgba(225,6,0,0.26);
-  border:1px solid rgba(225,6,0,0.6);
-  font-weight:800;
+  background:#1a2507;
+  border-color:var(--neon-lime);
+  color:var(--neon-lime);
 }
-.driver-rank{font-weight:800;width:22px;color:#ffd700}
+.driver-rank{font-family:var(--font-display);font-size:13px;width:22px;color:var(--hot-orange)}
 .driver-name{flex:1;display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.livery-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0}
-.driver-gap{font-size:11px;color:var(--text-muted)}
-.driver-gap.leader{color:var(--neon-green);font-weight:800}
+.livery-dot{width:8px;height:8px;border-radius:2px;display:inline-block;flex-shrink:0;border:1px solid #000}
+.driver-gap{font-family:var(--font-mono);font-size:11px;color:#aaa}
+.driver-gap.leader{color:var(--neon-lime);font-weight:800}
 
 /* Cockpit HUD Bar (Bottom) */
 .cockpit-hud{
   position:absolute;
-  bottom:20px;
+  bottom:16px;
   left:50%;
-  transform:translateX(-50%);
+  transform:translateX(-50%) skewX(-4deg);
   display:flex;
   align-items:center;
   gap:16px;
   pointer-events:none;
 }
 .hud-cluster{
-  background:rgba(10,14,22,0.92);
-  border:1px solid var(--panel-border);
-  border-radius:14px;
-  padding:10px 20px;
+  background:var(--ink-black);
+  border:3px solid var(--ink-black);
+  box-shadow:5px 5px 0 var(--pure-white);
+  padding:8px 18px;
   display:flex;
   align-items:center;
   gap:18px;
-  backdrop-filter:blur(16px);
-  box-shadow:0 12px 40px rgba(0,0,0,0.85);
 }
 .speed-dial{display:flex;flex-direction:column;align-items:center}
-.speed-num{font-family:"Cabinet Grotesk",sans-serif;font-weight:900;font-size:46px;line-height:0.9;letter-spacing:-1px}
-.speed-unit{font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:1px}
+.speed-num{font-family:var(--font-display);font-size:48px;line-height:0.9;color:var(--pure-white)}
+.speed-unit{font-size:10px;font-weight:800;color:var(--neon-lime);letter-spacing:1px}
 .gear-badge{
-  font-family:"Cabinet Grotesk",sans-serif;
-  font-size:38px;
-  font-weight:900;
-  color:var(--f1-red);
-  background:rgba(255,255,255,0.06);
-  border:1px solid rgba(255,255,255,0.15);
-  width:50px;
-  height:50px;
+  font-family:var(--font-display);
+  font-size:42px;
+  color:var(--hot-orange);
+  background:#161616;
+  border:2px solid #333;
+  width:48px;
+  height:48px;
   display:flex;
   align-items:center;
   justify-content:center;
-  border-radius:10px;
 }
 .boost-cluster{display:flex;flex-direction:column;gap:5px;width:110px}
-.boost-bar{width:100%;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden}
+.boost-bar{width:100%;height:8px;background:#1a1a1a;border:1px solid #333;overflow:hidden}
 .boost-fill{height:100%;transition:width 0.1s linear}
 .drs-pill{
-  font-size:10px;
-  font-weight:800;
+  font-family:var(--font-display);
+  font-size:11px;
+  letter-spacing:.08em;
   padding:2px 6px;
-  border-radius:4px;
   text-align:center;
-  background:rgba(255,255,255,0.08);
-  color:var(--text-muted);
+  background:#141414;
+  border:1.5px solid #333;
+  color:#888;
 }
-.drs-pill.active{background:var(--neon-green);color:#000;box-shadow:0 0 10px rgba(61,220,132,0.6)}
+.drs-pill.active{background:var(--neon-lime);color:#000;border-color:#000;box-shadow:2px 2px 0 var(--pure-white)}
 
-.lap-cluster{display:flex;flex-direction:column;gap:3px;font-family:"JetBrains Mono",monospace;font-size:12px}
-.lap-cluster b{color:var(--neon-green)}
+.lap-cluster{display:flex;flex-direction:column;gap:3px;font-family:var(--font-ui);font-size:12px;font-weight:700}
+.lap-cluster b{font-family:var(--font-mono);font-weight:800;color:var(--neon-lime)}
 
 /* Weather Tag (Bottom Right) */
 .weather-hud-tag{
   position:absolute;
-  bottom:20px;
-  right:20px;
-  background:rgba(10,14,22,0.9);
-  border:1px solid var(--panel-border);
-  padding:8px 16px;
-  border-radius:999px;
+  bottom:16px;
+  right:16px;
+  background:var(--ink-black);
+  border:2.5px solid var(--ink-black);
+  box-shadow:3px 3px 0 var(--neon-lime);
+  transform:skewX(-6deg);
+  padding:7px 14px;
   display:flex;
   align-items:center;
   gap:8px;
-  font-size:12px;
-  font-weight:700;
-  backdrop-filter:blur(10px);
+  font-family:var(--font-display);
+  font-size:13px;
+  letter-spacing:.06em;
 }
 
 /* Controls Guide (Bottom Left) */
 .controls-hud-tag{
   position:absolute;
-  bottom:20px;
-  left:20px;
-  background:rgba(10,14,22,0.85);
-  border:1px solid var(--panel-border);
-  padding:8px 14px;
-  border-radius:10px;
+  bottom:16px;
+  left:16px;
+  background:rgba(10,10,10,0.92);
+  border:2px solid #222;
+  transform:skewX(-4deg);
+  padding:6px 12px;
   font-size:11px;
-  color:var(--text-muted);
-  backdrop-filter:blur(10px);
+  font-weight:700;
+  color:#aaa;
   pointer-events:none;
 }
 .controls-hud-tag kbd{
-  background:rgba(255,255,255,0.16);
-  color:#fff;
+  background:#000;
+  border:1.5px solid var(--neon-lime);
+  color:var(--neon-lime);
   padding:1px 5px;
-  border-radius:3px;
-  font-family:"JetBrains Mono",monospace;
+  font-family:var(--font-display);
+  font-size:11px;
+  margin:0 2px;
 }
 
 /* Modals */
 .modal-overlay{
   position:fixed;
   inset:0;
-  background:rgba(4,6,10,0.88);
-  backdrop-filter:blur(16px);
+  background:rgba(10,10,10,0.94);
+  backdrop-filter:blur(8px);
   z-index:100;
   display:flex;
   align-items:center;
@@ -310,108 +307,105 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
   padding:20px;
   opacity:0;
   pointer-events:none;
-  transition:opacity 0.25s ease;
+  transition:opacity 0.2s ease;
 }
 .modal-overlay.active{opacity:1;pointer-events:auto}
 
 .lobby-card{
-  background:rgba(14,19,30,0.96);
-  border:1px solid rgba(255,255,255,0.2);
-  border-radius:24px;
+  background:var(--ink-black);
+  border:4px solid var(--ink-black);
+  box-shadow:8px 8px 0 var(--neon-lime);
+  transform:skewX(-4deg);
   width:100%;
   max-width:580px;
   padding:32px;
-  box-shadow:0 24px 80px rgba(0,0,0,0.9),0 0 40px rgba(225,6,0,0.25);
   position:relative;
-  animation:popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  color:#fff;
 }
-@keyframes popIn{from{transform:scale(0.92);opacity:0}to{transform:scale(1);opacity:1}}
 
 .lobby-header{text-align:center;margin-bottom:20px}
-.lobby-header h2{font-family:"Cabinet Grotesk",sans-serif;font-size:28px;font-weight:900;letter-spacing:1px}
-.lobby-header p{color:var(--text-muted);font-size:13px;margin-top:4px}
+.lobby-header h2{font-family:var(--font-display);font-size:32px;letter-spacing:.08em;color:var(--neon-lime)}
+.lobby-header p{color:#fff;font-size:12px;font-weight:800;letter-spacing:.06em;margin-top:4px}
 
 .lobby-tabs{
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:10px;
   margin-bottom:20px;
-  background:rgba(255,255,255,0.04);
+  background:#141414;
   padding:4px;
-  border-radius:12px;
+  border:2px solid #282828;
 }
 .tab-btn{
   background:transparent;
   border:none;
-  color:var(--text-muted);
-  font-family:"Chakra Petch",sans-serif;
-  font-weight:700;
-  font-size:13px;
+  color:#aaa;
+  font-family:var(--font-display);
+  font-size:15px;
+  letter-spacing:.06em;
   padding:10px;
-  border-radius:8px;
   cursor:pointer;
-  transition:all 0.2s;
+  transform:skewX(-4deg);
+  transition:all 0.15s;
 }
 .tab-btn.active{
-  background:var(--f1-red);
-  color:#fff;
-  box-shadow:0 4px 15px rgba(225,6,0,0.4);
+  background:var(--neon-lime);
+  color:#000;
+  box-shadow:3px 3px 0 var(--pure-white);
 }
 
 .form-group{margin-bottom:16px}
-.form-group label{display:block;font-size:12px;font-weight:700;letter-spacing:0.8px;color:var(--text-muted);text-transform:uppercase;margin-bottom:6px}
+.form-group label{display:block;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--neon-lime);text-transform:uppercase;margin-bottom:6px}
 .form-input{
   width:100%;
-  background:rgba(255,255,255,0.06);
-  border:1px solid rgba(255,255,255,0.16);
+  background:#141414;
+  border:2px solid #333;
   color:#fff;
-  font-family:"JetBrains Mono",monospace;
+  font-family:var(--font-mono);
+  font-weight:700;
   font-size:14px;
   padding:10px 14px;
-  border-radius:10px;
   outline:none;
 }
-.form-input:focus{border-color:var(--f1-red);box-shadow:0 0 0 3px rgba(225,6,0,0.25)}
+.form-input:focus{border-color:var(--neon-lime);box-shadow:3px 3px 0 var(--neon-lime)}
 
 /* Liveries */
 .livery-grid{display:grid;grid-template-columns:repeat(5, 1fr);gap:8px;margin-bottom:16px}
 .livery-choice{
-  background:rgba(255,255,255,0.05);
-  border:2px solid transparent;
-  border-radius:10px;
+  background:#141414;
+  border:2px solid #333;
   padding:8px 4px;
   text-align:center;
   cursor:pointer;
-  transition:all 0.2s;
+  transform:skewX(-4deg);
+  transition:all 0.15s;
 }
-.livery-choice:hover{transform:translateY(-2px);background:rgba(255,255,255,0.1)}
-.livery-choice.selected{border-color:#fff;background:rgba(255,255,255,0.15);box-shadow:0 0 16px rgba(255,255,255,0.25)}
-.livery-color-bar{width:100%;height:16px;border-radius:6px;margin-bottom:4px}
-.livery-choice span{font-size:10px;font-weight:800;display:block}
+.livery-choice:hover{border-color:var(--neon-lime);background:#202020}
+.livery-choice.selected{border-color:var(--neon-lime);background:#1a2608;box-shadow:3px 3px 0 var(--neon-lime)}
+.livery-color-bar{width:100%;height:14px;border:1px solid #000;margin-bottom:4px}
+.livery-choice span{font-family:var(--font-display);font-size:11px;letter-spacing:.06em;display:block}
 
 .btn-primary-action{
   width:100%;
-  background:linear-gradient(135deg, #e10600 0%, #b30000 100%);
-  border:none;
-  color:#fff;
-  font-family:"Cabinet Grotesk",sans-serif;
-  font-size:16px;
-  font-weight:900;
-  letter-spacing:1px;
+  background:var(--neon-lime);
+  border:3px solid var(--ink-black);
+  color:#000;
+  font-family:var(--font-display);
+  font-size:18px;
+  letter-spacing:.08em;
   padding:14px;
-  border-radius:12px;
   cursor:pointer;
-  transition:all 0.2s;
-  box-shadow:0 8px 24px rgba(225,6,0,0.5);
+  box-shadow:5px 5px 0 var(--pure-white);
+  transform:skewX(-6deg);
   display:flex;
   align-items:center;
   justify-content:center;
   gap:10px;
+  transition:all 0.1s ease;
 }
 .btn-primary-action:hover{
-  transform:translateY(-2px);
-  box-shadow:0 12px 30px rgba(225,6,0,0.7);
-  background:linear-gradient(135deg, #ff1a14 0%, #cc0000 100%);
+  transform:translate(-1px,-1px) skewX(-6deg);
+  box-shadow:6px 6px 0 var(--hot-orange);
 }
 
 /* Podium Modal */
@@ -419,7 +413,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
   max-width:640px;
   padding:36px 30px;
   text-align:center;
-  background:radial-gradient(circle at top, rgba(25, 33, 50, 0.98) 0%, rgba(10, 14, 22, 0.98) 100%);
+  box-shadow:8px 8px 0 var(--hot-orange);
 }
 .podium-stage{display:flex;align-items:flex-end;justify-content:center;gap:14px;margin:28px 0;height:220px}
 .podium-pillar{
@@ -428,23 +422,45 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
   flex-direction:column;
   align-items:center;
   justify-content:flex-end;
-  border-radius:14px 14px 0 0;
   padding-bottom:14px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.6);
-  border:1px solid rgba(255,255,255,0.15);
+  border:3px solid var(--ink-black);
+  transform:skewX(-4deg);
 }
-.podium-pillar.p1{height:100%;background:linear-gradient(180deg, rgba(255, 215, 0, 0.4) 0%, rgba(255, 215, 0, 0.08) 100%);border-color:rgba(255, 215, 0, 0.6);order:2}
-.podium-pillar.p2{height:78%;background:linear-gradient(180deg, rgba(226, 232, 240, 0.35) 0%, rgba(226, 232, 240, 0.05) 100%);border-color:rgba(226, 232, 240, 0.5);order:1}
-.podium-pillar.p3{height:64%;background:linear-gradient(180deg, rgba(205, 127, 50, 0.35) 0%, rgba(205, 127, 50, 0.05) 100%);border-color:rgba(205, 127, 50, 0.5);order:3}
-.trophy-icon{font-size:32px;margin-bottom:4px}
-.podium-driver{font-family:"Cabinet Grotesk",sans-serif;font-weight:900;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
-.podium-time{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--text-muted);margin-bottom:8px}
-.podium-pos-badge{font-family:"Cabinet Grotesk",sans-serif;font-size:26px;font-weight:900;color:#fff}
+.podium-pillar.p1{height:100%;background:#1a2507;border-color:var(--neon-lime);box-shadow:5px 5px 0 var(--neon-lime);order:2}
+.podium-pillar.p2{height:78%;background:#181818;border-color:#555;box-shadow:4px 4px 0 var(--pure-white);order:1}
+.podium-pillar.p3{height:64%;background:#221508;border-color:var(--hot-orange);box-shadow:4px 4px 0 var(--hot-orange);order:3}
+.podium-rank-tag{font-family:var(--font-display);font-size:18px;color:var(--neon-lime);letter-spacing:.1em;margin-bottom:4px}
+.podium-driver{font-family:var(--font-display);font-size:18px;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.podium-time{font-family:var(--font-mono);font-size:11px;color:#aaa;margin-bottom:8px}
+.podium-pos-badge{font-family:var(--font-display);font-size:32px;color:#fff}
 
 /* Big Center Message */
-#big-msg{position:fixed;top:38%;left:0;right:0;text-align:center;font-size:42px;font-weight:900;z-index:30;pointer-events:none;text-shadow:0 4px 20px #000}
+#big-msg{
+  position:fixed;
+  top:38%;
+  left:0;
+  right:0;
+  text-align:center;
+  font-family:var(--font-display);
+  font-size:46px;
+  letter-spacing:.1em;
+  color:var(--neon-lime);
+  z-index:30;
+  pointer-events:none;
+  text-shadow:4px 4px 0 #000;
+}
 #toast-box{position:fixed;top:80px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast-msg{background:rgba(14,19,30,0.95);border:1px solid rgba(255,255,255,0.2);padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:0 10px 25px rgba(0,0,0,0.6);backdrop-filter:blur(8px)}
+.toast-msg{
+  background:var(--ink-black);
+  border:2.5px solid var(--ink-black);
+  box-shadow:4px 4px 0 var(--neon-lime);
+  transform:skewX(-4deg);
+  padding:10px 16px;
+  font-family:var(--font-display);
+  font-size:14px;
+  letter-spacing:.06em;
+  color:#fff;
+}
 </style>
 </head>
 <body>
@@ -461,7 +477,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
       <span>BUDDH GP MULTIPLAYER</span>
       <span class="room-badge">
         ROOM: <span id="display-room-code">------</span>
-        <button class="copy-code-btn" id="btn-copy-code" title="Copy Invite Link">📋 COPY</button>
+        <button class="copy-code-btn" id="btn-copy-code" title="Copy Invite Link">COPY</button>
       </span>
     </div>
 
@@ -469,7 +485,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
     <div class="minimap-panel">
       <div class="minimap-header">
         <span>CIRCUIT MAP</span>
-        <span style="color:var(--f1-gold)">BUDDH 5.1KM</span>
+        <span style="color:var(--neon-lime)">BUDDH 5.1KM</span>
       </div>
       <canvas id="minimap-canvas" width="320" height="190"></canvas>
     </div>
@@ -506,17 +522,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
       </div>
       <div class="gear-badge" id="hud-gear">1</div>
       <div class="boost-cluster">
-        <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:800;color:var(--neon-purple)">
+        <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:800;color:var(--neon-lime)">
           <span>ERS BOOST</span>
           <span id="ers-val">100%</span>
         </div>
-        <div class="boost-bar"><div class="boost-fill" id="ers-fill" style="width:100%;background:var(--neon-purple)"></div></div>
+        <div class="boost-bar"><div class="boost-fill" id="ers-fill" style="width:100%;background:#b56cff"></div></div>
         <div class="drs-pill" id="drs-pill">DRS OFF</div>
       </div>
       <div class="lap-cluster">
         <div>LAP TIME: <b id="hud-lap-time">0:00.000</b></div>
         <div>BEST LAP: <b id="hud-best-time">--:--.---</b></div>
-        <div>POSITION: <b id="hud-pos-rank" style="color:var(--f1-gold)">P1</b></div>
+        <div>POSITION: <b id="hud-pos-rank" style="color:var(--neon-lime)">P1</b></div>
       </div>
     </div>
   </div>
@@ -528,7 +544,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
 
   <!-- Weather & Grip Info (Bottom Right) -->
   <div class="weather-hud-tag" id="hud-weather-tag">
-    <span id="hud-weather-icon">☀️</span>
+    <span id="hud-weather-icon">WXR:</span>
     <span id="hud-weather-text">SUNNY • 100% GRIP</span>
   </div>
 </div>
@@ -541,7 +557,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
   <div class="lobby-card">
     <div class="lobby-header">
       <h2>MULTIPLAYER GRAND PRIX</h2>
-      <p>Host or join a live room & compete for the top 3 podium finish!</p>
+      <p>HOST OR JOIN A LIVE ROOM · MADE BY ARIGATOO CLUB FOR FUN</p>
     </div>
 
     <div class="lobby-tabs">
@@ -586,7 +602,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
         <label>Shareable Room Code</label>
         <div style="display:flex;gap:8px">
           <input type="text" class="form-input" id="generated-room-code" readonly value="GENERATING...">
-          <button class="btn-ui" style="border-radius:10px;padding:0 20px" onclick="copyInviteLink()">COPY</button>
+          <button class="btn-ui" style="padding:0 20px" onclick="copyInviteLink()">COPY</button>
         </div>
       </div>
 
@@ -636,7 +652,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
 
       <button class="btn-primary-action" onclick="joinRoomAction()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        <span>CONNECT & ENTER GRID</span>
+        <span>CONNECT &amp; ENTER GRID</span>
       </button>
     </div>
   </div>
@@ -646,27 +662,27 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
 <div class="modal-overlay" id="podium-modal">
   <div class="lobby-card">
     <div class="lobby-header">
-      <h2 style="font-size:32px;color:#ffd700">🏁 GRAND PRIX PODIUM 🏁</h2>
-      <p>Official Race Classification & Top 3 Podium Winners</p>
+      <h2>GRAND PRIX PODIUM</h2>
+      <p>OFFICIAL RACE CLASSIFICATION · MADE BY ARIGATOO CLUB FOR FUN</p>
     </div>
 
     <div class="podium-stage">
       <div class="podium-pillar p2">
-        <div class="trophy-icon">🥈</div>
+        <div class="podium-rank-tag">2ND</div>
         <div class="podium-driver" id="p2-name">--</div>
         <div class="podium-time" id="p2-time">+0.540s</div>
         <div class="podium-pos-badge">2</div>
       </div>
 
       <div class="podium-pillar p1">
-        <div class="trophy-icon">🥇</div>
-        <div class="podium-driver" id="p1-name" style="color:#ffd700;font-size:18px">--</div>
-        <div class="podium-time" id="p1-time" style="color:#ffd700">WINNER</div>
-        <div class="podium-pos-badge" style="color:#ffd700;font-size:32px">1</div>
+        <div class="podium-rank-tag">WINNER</div>
+        <div class="podium-driver" id="p1-name" style="color:var(--neon-lime);font-size:20px">--</div>
+        <div class="podium-time" id="p1-time" style="color:var(--neon-lime)">WINNER</div>
+        <div class="podium-pos-badge" style="color:var(--neon-lime);font-size:36px">1</div>
       </div>
 
       <div class="podium-pillar p3">
-        <div class="trophy-icon">🥉</div>
+        <div class="podium-rank-tag">3RD</div>
         <div class="podium-driver" id="p3-name">--</div>
         <div class="podium-time" id="p3-time">+1.120s</div>
         <div class="podium-pos-badge">3</div>
@@ -675,10 +691,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <button class="btn-primary-action" onclick="restartMultiplayerRace()">
-        <span>🔄 RACE AGAIN</span>
+        <span>RACE AGAIN</span>
       </button>
-      <a href="index.html" class="btn-ui" style="justify-content:center;font-size:15px">
-        <span>🏠 HOME CIRCUIT</span>
+      <a href="index.html" class="btn-ui" style="justify-content:center;font-size:16px;box-shadow:4px 4px 0 var(--hot-orange)">
+        <span>HOME CIRCUIT</span>
       </a>
     </div>
   </div>
@@ -687,24 +703,24 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settings-modal">
   <div class="lobby-card" style="max-width:480px">
-    <div class="lobby-header" style="text-align:left;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div class="lobby-header" style="text-align:left;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:3px solid var(--neon-lime);padding-bottom:10px">
       <div>
-        <h2 style="font-size:22px">SETTINGS &amp; PAUSE <span style="font-size:11px;background:var(--f1-red);color:#fff;padding:2px 8px;border-radius:4px;margin-left:6px;vertical-align:middle">PAUSED</span></h2>
-        <p style="font-size:12px;color:var(--text-muted)">Multiplayer Grand Prix · Buddh International Circuit</p>
+        <h2 style="font-size:24px">SETTINGS &amp; PAUSE <span style="font-size:11px;background:var(--hot-orange);color:#000;padding:2px 8px;border:1.5px solid #000;margin-left:6px;vertical-align:middle">PAUSED</span></h2>
+        <p style="font-size:11px;color:#aaa">Multiplayer Grand Prix · Buddh International Circuit · Made by Arigatoo Club for fun</p>
       </div>
-      <button class="btn-ui" style="padding:4px 10px;font-size:11px" onclick="closeSettings()">✕ CLOSE</button>
+      <button class="btn-ui" style="padding:4px 10px;font-size:12px" onclick="closeSettings()">✕ CLOSE</button>
     </div>
 
     <!-- Driving Controls -->
-    <div class="form-group" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;margin-bottom:14px">
-      <label style="font-size:11px;color:var(--neon-green)">DRIVING CONTROLS</label>
-      <div style="font-size:12px;color:var(--text-muted);display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;font-family:'JetBrains Mono',monospace">
-        <div>Throttle: <kbd style="background:rgba(255,255,255,0.15);padding:1px 5px;border-radius:3px;color:#fff">W</kbd> <kbd style="background:rgba(255,255,255,0.15);padding:1px 5px;border-radius:3px;color:#fff">▲</kbd></div>
-        <div>Brake: <kbd style="background:rgba(255,255,255,0.15);padding:1px 5px;border-radius:3px;color:#fff">S</kbd> <kbd style="background:rgba(255,255,255,0.15);padding:1px 5px;border-radius:3px;color:#fff">▼</kbd></div>
-        <div>Steer: <kbd style="background:rgba(255,255,255,0.15);padding:1px 5px;border-radius:3px;color:#fff">A</kbd> <kbd style="background:rgba(255,255,255,0.15);padding:1px 5px;border-radius:3px;color:#fff">D</kbd></div>
-        <div>DRS Flap: <kbd style="background:rgba(255,255,255,0.15);padding:1px 5px;border-radius:3px;color:#fff">SPACE</kbd></div>
-        <div>ERS Boost: <kbd style="background:rgba(255,255,255,0.15);padding:1px 5px;border-radius:3px;color:#fff">SHIFT</kbd></div>
-        <div>Pause / Menu: <kbd style="background:rgba(255,255,255,0.15);padding:1px 5px;border-radius:3px;color:#fff">ESC</kbd></div>
+    <div class="form-group" style="background:#141414;border:2px solid #282828;padding:12px;margin-bottom:14px">
+      <label style="font-size:11px;color:var(--neon-lime)">DRIVING CONTROLS</label>
+      <div style="font-size:11px;color:#cbd5e1;display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;font-family:'JetBrains Mono',monospace">
+        <div>Throttle: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 5px">W</kbd> <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 5px">▲</kbd></div>
+        <div>Brake: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 5px">S</kbd> <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 5px">▼</kbd></div>
+        <div>Steer: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 5px">A</kbd> <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 5px">D</kbd></div>
+        <div>DRS Flap: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 5px">SPACE</kbd></div>
+        <div>ERS Boost: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 5px">SHIFT</kbd></div>
+        <div>Pause / Menu: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 5px">ESC</kbd></div>
       </div>
     </div>
 
@@ -712,32 +728,32 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--tex
     <div class="form-group" style="margin-bottom:16px">
       <label style="font-size:11px">VEHICLE &amp; AUDIO CALIBRATION</label>
       <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
-        <div style="display:flex;justify-content:space-between;font-size:12px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700">
           <span>Steering Response</span>
-          <output id="steer-val" style="font-family:'JetBrains Mono',monospace;color:var(--neon-green)">100%</output>
+          <output id="steer-val" style="font-family:var(--font-display);color:var(--neon-lime)">100%</output>
         </div>
-        <input type="range" min="60" max="150" value="100" id="steer-slider" style="width:100%;accent-color:var(--f1-red)" oninput="$('steer-val').value=this.value+'%'">
+        <input type="range" min="60" max="150" value="100" id="steer-slider" style="width:100%;accent-color:var(--neon-lime)" oninput="$('steer-val').value=this.value+'%'">
 
-        <div style="display:flex;justify-content:space-between;font-size:12px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700">
           <span>Audio Volume</span>
-          <output id="vol-val" style="font-family:'JetBrains Mono',monospace;color:var(--f1-gold)">75%</output>
+          <output id="vol-val" style="font-family:var(--font-display);color:var(--neon-lime)">75%</output>
         </div>
-        <input type="range" min="0" max="100" value="75" id="vol-slider" style="width:100%;accent-color:var(--f1-gold)" oninput="$('vol-val').value=this.value+'%'">
+        <input type="range" min="0" max="100" value="75" id="vol-slider" style="width:100%;accent-color:var(--neon-lime)" oninput="$('vol-val').value=this.value+'%'">
       </div>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;flex-direction:column;gap:10px">
       <button class="btn-primary-action" style="padding:12px" onclick="closeSettings()">
-        <span>▶ RESUME CAR RACE</span>
+        <span>RESUME CAR RACE</span>
       </button>
-      <a href="duo_race.html" class="btn-ui" style="justify-content:center;color:var(--neon-green)">
-        <span>👥 SWITCH TO DUO SPLIT-SCREEN</span>
+      <a href="duo_race.html" class="btn-ui" style="justify-content:center;color:var(--neon-lime)">
+        <span>SWITCH TO DUO SPLIT-SCREEN</span>
       </a>
-      <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="btn-ui" style="justify-content:center;color:var(--f1-gold)">
-        <span>🏎️ SWITCH TO SINGLE PLAYER</span>
+      <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="btn-ui" style="justify-content:center;color:var(--hot-orange)">
+        <span>SWITCH TO SINGLE PLAYER</span>
       </a>
       <a href="index.html" class="btn-ui danger" style="justify-content:center">
-        <span>🏠 EXIT TO HOME MAP</span>
+        <span>EXIT TO HOME MAP</span>
       </a>
     </div>
   </div>
@@ -872,17 +888,17 @@ function setWeatherMode(mode){
   const text = $("hud-weather-text");
 
   if(mode === "sunny"){
-    icon.textContent = "☀️";
-    text.textContent = "SUNNY • 100% GRIP";
+    icon.textContent = "WXR:";
+    text.textContent = "SUNNY // 100% GRIP";
   } else if(mode === "cloudy"){
-    icon.textContent = "☁️";
-    text.textContent = "CLOUDY • 98% GRIP";
+    icon.textContent = "WXR:";
+    text.textContent = "CLOUDY // 98% GRIP";
   } else if(mode === "rain"){
-    icon.textContent = "🌧️";
-    text.textContent = "RAIN • 60% GRIP (WET)";
+    icon.textContent = "WXR:";
+    text.textContent = "RAIN // 60% GRIP (WET)";
   } else if(mode === "snow"){
-    icon.textContent = "❄️";
-    text.textContent = "SNOW • 35% GRIP (ICY DRIFT)";
+    icon.textContent = "WXR:";
+    text.textContent = "SNOW // 35% GRIP (ICY DRIFT)";
   }
   resizeWeather();
 }
@@ -946,12 +962,12 @@ function initPeerAsHost(){
   try {
     myPeer = new Peer(roomCode);
     myPeer.on("open", (id) => {
-      showToast("🟢 Room created! Code: <b>" + id + "</b>");
+      showToast("Room created! Code: <b>" + id + "</b>");
     });
     myPeer.on("connection", (conn) => {
       guestConns.push(conn);
       conn.on("open", () => {
-        showToast("🏎️ New Driver joined the grid!");
+        showToast("New Driver joined the grid!");
         conn.send({ type: "ROOM_INFO", weather: currentWeather, laps: totalLaps });
       });
       conn.on("data", (data) => handleIncomingData(data, conn.peer));
@@ -968,17 +984,17 @@ function joinRoomAction(){
   myDriverName = $("join-driver-name").value.trim() || "Driver " + Math.floor(Math.random() * 99);
   myCar.name = myDriverName;
 
-  if(!code) return showToast("⚠️ Enter valid room code!");
+  if(!code) return showToast("Enter valid room code!");
 
   roomCode = code;
   $("display-room-code").textContent = roomCode;
-  showToast("⏳ Connecting to Room: " + code + "...");
+  showToast("Connecting to Room: " + code + "...");
 
   myPeer = new Peer();
   myPeer.on("open", () => {
     hostConn = myPeer.connect(roomCode);
     hostConn.on("open", () => {
-      showToast("🟢 Connected to Host! Grid Ready.");
+      showToast("Connected to Host! Grid Ready.");
       hostConn.send({ type: "JOIN", name: myDriverName, team: selectedTeam });
       $("lobby-modal").classList.remove("active");
       startRaceCountdown();
@@ -1019,7 +1035,7 @@ function handleIncomingData(data, senderId){
 
 function copyInviteLink(){
   const url = window.location.origin + window.location.pathname + "?room=" + roomCode;
-  navigator.clipboard.writeText(url).then(() => showToast("📋 Invite link copied!")).catch(() => showToast("Code: <b>" + roomCode + "</b>"));
+  navigator.clipboard.writeText(url).then(() => showToast("Invite link copied!")).catch(() => showToast("Code: <b>" + roomCode + "</b>"));
 }
 $("btn-copy-code").addEventListener("click", copyInviteLink);
 
@@ -1096,7 +1112,7 @@ function startRaceCountdown(){
   $("big-msg").textContent = "3... 2... 1...";
   setTimeout(() => {
     go = true;
-    $("big-msg").textContent = "🏁 LIGHTS OUT AND AWAY WE GO!";
+    $("big-msg").textContent = "LIGHTS OUT AND AWAY WE GO!";
     setTimeout(() => $("big-msg").textContent = "", 1500);
   }, 2000);
 }
@@ -1525,10 +1541,10 @@ function gameLoop(timestamp){
         if(myCar.lap > totalLaps){
           myCar.finished = true;
           myCar.totalRaceTime = myCar.lapT;
-          showToast("🏁 <b>CHEQUERED FLAG! RACE COMPLETE!</b>");
+          showToast("<b>CHEQUERED FLAG! RACE COMPLETE!</b>");
           checkPodiumCelebration();
         } else {
-          showToast("🏁 <b>FINAL LAP " + myCar.lap + "/" + totalLaps + "!</b>");
+          showToast("<b>FINAL LAP " + myCar.lap + "/" + totalLaps + "!</b>");
           myCar.lapT = 0;
         }
       }

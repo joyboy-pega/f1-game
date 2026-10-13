@@ -4,21 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Buddh Circuit – F1 Duo Split-Screen Race</title>
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700;800&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#070a0e;
-  --panel:rgba(12,16,24,0.85);
-  --p1-color:#e10600;
-  --p1-glow:rgba(225,6,0,0.5);
-  --p2-color:#00d2be;
-  --p2-glow:rgba(0,210,190,0.5);
-  --ink:#f8fafc;
-  --dim:#94a3b8;
-  --green:#3ddc84;
-  --purple:#b56cff;
+  --neon-lime:#C8FF2E;
+  --ink-black:#0A0A0A;
+  --hot-orange:#FF6B1A;
+  --pure-white:#FFFFFF;
+  --deep-gray:#111111;
+  --dark-gray:#1E1E1E;
+  --f1-red:#E10600;
+  --p1-color:#FF6B1A;
+  --p2-color:#C8FF2E;
+  --bg:#0A0A0A;
+  --panel:rgba(10,10,10,0.94);
+  --ink:#FFFFFF;
+  --dim:#A0A0A0;
+  --font-display:'Anton',Impact,sans-serif;
+  --font-ui:'Archivo',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
 }
-html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:"Chakra Petch",sans-serif;user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--pure-white);font-family:var(--font-ui);user-select:none}
 *,*::before,*::after{box-sizing:border-box}
 
 /* Split-Screen Grid Layout */
@@ -35,9 +41,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--
   width:100%;
   height:100%;
   overflow:hidden;
-  border-right:2px solid rgba(255,255,255,0.15);
 }
-#screen-p2{border-right:none}
 
 canvas.game-canvas{
   display:block;
@@ -52,9 +56,11 @@ canvas.game-canvas{
   bottom:0;
   left:50%;
   transform:translateX(-50%);
-  width:4px;
-  background:linear-gradient(180deg, var(--p1-color) 0%, #ffffff 50%, var(--p2-color) 100%);
-  box-shadow:0 0 15px rgba(255,255,255,0.4);
+  width:6px;
+  background:repeating-linear-gradient(45deg, var(--neon-lime) 0 8px, var(--hot-orange) 8px 16px);
+  border-left:2px solid var(--ink-black);
+  border-right:2px solid var(--ink-black);
+  box-shadow:0 0 12px rgba(200,255,46,0.5);
   z-index:15;
   pointer-events:none;
 }
@@ -69,7 +75,7 @@ canvas.game-canvas{
   display:flex;
   flex-direction:column;
   align-items:center;
-  gap:6px;
+  gap:8px;
   pointer-events:none;
 }
 
@@ -78,56 +84,56 @@ canvas.game-canvas{
   align-items:center;
   gap:12px;
   padding:6px 16px;
-  background:rgba(10,14,22,0.92);
-  border:1px solid rgba(255,255,255,0.2);
-  border-radius:999px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.8),0 0 20px rgba(0,0,0,0.5);
-  backdrop-filter:blur(12px);
-  font-family:"JetBrains Mono",monospace;
+  background:var(--ink-black);
+  border:3px solid var(--ink-black);
+  box-shadow:4px 4px 0 var(--pure-white);
+  transform:skewX(-6deg);
+  font-family:var(--font-display);
 }
 
 #duo-minimap-card{
-  background:rgba(10,14,22,0.88);
-  border:1px solid rgba(255,255,255,0.18);
-  border-radius:12px;
-  padding:4px 8px;
-  box-shadow:0 8px 24px rgba(0,0,0,0.7);
-  backdrop-filter:blur(12px);
+  background:var(--ink-black);
+  border:3px solid var(--ink-black);
+  box-shadow:4px 4px 0 var(--neon-lime);
+  transform:skewX(-4deg);
+  padding:6px 10px;
   display:flex;
   flex-direction:column;
   align-items:center;
 }
 .minimap-sub{
-  font-size:9px;
-  font-family:"JetBrains Mono",monospace;
-  color:var(--dim);
-  letter-spacing:1px;
-  font-weight:700;
-  margin-bottom:2px;
+  font-size:10px;
+  font-family:var(--font-display);
+  color:var(--neon-lime);
+  letter-spacing:.08em;
+  margin-bottom:3px;
+  text-transform:uppercase;
 }
 #duo-minimap{
   display:block;
-  width:140px;
-  height:75px;
+  width:150px;
+  height:80px;
 }
 
 .h2h-badge{
-  font-size:12px;
-  font-weight:800;
+  font-size:13px;
+  font-family:var(--font-display);
+  letter-spacing:.06em;
   padding:3px 10px;
-  border-radius:6px;
+  border:2px solid var(--ink-black);
+  transform:skewX(-4deg);
   display:flex;
   align-items:center;
   gap:6px;
 }
-.h2h-p1{background:var(--p1-color);color:#fff;box-shadow:0 0 10px var(--p1-glow)}
-.h2h-p2{background:var(--p2-color);color:#000;box-shadow:0 0 10px var(--p2-glow)}
+.h2h-p1{background:var(--hot-orange);color:#000;box-shadow:2px 2px 0 #000}
+.h2h-p2{background:var(--neon-lime);color:#000;box-shadow:2px 2px 0 #000}
 
 .h2h-gap{
-  font-size:13px;
-  font-weight:800;
-  color:#fff;
-  letter-spacing:0.5px;
+  font-size:15px;
+  font-family:var(--font-display);
+  color:var(--pure-white);
+  letter-spacing:.08em;
 }
 
 /* Top Toolbar */
@@ -141,38 +147,39 @@ canvas.game-canvas{
 }
 
 #top-controls button, .tool-btn{
-  border:1px solid rgba(255,255,255,0.2);
-  border-radius:999px;
+  border:2.5px solid var(--ink-black);
   padding:7px 14px;
-  background:rgba(12,16,24,0.88);
-  color:#f1f5f9;
-  font:700 11px "Chakra Petch",sans-serif;
-  letter-spacing:0.08em;
+  background:var(--ink-black);
+  color:#fff;
+  font-family:var(--font-display);
+  font-size:13px;
+  letter-spacing:.06em;
   cursor:pointer;
-  backdrop-filter:blur(8px);
-  box-shadow:0 4px 15px rgba(0,0,0,0.4);
+  transform:skewX(-6deg);
+  box-shadow:3px 3px 0 var(--neon-lime);
   text-decoration:none;
   display:inline-flex;
   align-items:center;
   gap:6px;
-  transition:all .15s ease;
+  transition:all .1s ease;
 }
 #top-controls button:hover, .tool-btn:hover{
-  background:rgba(30,41,59,0.96);
-  border-color:rgba(255,255,255,0.4);
-  transform:translateY(-1px);
+  background:#222;
+  transform:translate(-1px,-1px) skewX(-6deg);
+  box-shadow:4px 4px 0 var(--pure-white);
 }
-.tool-btn-home{color:var(--p2-color);border-color:rgba(0,210,190,0.4)}
+.tool-btn-home{color:var(--neon-lime);box-shadow:3px 3px 0 var(--hot-orange)}
+.tool-btn-home:hover{color:#fff;border-color:var(--neon-lime)}
 
 /* Player HUDs */
 .hud-card{
   position:absolute;
-  background:var(--panel);
-  border-radius:8px;
+  background:var(--ink-black);
+  border:2.5px solid var(--ink-black);
   padding:8px 12px;
   font-variant-numeric:tabular-nums;
-  backdrop-filter:blur(6px);
-  border:1px solid rgba(255,255,255,0.1);
+  transform:skewX(-4deg);
+  color:#fff;
   z-index:10;
 }
 
@@ -182,65 +189,78 @@ canvas.game-canvas{
   display:flex;
   align-items:center;
   gap:8px;
-  font-weight:800;
-  font-size:12px;
-  letter-spacing:0.8px;
+  font-family:var(--font-display);
+  font-size:14px;
+  letter-spacing:.06em;
 }
 .badge-num{
-  padding:2px 6px;
-  border-radius:4px;
-  font-weight:900;
+  padding:2px 7px;
+  font-family:var(--font-display);
+  font-size:14px;
+  border:1.5px solid var(--ink-black);
 }
-.p1-badge .badge-num{background:var(--p1-color);color:#fff}
-.p2-badge .badge-num{background:var(--p2-color);color:#000}
+.p1-badge{box-shadow:3px 3px 0 var(--hot-orange)}
+.p1-badge .badge-num{background:var(--hot-orange);color:#000}
+.p2-badge{box-shadow:3px 3px 0 var(--neon-lime)}
+.p2-badge .badge-num{background:var(--neon-lime);color:#000}
 
 .hud-timing{
-  top:48px;
+  top:52px;
   left:14px;
-  min-width:140px;
+  min-width:150px;
+  box-shadow:3px 3px 0 var(--pure-white);
 }
 .hud-timing .lap-time{
-  font-size:22px;
+  font-size:24px;
+  font-family:var(--font-mono);
   font-weight:800;
-  font-family:"JetBrains Mono",monospace;
   line-height:1;
   margin-bottom:4px;
+  color:var(--pure-white);
 }
 .hud-timing .lap-meta{
   display:flex;
   justify-content:space-between;
   font-size:11px;
+  font-weight:700;
   color:var(--dim);
 }
+.hud-timing .lap-meta b{color:var(--neon-lime)}
 
 .hud-telemetry-bottom{
   bottom:14px;
   left:50%;
-  transform:translateX(-50%);
+  transform:translateX(-50%) skewX(-4deg);
   display:flex;
   align-items:flex-end;
   gap:16px;
+  background:var(--ink-black);
+  border:3px solid var(--ink-black);
+  box-shadow:4px 4px 0 var(--pure-white);
+  padding:8px 16px;
 }
 .hud-gear{
-  font-size:38px;
-  font-weight:900;
+  font-family:var(--font-display);
+  font-size:44px;
   line-height:1;
-  min-width:28px;
+  min-width:30px;
   text-align:center;
 }
-.p1-gear{color:var(--p1-color)}
-.p2-gear{color:var(--p2-color)}
+.p1-gear{color:var(--hot-orange)}
+.p2-gear{color:var(--neon-lime)}
 
 .hud-speed{
-  font-size:38px;
-  font-weight:900;
+  font-family:var(--font-display);
+  font-size:44px;
   line-height:1;
+  color:#fff;
 }
 .hud-speed small{
+  font-family:var(--font-ui);
   font-size:12px;
   color:var(--dim);
-  font-weight:600;
-  margin-left:3px;
+  font-weight:800;
+  margin-left:4px;
 }
 
 .hud-bars{
@@ -251,45 +271,51 @@ canvas.game-canvas{
   color:var(--dim);
 }
 .bar-track{
-  height:5px;
-  background:#1e293b;
-  border-radius:3px;
+  height:7px;
+  background:#1a1a1a;
+  border:1px solid #333;
   overflow:hidden;
 }
 .bar-fill{height:100%;width:0;transition:width 0.05s linear}
-.bar-rev-p1{background:var(--p1-color)}
-.bar-rev-p2{background:var(--p2-color)}
-.bar-ers{background:var(--purple)}
+.bar-rev-p1{background:var(--hot-orange)}
+.bar-rev-p2{background:var(--neon-lime)}
+.bar-ers{background:#b56cff}
 
 .hud-drs-box{
-  font-size:10px;
-  font-weight:800;
+  font-family:var(--font-display);
+  font-size:11px;
+  letter-spacing:.08em;
   color:var(--dim);
-  padding:2px 5px;
-  border-radius:3px;
+  padding:2px 6px;
+  border:1.5px solid #333;
   background:rgba(255,255,255,0.06);
   width:fit-content;
 }
-.hud-drs-box.active{background:var(--green);color:#000;box-shadow:0 0 8px rgba(61,220,132,0.7)}
+.hud-drs-box.active{background:var(--neon-lime);color:#000;border-color:#000;box-shadow:2px 2px 0 var(--pure-white)}
 
 /* Controls Help Banner at Bottom */
 .controls-hint{
   position:absolute;
   bottom:8px;
   left:14px;
-  font-size:10px;
-  color:rgba(255,255,255,0.5);
+  font-size:11px;
+  font-weight:700;
+  color:#aaa;
   line-height:1.4;
   z-index:10;
+  background:rgba(10,10,10,0.92);
+  border:2px solid #222;
+  padding:4px 8px;
+  transform:skewX(-4deg);
 }
 .controls-hint kbd{
-  background:#1e293b;
-  border:1px solid #475569;
-  border-radius:3px;
-  padding:1px 4px;
-  color:#fff;
-  font-family:"JetBrains Mono",monospace;
-  font-size:9px;
+  background:#000;
+  border:1.5px solid var(--neon-lime);
+  color:var(--neon-lime);
+  font-family:var(--font-display);
+  padding:1px 5px;
+  font-size:11px;
+  margin:0 2px;
 }
 
 /* Lights & Countdown Overlay */
@@ -297,11 +323,26 @@ canvas.game-canvas{
   position:fixed;
   top:24%;
   left:50%;
-  transform:translateX(-50%);
+  transform:translateX(-50%) skewX(-6deg);
   display:flex;
   gap:12px;
+  background:var(--ink-black);
+  border:3px solid var(--ink-black);
+  box-shadow:5px 5px 0 var(--hot-orange);
+  padding:10px 18px;
   z-index:30;
   pointer-events:none;
+}
+#race-lights span{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  background:#222;
+  border:3px solid #111;
+}
+#race-lights span.on{
+  background:var(--hot-orange);
+  box-shadow:0 0 16px var(--hot-orange);
 }
 
 /* Lap Complete Popup */
@@ -309,32 +350,18 @@ canvas.game-canvas{
   position:fixed;
   top:50%;
   left:50%;
-  transform:translate(-50%,-50%);
+  transform:translate(-50%,-50%) skewX(-6deg);
   z-index:28;
-  background:rgba(10,14,22,0.94);
-  border:2px solid rgba(255,255,255,0.2);
-  border-radius:14px;
+  background:var(--ink-black);
+  border:3px solid var(--ink-black);
+  box-shadow:6px 6px 0 var(--neon-lime);
   padding:16px 32px;
   text-align:center;
-  font-family:"JetBrains Mono",monospace;
-  font-size:15px;
-  font-weight:700;
-  letter-spacing:0.08em;
-  box-shadow:0 12px 40px rgba(0,0,0,0.8),0 0 30px rgba(255,215,0,0.2);
-  backdrop-filter:blur(16px);
+  font-family:var(--font-display);
+  font-size:20px;
+  letter-spacing:.08em;
+  color:#fff;
   pointer-events:none;
-  animation:pop-in 0.25s cubic-bezier(0.34,1.56,0.64,1);
-}
-#race-lights span{
-  width:32px;
-  height:32px;
-  border-radius:50%;
-  background:#1f0a0a;
-  border:3px solid #111827;
-}
-#race-lights span.on{
-  background:var(--p1-color);
-  box-shadow:0 0 20px var(--p1-color);
 }
 
 #big-msg{
@@ -343,11 +370,13 @@ canvas.game-canvas{
   left:0;
   right:0;
   text-align:center;
-  font-size:36px;
-  font-weight:900;
+  font-family:var(--font-display);
+  font-size:48px;
+  letter-spacing:.1em;
+  color:var(--neon-lime);
   z-index:30;
   pointer-events:none;
-  text-shadow:0 3px 12px #000;
+  text-shadow:4px 4px 0 #000;
 }
 
 /* Winner Celebration Modal */
@@ -355,96 +384,110 @@ canvas.game-canvas{
   position:fixed;
   top:50%;
   left:50%;
-  transform:translate(-50%,-50%);
+  transform:translate(-50%,-50%) skewX(-4deg);
   z-index:40;
-  background:linear-gradient(145deg, rgba(16,22,34,0.98), rgba(8,12,18,0.98));
-  border:2px solid rgba(255,255,255,0.25);
-  border-radius:20px;
-  padding:32px 40px;
+  background:var(--ink-black);
+  border:4px solid var(--ink-black);
+  box-shadow:8px 8px 0 var(--neon-lime);
+  padding:36px 44px;
   text-align:center;
-  box-shadow:0 25px 80px rgba(0,0,0,0.9),0 0 40px rgba(225,6,0,0.3);
-  backdrop-filter:blur(20px);
-  animation:pop-in 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  color:#fff;
 }
 #winner-modal[hidden]{display:none}
 
-@keyframes pop-in{
-  from{opacity:0;transform:translate(-50%,-50%) scale(0.85)}
-  to{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.trophy-badge{
+  font-family:var(--font-display);
+  font-size:16px;
+  color:var(--hot-orange);
+  letter-spacing:.12em;
+  margin-bottom:8px;
 }
-
-.trophy-icon{font-size:52px;margin-bottom:8px}
-.winner-title{font-size:28px;font-weight:900;margin:0 0 8px;letter-spacing:1px}
-.winner-sub{font-size:14px;color:var(--dim);margin:0 0 20px}
+.winner-title{
+  font-family:var(--font-display);
+  font-size:42px;
+  letter-spacing:.08em;
+  color:var(--neon-lime);
+  margin:0 0 8px;
+  text-shadow:2px 2px 0 #000;
+}
+.winner-sub{
+  font-size:13px;
+  font-weight:800;
+  color:#fff;
+  letter-spacing:.06em;
+  margin:0 0 24px;
+}
 .modal-actions{display:flex;gap:12px;justify-content:center}
 .btn-primary-action{
   padding:12px 24px;
-  border-radius:10px;
-  border:0;
-  background:linear-gradient(135deg, #ff1744, #e10600);
-  color:#fff;
-  font:800 13px "Chakra Petch",sans-serif;
+  border:3px solid var(--ink-black);
+  background:var(--neon-lime);
+  color:#000;
+  font-family:var(--font-display);
+  font-size:16px;
+  letter-spacing:.08em;
   cursor:pointer;
-  letter-spacing:0.08em;
-  box-shadow:0 4px 20px rgba(225,6,0,0.5);
+  box-shadow:5px 5px 0 var(--pure-white);
+  transform:skewX(-6deg);
   text-decoration:none;
+  transition:all .1s ease;
 }
-.btn-primary-action:hover{transform:translateY(-2px);box-shadow:0 6px 25px rgba(225,6,0,0.8)}
+.btn-primary-action:hover{
+  transform:translate(-1px,-1px) skewX(-6deg);
+  box-shadow:6px 6px 0 var(--hot-orange);
+}
 
 /* Pause Menu */
 #duo-pause-menu{
   position:fixed;
   top:50%;
   left:50%;
-  transform:translate(-50%,-50%);
+  transform:translate(-50%,-50%) skewX(-4deg);
   z-index:35;
-  width:min(440px,calc(100vw - 32px));
-  background:linear-gradient(145deg, rgba(16,22,34,0.98), rgba(8,12,18,0.98));
-  border:1px solid rgba(255,255,255,0.2);
-  border-radius:16px;
+  width:min(460px,calc(100vw - 32px));
+  background:var(--ink-black);
+  border:4px solid var(--ink-black);
+  box-shadow:8px 8px 0 var(--hot-orange);
   padding:24px;
-  box-shadow:0 24px 80px rgba(0,0,0,0.85);
-  backdrop-filter:blur(20px);
+  color:#fff;
 }
 #duo-pause-menu[hidden]{display:none}
-.pause-menu-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-.pause-menu-header h2{margin:0;font-size:20px;font-weight:800}
-.menu-close-btn{border:1px solid #334155;border-radius:6px;background:#1e293b;color:#fff;padding:5px 10px;cursor:pointer;font:700 11px sans-serif}
-
-.weather-pills-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0}
-.w-pill-btn{
-  padding:8px 4px;
-  border:1px solid rgba(255,255,255,0.15);
-  background:rgba(255,255,255,0.05);
-  border-radius:8px;
-  color:#fff;
-  font:700 11px "Chakra Petch",sans-serif;
+.pause-menu-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:3px solid var(--neon-lime);padding-bottom:10px}
+.pause-menu-header h2{margin:0;font-family:var(--font-display);font-size:24px;letter-spacing:.06em;color:var(--neon-lime)}
+.pause-menu-header p{margin:4px 0 0;font-size:11px;font-weight:700;color:var(--dim)}
+.menu-close-btn{
+  border:2.5px solid var(--ink-black);
+  background:var(--pure-white);
+  color:#000;
+  padding:6px 12px;
+  font-family:var(--font-display);
+  font-size:13px;
   cursor:pointer;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:3px;
+  box-shadow:3px 3px 0 var(--hot-orange);
+  transform:skewX(-6deg);
 }
-.w-pill-btn.active{background:rgba(225,6,0,0.25);border-color:var(--p1-color);box-shadow:0 0 10px rgba(225,6,0,0.4)}
+.menu-close-btn:hover{background:var(--neon-lime)}
 
-.pause-actions{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.pause-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px}
 .btn-pause-menu{
   width:100%;
   padding:12px;
-  border-radius:8px;
-  font:800 12px "Chakra Petch",sans-serif;
+  border:2.5px solid var(--ink-black);
+  font-family:var(--font-display);
+  font-size:15px;
+  letter-spacing:.06em;
   cursor:pointer;
-  letter-spacing:0.08em;
-  border:0;
   display:flex;
   align-items:center;
   justify-content:center;
   gap:8px;
   text-decoration:none;
+  transform:skewX(-6deg);
+  transition:all .1s ease;
 }
-.btn-pause-res{background:var(--p1-color);color:#fff}
-.btn-pause-sec{background:rgba(255,255,255,0.08);color:#f1f5f9;border:1px solid rgba(255,255,255,0.15)}
-.btn-pause-exit{background:rgba(0,210,190,0.12);color:var(--p2-color);border:1px solid rgba(0,210,190,0.35)}
+.btn-pause-res{background:var(--neon-lime);color:#000;box-shadow:4px 4px 0 var(--pure-white)}
+.btn-pause-sec{background:var(--dark-gray);color:#fff;border-color:var(--neon-lime);box-shadow:4px 4px 0 var(--hot-orange)}
+.btn-pause-exit{background:var(--pure-white);color:#000;box-shadow:4px 4px 0 var(--hot-orange)}
 </style>
 </head>
 <body>
@@ -458,7 +501,7 @@ canvas.game-canvas{
     
     <div class="hud-card hud-driver-badge p1-badge">
       <span class="badge-num">16</span>
-      <span>PLAYER 1 • SCUDERIA RED</span>
+      <span>PLAYER 1 // SCUDERIA RED</span>
     </div>
 
     <div class="hud-card hud-timing" id="timing-p1">
@@ -490,7 +533,7 @@ canvas.game-canvas{
 
     <div class="hud-card hud-driver-badge p2-badge">
       <span class="badge-num">44</span>
-      <span>PLAYER 2 • PETRONAS CYAN</span>
+      <span>PLAYER 2 // PETRONAS CYAN</span>
     </div>
 
     <div class="hud-card hud-timing" id="timing-p2">
@@ -523,14 +566,14 @@ canvas.game-canvas{
     <div class="h2h-badge h2h-p2">P2 · CYAN</div>
   </div>
   <div id="duo-minimap-card">
-    <span class="minimap-sub">BUDDH CIRCUIT • 5.1 KM</span>
+    <span class="minimap-sub">BUDDH CIRCUIT // 5.1 KM</span>
     <canvas id="duo-minimap" width="280" height="150"></canvas>
   </div>
 </div>
 
 <!-- Top Toolbar -->
 <div id="top-controls">
-  <button id="btn-pause-toggle" type="button">⏸ SETTINGS &amp; PAUSE</button>
+  <button id="btn-pause-toggle" type="button">SETTINGS &amp; PAUSE</button>
   <button id="btn-audio-toggle" type="button">AUDIO ON</button>
   <a href="index.html" class="tool-btn tool-btn-home">EXIT TO MAP</a>
 </div>
@@ -544,12 +587,12 @@ canvas.game-canvas{
 
 <!-- Winner Celebration Modal -->
 <div id="winner-modal" hidden>
-  <div class="trophy-icon">🏆</div>
+  <div class="trophy-badge">// RACE WINNER //</div>
   <h2 class="winner-title" id="winner-name">PLAYER 1 WINS!</h2>
   <p class="winner-sub" id="winner-meta">Lap Time: 1:28.450 • Gap: +0.620s</p>
   <div class="modal-actions">
     <button class="btn-primary-action" id="btn-rematch" type="button">RACE AGAIN (REMATCH)</button>
-    <a href="index.html" class="tool-btn tool-btn-home" style="padding:12px 20px;font-size:13px">EXIT TO HOME MAP</a>
+    <a href="index.html" class="tool-btn tool-btn-home" style="padding:12px 20px;font-size:15px">EXIT TO HOME MAP</a>
   </div>
 </div>
 
@@ -557,36 +600,36 @@ canvas.game-canvas{
 <div id="duo-pause-menu" hidden>
   <div class="pause-menu-header">
     <div>
-      <h2 style="font-size:20px;margin:0">SETTINGS &amp; PAUSE <span style="font-size:11px;background:var(--p1-color);color:#fff;padding:2px 8px;border-radius:4px;margin-left:6px;vertical-align:middle">PAUSED</span></h2>
-      <p style="font-size:11px;color:var(--dim);margin:4px 0 0 0">Duo Split-Screen · Buddh International Circuit</p>
+      <h2 style="margin:0">SETTINGS &amp; PAUSE <span style="font-size:11px;background:var(--hot-orange);color:#000;padding:2px 8px;border:1.5px solid #000;margin-left:6px;vertical-align:middle">PAUSED</span></h2>
+      <p style="margin:4px 0 0 0">Duo Split-Screen · Buddh International Circuit · Made by Arigatoo Club for fun</p>
     </div>
     <button class="menu-close-btn" id="btn-close-pause">✕ CLOSE</button>
   </div>
 
-  <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;margin:12px 0">
-    <div style="font-size:11px;font-weight:800;color:var(--p2-color);margin-bottom:8px">SPLIT-SCREEN DRIVING CONTROLS</div>
+  <div style="background:#141414;border:2px solid #282828;padding:12px;margin:12px 0">
+    <div style="font-size:11px;font-weight:800;color:var(--neon-lime);letter-spacing:.08em;margin-bottom:8px">SPLIT-SCREEN DRIVING CONTROLS</div>
     <div style="font-size:11px;color:#cbd5e1;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-family:'JetBrains Mono',monospace">
       <div><b>P1 (Left):</b></div>
       <div><b>P2 (Right):</b></div>
-      <div>Throttle: <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">W</kbd></div>
-      <div>Throttle: <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">▲</kbd></div>
-      <div>Brake: <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">S</kbd></div>
-      <div>Brake: <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">▼</kbd></div>
-      <div>Steer: <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">A</kbd> <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">D</kbd></div>
-      <div>Steer: <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">◄</kbd> <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">►</kbd></div>
-      <div>DRS: <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">SPACE</kbd></div>
-      <div>DRS: <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">ENTER</kbd></div>
-      <div>ERS: <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">SHIFT</kbd></div>
-      <div>ERS: <kbd style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px">CTRL</kbd></div>
+      <div>Throttle: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">W</kbd></div>
+      <div>Throttle: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">▲</kbd></div>
+      <div>Brake: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">S</kbd></div>
+      <div>Brake: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">▼</kbd></div>
+      <div>Steer: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">A</kbd> <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">D</kbd></div>
+      <div>Steer: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">◄</kbd> <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">►</kbd></div>
+      <div>DRS: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">SPACE</kbd></div>
+      <div>DRS: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">ENTER</kbd></div>
+      <div>ERS: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">SHIFT</kbd></div>
+      <div>ERS: <kbd style="background:#000;border:1px solid var(--neon-lime);color:var(--neon-lime);padding:1px 4px">CTRL</kbd></div>
     </div>
   </div>
 
   <div class="pause-actions">
-    <button class="btn-pause-menu btn-pause-res" id="btn-resume-duo">▶ RESUME CAR RACE</button>
-    <button class="btn-pause-menu btn-pause-sec" id="btn-restart-duo">🔄 RESTART CURRENT RACE</button>
-    <a href="multiplayer_race.html" class="btn-pause-menu btn-pause-sec" style="color:var(--f1-gold,#ffd700)">🌐 SWITCH TO ONLINE MULTIPLAYER</a>
-    <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="btn-pause-menu btn-pause-sec" style="color:var(--p2-color)">🏎️ SWITCH TO SINGLE PLAYER</a>
-    <a href="index.html" class="btn-pause-menu btn-pause-exit">🏠 EXIT TO HOME MAP</a>
+    <button class="btn-pause-menu btn-pause-res" id="btn-resume-duo">RESUME CAR RACE</button>
+    <button class="btn-pause-menu btn-pause-sec" id="btn-restart-duo">RESTART CURRENT RACE</button>
+    <a href="multiplayer_race.html" class="btn-pause-menu btn-pause-sec" style="color:var(--hot-orange)">SWITCH TO ONLINE MULTIPLAYER</a>
+    <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="btn-pause-menu btn-pause-sec" style="color:var(--neon-lime)">SWITCH TO SINGLE PLAYER</a>
+    <a href="index.html" class="btn-pause-menu btn-pause-exit">EXIT TO HOME MAP</a>
   </div>
 </div>
 
@@ -838,7 +881,7 @@ function showLapPopup(car, lapNum){
 
 function triggerWinner(wCar){
   const other = wCar.id === 1 ? p2 : p1;
-  $('winner-name').textContent = wCar.id === 1 ? '🥇 PLAYER 1 WINS (RED)!' : '🥇 PLAYER 2 WINS (CYAN)!';
+  $('winner-name').textContent = wCar.id === 1 ? 'PLAYER 1 WINS (RED)!' : 'PLAYER 2 WINS (CYAN)!';
   $('winner-meta').textContent = `Winning Lap: ${fmt(wCar.best)} • Race: ${TOTAL_LAPS_DUO} Laps`;
   $('lap-popup').hidden = true;
   $('winner-modal').hidden = false;
