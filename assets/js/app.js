@@ -311,7 +311,7 @@
   if (btnProfile) {
     btnProfile.addEventListener('click', () => {
       playClickSound();
-      showToast('DRIVER: F1 RACER · BUDDH GP SEASON 2024');
+      showToast('DRIVER: FORMULA V RACER · BUDDH GP SEASON 2024');
     });
   }
 
@@ -370,7 +370,7 @@
     if (el) {
       el.addEventListener('click', () => {
         playRewardSound();
-        showToast('F1 PART PURCHASED & EQUIPPED!');
+        showToast('FORMULA V PART PURCHASED & EQUIPPED!');
       });
     }
   });

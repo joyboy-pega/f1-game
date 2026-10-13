@@ -1,4 +1,4 @@
-# Buddh Circuit F1 Game
+# Buddh Circuit Formula V Game
 
 ## Project layout
 
