@@ -1,607 +1,541 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Buddh International Circuit | F1 Track SVG & Telemetry</title>
-  <meta name="description" content="Vector SVG racing track, telemetry, and live interactive simulator for Buddh International Circuit (Delhi F1 Track)">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Buddh International Circuit | F1 Racing Game — Arigatoo Club</title>
+  <meta name="description" content="Buddh International Circuit - High-octane F1 racing game for PC and mobile. Made by Arigatoo Club for fun.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@700;800;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/index.css">
 </head>
 <body>
-  <!-- Ambient background glow -->
-  <div class="bg-glow bg-glow-1"></div>
-  <div class="bg-glow bg-glow-2"></div>
 
-  <!-- Header -->
-  <header class="app-header">
-    <div class="header-brand">
-      <div class="f1-badge">
-        <span class="f1-badge-red">F1</span>
-        <span class="f1-badge-text">CIRCUIT</span>
-      </div>
-      <div class="header-titles">
-        <h1>BUDDH INTERNATIONAL CIRCUIT</h1>
-        <p class="header-subtitle">
-          <span class="location-pin">📍</span> Jaypee Sports City, Greater Noida, Delhi NCR • 5.125 km (3.185 mi) • 16 Turns
-        </p>
-      </div>
-    </div>
-    <div class="header-actions">
-      <!-- Weather System Selector -->
-      <div class="weather-btn-wrapper">
-        <button class="btn btn-weather" id="btn-weather-toggle" title="Change Track Weather Condition" aria-expanded="false">
-          <span class="weather-icon" id="header-weather-icon">☀️</span>
-          <span id="header-weather-text">SUNNY</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </button>
-        <!-- Weather Selector Modal / Dropdown -->
-        <div class="weather-dropdown glass-panel" id="weather-dropdown" hidden>
-          <div class="weather-dropdown-header">
-            <h4>TRACK WEATHER SYSTEM</h4>
-            <span class="weather-status-tag" id="weather-track-condition">DRY TRACK</span>
-          </div>
-          <div class="weather-grid">
-            <button class="weather-card active" data-weather="sunny">
-              <span class="wc-icon">☀️</span>
-              <div class="wc-info">
-                <span class="wc-title">Sunny</span>
-                <span class="wc-desc">100% Grip • Optimal</span>
-              </div>
-              <span class="wc-temp">32°C</span>
-            </button>
-            <button class="weather-card" data-weather="cloudy">
-              <span class="wc-icon">☁️</span>
-              <div class="wc-info">
-                <span class="wc-title">Cloudy</span>
-                <span class="wc-desc">98% Grip • Overcast</span>
-              </div>
-              <span class="wc-temp">24°C</span>
-            </button>
-            <button class="weather-card" data-weather="rain">
-              <span class="wc-icon">🌧️</span>
-              <div class="wc-info">
-                <span class="wc-title">Rain</span>
-                <span class="wc-desc">60% Grip • Wet Visor</span>
-              </div>
-              <span class="wc-temp">19°C</span>
-            </button>
-            <button class="weather-card" data-weather="snow">
-              <span class="wc-icon">❄️</span>
-              <div class="wc-info">
-                <span class="wc-title">Snow</span>
-                <span class="wc-desc">35% Grip • Icy Slide</span>
-              </div>
-              <span class="wc-temp">-2°C</span>
-            </button>
-          </div>
-          <div class="weather-telemetry-preview">
-            <div class="wtp-item"><span>Air Temp</span><b id="wtp-air">32°C</b></div>
-            <div class="wtp-item"><span>Track Temp</span><b id="wtp-track">44°C</b></div>
-            <div class="wtp-item"><span>Rain Risk</span><b id="wtp-rain">0%</b></div>
-            <div class="wtp-item"><span>Grip Level</span><b id="wtp-grip" style="color:var(--neon-green)">100%</b></div>
-          </div>
-        </div>
-      </div>
+  <!-- Screen Wrapper (Responsive PC & Phone) -->
+  <div class="screen-wrapper">
+    <div class="screen-glow"></div>
 
-      <!-- Game Mode Launcher Button -->
-      <button class="btn btn-start-race" id="btn-open-game-modes" title="Select Game Mode & Start Racing">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
-        <span>RACE MODES</span>
-      </button>
+    <!-- Responsive Game Canvas Container -->
+    <main class="canvas-container" id="canvas-lobby" role="main" aria-label="F1 Racing Game Lobby">
 
-      <button class="btn btn-secondary" id="btn-copy-path" title="Copy raw SVG path d string">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-        <span>Copy Path</span>
-      </button>
-      <button class="btn btn-primary" id="btn-download-svg" title="Download clean production SVG">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        <span>Download SVG</span>
-      </button>
-    </div>
-  </header>
+      <!-- BACKGROUND GRAPHIC LAYERS -->
+      <div class="bg-layer-diagonal"></div>
+      <div class="bg-layer-checker"></div>
+      <div class="bg-layer-ghost-text" id="ghost-title">BUDDH</div>
+      <div class="bg-layer-radial"></div>
 
-  <!-- Main Grid Layout -->
-  <main class="dashboard-grid">
-    
-    <!-- Left Column: Circuit Viewport & Telemetry HUD -->
-    <section class="circuit-section">
-      
-      <!-- Live Telemetry HUD Bar -->
-      <div class="telemetry-bar glass-panel">
-        <div class="hud-item speed-hud">
-          <span class="hud-label">SPEED</span>
-          <div class="hud-val-wrap">
-            <span class="hud-val" id="hud-speed">0</span>
-            <span class="hud-unit">KM/H</span>
+      <!-- Ink Brush Stroke SVG -->
+      <svg class="bg-layer-brush" aria-hidden="true" width="390" height="120" viewBox="0 0 390 120">
+        <path d="M-10 40 C60 20 120 52 200 34 C270 20 330 44 400 28 L400 62 C330 76 270 56 200 70 C120 88 60 62 -10 78 Z" fill="#0A0A0A" opacity="0.92"></path>
+      </svg>
+
+      <!-- ═══════════ TOP BAR ═══════════ -->
+      <header class="top-bar">
+        <!-- Player Profile Chip with Arigatoo Club Subtitle -->
+        <div class="profile-chip" id="btn-profile" title="Driver Profile · Arigatoo Club">
+          <div class="profile-avatar">
+            <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 14a8 8 0 0 1 16 0v4H4z"></path>
+              <path d="M4 14h16"></path>
+              <path d="M12 6v8"></path>
+            </svg>
           </div>
-          <div class="hud-meter">
-            <div class="hud-meter-fill" id="meter-speed" style="width: 0%"></div>
+          <div class="profile-text">
+            <div class="profile-name" id="display-player-name">F1 RACER</div>
+            <div class="profile-sub" id="display-player-sub">ARIGATOO CLUB · FOR FUN</div>
           </div>
         </div>
 
-        <div class="hud-item gear-hud">
-          <span class="hud-label">GEAR</span>
-          <span class="hud-val hud-val-large" id="hud-gear">N</span>
-          <span class="hud-sub" id="hud-rpm">0 RPM</span>
-        </div>
-
-        <div class="hud-item pedal-hud">
-          <div class="pedal-bar throttle-bar">
-            <span class="pedal-label">THR</span>
-            <div class="pedal-track"><div class="pedal-fill throttle-fill" id="pedal-throttle" style="height: 0%"></div></div>
+        <!-- Currencies Row (Integrated into header on PC) -->
+        <section class="currency-row" aria-label="Player Currencies">
+          <!-- Cash / Credits -->
+          <div class="curr-pill cash" id="btn-curr-cash" title="F1 Credits">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="#C8FF2E">
+              <rect x="3" y="6" width="18" height="12" rx="1"></rect>
+              <circle cx="12" cy="12" r="3" fill="#0A0A0A"></circle>
+            </svg>
+            <div class="curr-val" id="val-cash">18,190</div>
           </div>
-          <div class="pedal-bar brake-bar">
-            <span class="pedal-label">BRK</span>
-            <div class="pedal-track"><div class="pedal-fill brake-fill" id="pedal-brake" style="height: 0%"></div></div>
+
+          <!-- Super License Tokens -->
+          <div class="curr-pill coins" id="btn-curr-coins" title="Pit Tokens">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF6B1A" stroke-width="3">
+              <circle cx="9" cy="12" r="6"></circle>
+              <circle cx="15" cy="12" r="6"></circle>
+            </svg>
+            <div class="curr-val" id="val-coins">5</div>
           </div>
-        </div>
 
-        <div class="hud-item drs-hud">
-          <span class="hud-label">DRS</span>
-          <span class="drs-indicator" id="hud-drs">OFF</span>
-          <span class="hud-sub" id="hud-sector">SECTOR 1</span>
-        </div>
-
-        <div class="hud-item lap-hud">
-          <span class="hud-label">SIM LAP TIME</span>
-          <span class="hud-val font-mono" id="hud-laptime">0:00.000</span>
-          <span class="hud-sub font-mono">RECORD: 1:27.249</span>
-        </div>
-
-        <div class="hud-item sim-toggle-hud">
-          <button class="sim-btn" id="btn-toggle-sim">
-            <span class="sim-btn-icon" id="sim-icon">▶</span>
-            <span id="sim-text">START CAR</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Main SVG Canvas Stage -->
-      <div class="svg-stage glass-panel" id="stage">
-        <!-- Weather Animation Layer Canvas -->
-        <canvas id="weather-canvas" class="weather-stage-canvas"></canvas>
-        
-        <!-- Quick Layer Switcher Floating Pill -->
-        <div class="layer-pill">
-          <button class="pill-btn active" data-layer="track" title="Toggle Asphalt Track">Track</button>
-          <button class="pill-btn active" data-layer="turns" title="Toggle Turn Badges">Turns</button>
-          <button class="pill-btn active" data-layer="pit" title="Toggle Pit Lane">Pit Lane</button>
-          <button class="pill-btn active" data-layer="drs" title="Toggle DRS Zones">DRS</button>
-          <button class="pill-btn active" data-layer="sectors" title="Toggle Sectors">Sectors</button>
-          <button class="pill-btn active" data-layer="car" title="Toggle Car Simulation">Car</button>
-        </div>
-
-        <!-- Floating Race Mode Launcher -->
-        <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="stage-race-cta" title="Launch F1 Cockpit 3D Game">
-          <span class="race-flag-icon">🏁</span>
-          <div class="race-cta-text">
-            <span class="race-cta-title">START RACE</span>
-            <span class="race-cta-sub">3D F1 Cockpit Simulator</span>
+          <!-- Aero & Engine Parts -->
+          <div class="curr-pill parts" id="btn-curr-parts" title="F1 Aero Parts">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round">
+              <circle cx="12" cy="12" r="3.5"></circle>
+              <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path>
+            </svg>
+            <div class="curr-val" id="val-parts">803</div>
           </div>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
-        </a>
+        </section>
 
-        <!-- Compass North Marker -->
-        <div class="stage-compass">
-          <div class="compass-ring">
-            <span class="compass-needle"></span>
-            <span class="compass-n">N</span>
-          </div>
-        </div>
-
-        <!-- SVG Container -->
-        <div class="svg-container" id="svg-wrap">
-          <svg id="circuit-svg" viewBox="-30 -30 500 830" preserveAspectRatio="xMidYMid meet">
-            <defs>
-              <!-- Glow Filters -->
-              <filter id="svg-glow-red" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#e10600" flood-opacity="0.6"/>
-              </filter>
-              <filter id="svg-glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#00d2be" flood-opacity="0.8"/>
-              </filter>
-              <filter id="svg-glow-green" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#22c55e" flood-opacity="0.9"/>
-              </filter>
-
-              <!-- Start/Finish Pattern -->
-              <pattern id="sf-checkers" width="8" height="8" patternUnits="userSpaceOnUse">
-                <rect width="4" height="4" fill="#ffffff"/>
-                <rect x="4" y="4" width="4" height="4" fill="#ffffff"/>
-                <rect x="4" width="4" height="4" fill="#000000"/>
-                <rect y="4" width="4" height="4" fill="#000000"/>
-              </pattern>
-            </defs>
-
-            <!-- Layer: Subtle Stage Grid -->
-            <g class="layer-grid" opacity="0.08" stroke="#94a3b8" stroke-width="0.75" stroke-dasharray="2 4">
-              <line x1="-30" y1="150" x2="470" y2="150" />
-              <line x1="-30" y1="350" x2="470" y2="350" />
-              <line x1="-30" y1="550" x2="470" y2="550" />
-              <line x1="-30" y1="750" x2="470" y2="750" />
-              <line x1="120" y1="-30" x2="120" y2="800" />
-              <line x1="240" y1="-30" x2="240" y2="800" />
-              <line x1="360" y1="-30" x2="360" y2="800" />
-            </g>
-
-            <!-- Layer: Pit Lane -->
-            <g id="layer-pit" class="layer-group">
-              <path id="pit-path-underlay" class="pit-track-bg" d="M264.053,463.063l18.705-13.768c0,0,1.482-0.816,1.408-2.521l-0.84-2.149l-6.703-15.635 c0,0-1.164-5.591-6.947-9.594c-4.301-2.977-7.277-9.263-7.277-9.263l-49.64-136.292c0,0-1.985-6.616-6.858-11.42 c-4.352-4.289-8.473-10.494-10.338-15.935" />
-              <path id="pit-path-line" class="pit-track-fg" d="M264.053,463.063l18.705-13.768c0,0,1.482-0.816,1.408-2.521l-0.84-2.149l-6.703-15.635 c0,0-1.164-5.591-6.947-9.594c-4.301-2.977-7.277-9.263-7.277-9.263l-49.64-136.292c0,0-1.985-6.616-6.858-11.42 c-4.352-4.289-8.473-10.494-10.338-15.935" />
-              <text x="210" y="300" transform="rotate(-70 210 300)" class="pit-label">PIT LANE</text>
-            </g>
-
-            <!-- Layer: Main Track Asphalt & Curbs -->
-            <g id="layer-track" class="layer-group">
-              <!-- Glow Base -->
-              <path id="track-glow" class="track-glow-path" d="" filter="url(#svg-glow-red)" />
-              <!-- Outer Red Curb Border -->
-              <path id="track-curb" class="track-curb-path" d="" />
-              <!-- Dark Asphalt Surface -->
-              <path id="track-asphalt" class="track-asphalt-path" d="" />
-              <!-- Asphalt Inner Line -->
-              <path id="track-inner-asphalt" class="track-inner-path" d="" />
-              <!-- High-visibility Centerline -->
-              <path id="track-racing-line" class="track-line-path" d="" />
-            </g>
-
-            <!-- Layer: Sectors (Segment overlays) -->
-            <g id="layer-sectors" class="layer-group">
-              <!-- Sector markers / labels -->
-              <g class="sector-tag" transform="translate(190, 80)">
-                <rect x="-35" y="-10" width="70" height="20" rx="4" fill="#ffb800" fill-opacity="0.2" stroke="#ffb800" stroke-width="1"/>
-                <text y="4" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="#ffb800" text-anchor="middle">SECTOR 1</text>
-              </g>
-              <g class="sector-tag" transform="translate(390, 360)">
-                <rect x="-35" y="-10" width="70" height="20" rx="4" fill="#9d4edd" fill-opacity="0.2" stroke="#9d4edd" stroke-width="1"/>
-                <text y="4" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="#9d4edd" text-anchor="middle">SECTOR 2</text>
-              </g>
-              <g class="sector-tag" transform="translate(45, 600)">
-                <rect x="-35" y="-10" width="70" height="20" rx="4" fill="#00e5ff" fill-opacity="0.2" stroke="#00e5ff" stroke-width="1"/>
-                <text y="4" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="#00e5ff" text-anchor="middle">SECTOR 3</text>
-              </g>
-            </g>
-
-            <!-- Layer: DRS Zones -->
-            <g id="layer-drs" class="layer-group">
-              <!-- DRS Zone 2 on 1.1km Back Straight -->
-              <path class="drs-highlight" d="M280,180 L370,480" />
-              <g class="drs-badge" transform="translate(345, 310) rotate(70)">
-                <rect x="-34" y="-9" width="68" height="18" rx="4" fill="#22c55e" />
-                <text y="4" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="800" fill="#000000" text-anchor="middle">DRS ZONE 2</text>
-              </g>
-
-              <!-- DRS Zone 1 on Pit Straight -->
-              <path class="drs-highlight" d="M240,360 L180,200" />
-              <g class="drs-badge" transform="translate(195, 275) rotate(-69)">
-                <rect x="-34" y="-9" width="68" height="18" rx="4" fill="#22c55e" />
-                <text y="4" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="800" fill="#000000" text-anchor="middle">DRS ZONE 1</text>
-              </g>
-            </g>
-
-            <!-- Start / Finish Line -->
-            <g id="start-finish-group" transform="translate(208, 315) rotate(-20)">
-              <rect x="-3" y="-14" width="14" height="28" fill="url(#sf-checkers)" stroke="#ffffff" stroke-width="1" rx="2" />
-              <polygon points="20,-1 15,-6 15,-2 5,-2 5,0 15,0 15,4" fill="#00d2be" filter="url(#svg-glow-cyan)" />
-            </g>
-
-            <!-- Layer: Turn Markers (Populated via JS) -->
-            <g id="layer-turns" class="layer-group">
-              <!-- Dynamically generated turn markers -->
-            </g>
-
-            <!-- Layer: Simulated F1 Car -->
-            <g id="layer-car" class="layer-group">
-              <g id="car-marker" transform="translate(263, 432)">
-                <!-- Pulse circle -->
-                <circle class="car-pulse" r="22" />
-
-                <!-- High-Fidelity Vector F1 Car Model -->
-                <g id="car-body" class="f1-car-vector">
-                  <!-- Ground Effect Aerodynamic Underbody Glow / Shadow -->
-                  <ellipse cx="0" cy="0" rx="11" ry="18" fill="rgba(0,0,0,0.5)" filter="url(#svg-glow-red)" />
-
-                  <!-- Floor Edge Wings & Venturi Undercut -->
-                  <path d="M-6.5,-2 L-7.5,6 L-6,8 L-4.5,8 L-4,-2 Z" fill="#111317" />
-                  <path d="M6.5,-2 L7.5,6 L6,8 L4.5,8 L4,-2 Z" fill="#111317" />
-
-                  <!-- Front Suspension Wishbones (Carbon A-arms) -->
-                  <line x1="-2.2" y1="-8.5" x2="-6.5" y2="-9.5" stroke="#2a2e38" stroke-width="0.8" />
-                  <line x1="-2.2" y1="-6.5" x2="-6.5" y2="-8" stroke="#2a2e38" stroke-width="0.8" />
-                  <line x1="2.2" y1="-8.5" x2="6.5" y2="-9.5" stroke="#2a2e38" stroke-width="0.8" />
-                  <line x1="2.2" y1="-6.5" x2="6.5" y2="-8" stroke="#2a2e38" stroke-width="0.8" />
-
-                  <!-- Front Open Wheels (Pirelli Slicks with BBS Rims) -->
-                  <!-- Left Front Tire -->
-                  <g class="f1-wheel wheel-fl">
-                    <rect x="-9.8" y="-12.5" width="3.6" height="7.2" rx="1.4" fill="#0f1115" stroke="#262a34" stroke-width="0.4" />
-                    <rect x="-8.9" y="-10.5" width="1.8" height="3.2" rx="0.6" fill="#e10600" />
-                  </g>
-                  <!-- Right Front Tire -->
-                  <g class="f1-wheel wheel-fr">
-                    <rect x="6.2" y="-12.5" width="3.6" height="7.2" rx="1.4" fill="#0f1115" stroke="#262a34" stroke-width="0.4" />
-                    <rect x="7.1" y="-10.5" width="1.8" height="3.2" rx="0.6" fill="#e10600" />
-                  </g>
-
-                  <!-- Front Wing Mainplane (Carbon with Endplates & Flaps) -->
-                  <path d="M-10.5,-13.5 Q0,-16.8 10.5,-13.5 L10,-11.8 Q0,-14.8 -10,-11.8 Z" fill="#15181f" stroke="#373d4a" stroke-width="0.3" />
-                  <!-- Front Wing Cascade Red Flap -->
-                  <path d="M-9.5,-13.8 Q0,-16.2 9.5,-13.8 L9,-12.8 Q0,-15 -9,-12.8 Z" fill="#e10600" />
-                  <!-- Front Wing Endplates -->
-                  <rect x="-10.8" y="-15" width="0.9" height="4.2" rx="0.4" fill="#ffffff" />
-                  <rect x="9.9" y="-15" width="0.9" height="4.2" rx="0.4" fill="#ffffff" />
-
-                  <!-- Rear Suspension Wishbones -->
-                  <line x1="-2.8" y1="7" x2="-6.8" y2="8.5" stroke="#2a2e38" stroke-width="0.9" />
-                  <line x1="-2.8" y1="9.5" x2="-6.8" y2="10" stroke="#2a2e38" stroke-width="0.9" />
-                  <line x1="2.8" y1="7" x2="6.8" y2="8.5" stroke="#2a2e38" stroke-width="0.9" />
-                  <line x1="2.8" y1="9.5" x2="6.8" y2="10" stroke="#2a2e38" stroke-width="0.9" />
-
-                  <!-- Rear Open Wheels (Wide Pirelli Slicks) -->
-                  <!-- Left Rear Tire -->
-                  <g class="f1-wheel wheel-rl">
-                    <rect x="-10.4" y="5.8" width="4.2" height="8.4" rx="1.6" fill="#0f1115" stroke="#262a34" stroke-width="0.4" />
-                    <rect x="-9.4" y="8" width="2.2" height="4" rx="0.8" fill="#e10600" />
-                  </g>
-                  <!-- Right Rear Tire -->
-                  <g class="f1-wheel wheel-rr">
-                    <rect x="6.2" y="5.8" width="4.2" height="8.4" rx="1.6" fill="#0f1115" stroke="#262a34" stroke-width="0.4" />
-                    <rect x="7.2" y="8" width="2.2" height="4" rx="0.8" fill="#e10600" />
-                  </g>
-
-                  <!-- Main Chassis Body & Sculpted Sidepods -->
-                  <!-- Sidepods -->
-                  <path d="M-2.2,-6 L-5.6,-2 L-6.2,5 L-4.5,7 L-2,7 Z" fill="#b80500" />
-                  <path d="M2.2,-6 L5.6,-2 L6.2,5 L4.5,7 L2,7 Z" fill="#b80500" />
-                  <!-- Sidepod black radiator inlet mouths -->
-                  <path d="M-5.4,-2.5 L-2.2,-4.5 L-2.2,-1.5 L-5.2,-0.5 Z" fill="#090b0e" />
-                  <path d="M5.4,-2.5 L2.2,-4.5 L2.2,-1.5 L5.2,-0.5 Z" fill="#090b0e" />
-
-                  <!-- Nosecone (Tapered carbon red) -->
-                  <path d="M-1.4,-15 L1.4,-15 L2.5,-4 L-2.5,-4 Z" fill="#e10600" />
-                  <line x1="0" y1="-14.8" x2="0" y2="-4" stroke="#ff5c57" stroke-width="0.7" />
-                  <!-- Pitot tube -->
-                  <line x1="0" y1="-15" x2="0" y2="-16.8" stroke="#ffffff" stroke-width="0.5" />
-                  <!-- Driver #16 badge on nose -->
-                  <rect x="-1.2" y="-11.5" width="2.4" height="3" rx="0.5" fill="#ffffff" />
-                  <text x="0" y="-9.3" font-family="'JetBrains Mono', monospace" font-size="2.4" font-weight="900" fill="#e10600" text-anchor="middle">16</text>
-
-                  <!-- Engine Cover Spine & Shark Fin -->
-                  <path d="M-2,0 L2,0 L1.6,11.5 L-1.6,11.5 Z" fill="#cc0500" />
-                  <line x1="0" y1="1" x2="0" y2="12" stroke="#ffffff" stroke-width="0.6" />
-
-                  <!-- Cockpit Opening & Carbon Tub -->
-                  <ellipse cx="0" cy="-0.6" rx="2.4" ry="4" fill="#0c0d11" stroke="#252933" stroke-width="0.5" />
-
-                  <!-- Driver Helmet with Iridescent Visor -->
-                  <circle cx="0" cy="-0.6" r="1.65" fill="#ffd600" />
-                  <path d="M-1.1,-1.2 Q0,-1.9 1.1,-1.2 L0.9,-0.7 Q0,-1.3 -0.9,-0.7 Z" fill="#00e5ff" filter="url(#svg-glow-cyan)" />
-
-                  <!-- Halo Safety Structure -->
-                  <path d="M-2.2,1.2 C-2.4,-1.8 2.4,-1.8 2.2,1.2" fill="none" stroke="#1d2027" stroke-width="1.2" stroke-linecap="round" />
-                  <line x1="0" y1="-1.6" x2="0" y2="-3.2" stroke="#1d2027" stroke-width="1.2" stroke-linecap="round" />
-                  <path d="M-2,-0.2 C-2,-1.5 2,-1.5 2,-0.2" fill="none" stroke="#4b5262" stroke-width="0.4" />
-
-                  <!-- Airbox Intake & T-Camera Pod -->
-                  <rect x="-1" y="0.8" width="2" height="1.4" rx="0.4" fill="#08090c" />
-                  <rect x="-0.8" y="1" width="1.6" height="0.8" rx="0.2" fill="#ffd600" />
-
-                  <!-- Rear Wing Lower Beam & Endplates -->
-                  <rect x="-7.8" y="10.8" width="15.6" height="1.2" rx="0.3" fill="#15171d" />
-                  <rect x="-8.2" y="10" width="1" height="5" rx="0.3" fill="#ffffff" />
-                  <rect x="7.2" y="10" width="1" height="5" rx="0.3" fill="#ffffff" />
-
-                  <!-- Main Rear Wing Element -->
-                  <rect x="-7.4" y="12.2" width="14.8" height="2" rx="0.4" fill="#e10600" stroke="#3d0300" stroke-width="0.3" />
-
-                  <!-- ACTIVE DRS FLAP (Animates open / close) -->
-                  <g id="car-drs-group">
-                    <rect id="car-drs-flap" x="-7" y="11" width="14" height="1.4" rx="0.3" fill="#00d2be" stroke="#ffffff" stroke-width="0.3" filter="url(#svg-glow-cyan)" />
-                  </g>
-
-                  <!-- Rear Rain / ERS Harvest Safety LED (Flashing Red) -->
-                  <circle class="rear-rain-light" cx="0" cy="14.8" r="0.9" fill="#ff1744" filter="url(#svg-glow-red)" />
-                </g>
-              </g>
-            </g>
-
+        <!-- Fuel / Push Laps Chip -->
+        <div class="energy-chip" id="btn-energy" title="Push Laps / ERS: 3/7">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 8h10v12H6z"></path>
+            <path d="M16 11l3-2v6"></path>
+            <path d="M8 8V5h5"></path>
           </svg>
+          <div class="energy-val" id="display-energy">3<span class="energy-sub">/7</span></div>
         </div>
 
-        <!-- Corner Quick Tooltip Overlay -->
-        <div class="turn-tooltip" id="turn-tooltip">
-          <div class="tt-header">
-            <span class="tt-num" id="tt-num">T1</span>
-            <span class="tt-name" id="tt-name">Turn 1</span>
-          </div>
-          <div class="tt-body" id="tt-desc">Heavy braking into sharp right-hander</div>
-          <div class="tt-footer">
-            <span class="tt-stat" id="tt-speed">105 KM/H</span>
-            <span class="tt-gear" id="tt-gear">GEAR 2</span>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- Right Column: Turn Explorer & SVG Code Integrations -->
-    <aside class="sidebar-section">
-      
-      <!-- Live Meteorology & Weather Card -->
-      <div class="weather-sidebar-card glass-panel" id="weather-sidebar-card">
-        <div class="card-header-row">
-          <h3 class="panel-title">
-            <span class="panel-title-icon" id="sidebar-weather-icon">☀️</span>
-            <span>LIVE TRACK WEATHER</span>
-          </h3>
-          <span class="weather-condition-pill" id="sidebar-weather-pill">SUNNY • DRY</span>
-        </div>
-        <div class="weather-sidebar-grid">
-          <div class="weather-sidebar-stat">
-            <span class="ws-label">AIR TEMP</span>
-            <span class="ws-val" id="sidebar-air-temp">32°C</span>
-          </div>
-          <div class="weather-sidebar-stat">
-            <span class="ws-label">TRACK TEMP</span>
-            <span class="ws-val" id="sidebar-track-temp">44°C</span>
-          </div>
-          <div class="weather-sidebar-stat">
-            <span class="ws-label">PRECIPITATION</span>
-            <span class="ws-val" id="sidebar-precip">0%</span>
-          </div>
-          <div class="weather-sidebar-stat">
-            <span class="ws-label">GRIP COEFFICIENT</span>
-            <span class="ws-val font-mono" id="sidebar-grip" style="color:var(--neon-green)">1.00 <small>(100%)</small></span>
-          </div>
-        </div>
-        <div class="weather-tyre-rec" id="sidebar-tyre-rec">
-          <span class="tyre-icon">🔴</span>
-          <span>TYRE SELECTION: <b>SOFT SLICKS (DRY)</b></span>
-        </div>
-      </div>
-
-      <!-- Track Stats Card -->
-      <div class="stats-card glass-panel">
-        <h3 class="panel-title">CIRCUIT SPECIFICATIONS</h3>
-        <div class="specs-grid">
-          <div class="spec-box">
-            <span class="spec-label">LENGTH</span>
-            <span class="spec-value">5.125 <small>KM</small></span>
-          </div>
-          <div class="spec-box">
-            <span class="spec-label">TURNS</span>
-            <span class="spec-value">16</span>
-          </div>
-          <div class="spec-box">
-            <span class="spec-label">DIRECTION</span>
-            <span class="spec-value">Clockwise</span>
-          </div>
-          <div class="spec-box">
-            <span class="spec-label">LONGEST STRAIGHT</span>
-            <span class="spec-value">1,060 <small>M</small></span>
-          </div>
-          <div class="spec-box">
-            <span class="spec-label">LAP RECORD</span>
-            <span class="spec-value font-mono">1:27.249</span>
-            <span class="spec-sub">S. Vettel (2011)</span>
-          </div>
-          <div class="spec-box">
-            <span class="spec-label">TOP SPEED</span>
-            <span class="spec-value font-mono">338.4 <small>KM/H</small></span>
-            <span class="spec-sub">Recorded in F1 GP</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Turn Directory & Corner Inspector -->
-      <div class="turns-card glass-panel">
-        <div class="card-header-row">
-          <h3 class="panel-title">CORNERS EXPLORER (16 TURNS)</h3>
-          <span class="tag-counter">16 APEXES</span>
-        </div>
-        <p class="section-desc">Click any corner to inspect telemetry, recommended gear, and braking point.</p>
-        
-        <div class="turns-list-wrap" id="turns-list">
-          <!-- Populated by JavaScript -->
-        </div>
-      </div>
-
-      <!-- Developer Code Snippet & Export Panel -->
-      <div class="code-card glass-panel">
-        <div class="card-header-row">
-          <h3 class="panel-title">GAME ENGINE INTEGRATION</h3>
-          <div class="code-tabs">
-            <button class="code-tab active" data-tab="svg">SVG</button>
-            <button class="code-tab" data-tab="js">JavaScript</button>
-            <button class="code-tab" data-tab="json">JSON</button>
-          </div>
-        </div>
-
-        <div class="code-container">
-          <pre><code id="code-snippet">&lt;!-- Clean Track SVG for your Game Engine --&gt;
-&lt;svg viewBox="0 0 435 770"&gt;
-  &lt;path id="track" d="..." fill="none" stroke="#e10600" stroke-width="8" /&gt;
-&lt;/svg&gt;</code></pre>
-          <button class="copy-snippet-btn" id="btn-copy-code" title="Copy code snippet">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-            <span>Copy</span>
-          </button>
-        </div>
-
-        <div class="export-btn-group">
-          <button class="btn btn-outline" id="btn-copy-d">Copy Path Data [d]</button>
-          <button class="btn btn-outline" id="btn-download-detailed">Download Full SVG</button>
-        </div>
-      </div>
-
-    </aside>
-
-  </main>
-
-  <!-- Notification Toast -->
-  <div class="toast" id="toast">Copied to clipboard!</div>
-
-  <!-- Game Mode Selector Modal -->
-  <div class="modal-backdrop" id="game-mode-modal" hidden>
-    <div class="game-mode-dialog glass-panel">
-      <div class="dialog-header">
-        <div class="dialog-brand">
-          <span class="f1-badge-red">F1</span>
-          <h3>SELECT RACE MODE</h3>
-        </div>
-        <button class="btn-close-modal" id="btn-close-game-modes" aria-label="Close modal">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <!-- Menu Button -->
+        <button type="button" class="menu-btn" id="btn-open-menu" aria-label="Open Settings Menu">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" stroke-width="3.2" stroke-linecap="round">
+            <path d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
         </button>
+      </header>
+
+      <!-- ═══════════ RESPONSIVE MAIN GRID (PC 2-Column / Mobile 1-Column) ═══════════ -->
+      <div class="responsive-main-grid">
+
+        <!-- ─── LEFT COLUMN: BUDDH RACE TRACK & TELEMETRY ─── -->
+        <div class="desktop-left-hero">
+          <section class="hero-area" aria-label="Buddh International Circuit Track">
+            <!-- Left Sticker: Speed Trap DRS -->
+            <div class="offer-sticker" id="sticker-offer">
+              <div class="offer-sticker-sub">338 KM/H</div>
+              <div class="offer-tag">1.06KM DRS</div>
+            </div>
+
+            <!-- Right Sticker: 1:27.249 Pole Starburst -->
+            <div class="starburst-badge" id="sticker-boost">
+              <svg aria-hidden="true" width="68" height="68" viewBox="0 0 66 66">
+                <path d="M33 2l8 12 14-4-4 14 12 9-12 8 3 14-14-3-7 12-7-12-14 3 3-14L2 33l12-9-4-14 14 4z" fill="#C8FF2E" stroke="#0A0A0A" stroke-width="3" stroke-linejoin="round"></path>
+              </svg>
+              <div class="starburst-text">POLE<br>1:27.2</div>
+            </div>
+
+            <!-- Arigatoo Club Badge Sticker -->
+            <div class="arigatoo-sticker" id="sticker-arigatoo" title="Made by Arigatoo Club for fun">
+              MADE BY ARIGATOO CLUB FOR FUN
+            </div>
+
+            <!-- ─── Centerpiece: Buddh Race Track SVG Map ─── -->
+            <div class="track-hero-stage">
+              <svg id="hero-circuit-svg" class="track-svg-canvas" viewBox="0 0 760 440" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                  <filter id="track-lime-glow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#C8FF2E" flood-opacity="0.85"/>
+                  </filter>
+                  <filter id="car-neon-glow" x="-40%" y="-40%" width="180%" height="180%">
+                    <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#C8FF2E" flood-opacity="1"/>
+                  </filter>
+                  <pattern id="track-sf-checkers" width="8" height="8" patternUnits="userSpaceOnUse">
+                    <rect width="4" height="4" fill="#FFFFFF"/>
+                    <rect x="4" y="4" width="4" height="4" fill="#FFFFFF"/>
+                    <rect x="4" width="4" height="4" fill="#0A0A0A"/>
+                    <rect y="4" width="4" height="4" fill="#0A0A0A"/>
+                  </pattern>
+                </defs>
+
+                <!-- Grid backdrop lines for technical F1 radar look -->
+                <g opacity="0.12" stroke="#C8FF2E" stroke-width="1" stroke-dasharray="3 6">
+                  <line x1="0" y1="110" x2="760" y2="110"/>
+                  <line x1="0" y1="220" x2="760" y2="220"/>
+                  <line x1="0" y1="330" x2="760" y2="330"/>
+                  <line x1="190" y1="0" x2="190" y2="440"/>
+                  <line x1="380" y1="0" x2="380" y2="440"/>
+                  <line x1="570" y1="0" x2="570" y2="440"/>
+                </g>
+
+                <!-- Rotated Track System (fills 760x440 landscape hero box) -->
+                <g id="track-rot-group" transform="translate(760, 10) rotate(90)">
+                  <!-- Outer Glow Layer -->
+                  <path id="track-glow-path" d="" fill="none" stroke="#C8FF2E" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" filter="url(#track-lime-glow)"/>
+                  <!-- Base Asphalt Road -->
+                  <path id="track-asphalt-path" d="" fill="none" stroke="#0A0A0A" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- Inner Curb Border -->
+                  <path id="track-curb-path" d="" fill="none" stroke="#1E1E1E" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- Racing Line (dashed neon white/lime) -->
+                  <path id="track-racing-line" d="" fill="none" stroke="#C8FF2E" stroke-width="2.5" stroke-dasharray="10 8"/>
+
+                  <!-- DRS Zone 1 Highlight (Back Straight) -->
+                  <path d="M280,180 L370,480" fill="none" stroke="#FF6B1A" stroke-width="6" opacity="0.8"/>
+                  <!-- DRS Zone 2 Highlight (Pit Straight) -->
+                  <path d="M240,360 L180,200" fill="none" stroke="#FF6B1A" stroke-width="6" opacity="0.8"/>
+
+                  <!-- Start/Finish Line Indicator -->
+                  <g transform="translate(208, 315) rotate(-20)">
+                    <rect x="-4" y="-12" width="12" height="24" fill="url(#track-sf-checkers)" stroke="#FFFFFF" stroke-width="1.5"/>
+                  </g>
+
+                  <!-- Turn Apex Markers -->
+                  <g class="track-apex-tags" font-family="'Anton', sans-serif" font-size="11" text-anchor="middle">
+                    <!-- T1 -->
+                    <g transform="translate(144.5, 143.9)"><circle r="8" fill="#0A0A0A" stroke="#C8FF2E" stroke-width="2"/><text y="4" fill="#C8FF2E">1</text></g>
+                    <!-- T3 Hairpin -->
+                    <g transform="translate(278.3, 14.7)"><circle r="8" fill="#FF6B1A" stroke="#0A0A0A" stroke-width="2"/><text y="4" fill="#0A0A0A">3</text></g>
+                    <!-- T4 End of Straight -->
+                    <g transform="translate(417.7, 582.3)"><circle r="8" fill="#0A0A0A" stroke="#FF6B1A" stroke-width="2"/><text y="4" fill="#FF6B1A">4</text></g>
+                    <!-- T10 Parabolica -->
+                    <g transform="translate(130.7, 751.5)"><circle r="8" fill="#C8FF2E" stroke="#0A0A0A" stroke-width="2"/><text y="4" fill="#0A0A0A">10</text></g>
+                    <!-- T16 Final Corner -->
+                    <g transform="translate(284.7, 473.3)"><circle r="8" fill="#0A0A0A" stroke="#FFFFFF" stroke-width="2"/><text y="4" fill="#FFFFFF">16</text></g>
+                  </g>
+
+                  <!-- Animated Neon F1 Car Beacon -->
+                  <g id="animated-car-beacon" transform="translate(263, 432)">
+                    <circle r="12" fill="none" stroke="#C8FF2E" stroke-width="2" opacity="0.6">
+                      <animate attributeName="r" values="8;18;8" dur="1.2s" repeatCount="indefinite"/>
+                      <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle r="5.5" fill="#C8FF2E" stroke="#0A0A0A" stroke-width="1.5" filter="url(#car-neon-glow)"></circle>
+                  </g>
+                </g>
+              </svg>
+            </div>
+
+            <!-- Live Telemetry Floating Chip over Track -->
+            <div class="track-live-hud" id="track-live-hud">
+              <span class="hud-speed-chip" id="hud-live-speed">324 KM/H</span>
+              <span>GEAR <b id="hud-live-gear" style="color:var(--neon-lime)">7</b></span>
+              <span class="hud-drs-chip" id="hud-live-drs">DRS ACTIVE</span>
+              <span style="opacity:0.6">| T4 APEX</span>
+            </div>
+          </section>
+        </div>
+
+        <!-- ─── RIGHT COLUMN: ACTIONS, SPONSORS & EVENT PROGRESS ─── -->
+        <div class="desktop-right-actions">
+
+          <!-- Row A: Pit Sponsor + Super License -->
+          <section class="row-a">
+            <!-- Daily Pit Sponsor Crate -->
+            <div class="daily-crate-card" id="card-daily-crate">
+              <svg aria-hidden="true" width="46" height="40" viewBox="0 0 46 40">
+                <path d="M4 12l19-8 19 8v22l-19 6-19-6z" fill="#FFD9A8" stroke="#0A0A0A" stroke-width="3" stroke-linejoin="round"></path>
+                <path d="M4 12l19 7 19-7M23 19v21" stroke="#0A0A0A" stroke-width="3" fill="none"></path>
+              </svg>
+              <div class="daily-crate-title">PIT SPONSOR</div>
+              <button type="button" class="btn-claim" id="btn-claim-crate">CLAIM</button>
+            </div>
+
+            <!-- Super License / Reputation -->
+            <div class="reputation-card" id="card-reputation">
+              <div class="rep-content">
+                <div class="rep-label">SUPER LICENSE PTS</div>
+                <div class="rep-score-row">
+                  <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C8FF2E" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+                    <path d="M7 4h10v5a5 5 0 0 1-10 0z"></path>
+                    <path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3M12 14v4M8 20h8"></path>
+                  </svg>
+                  <div class="rep-number" id="display-rep">35<small>PTS</small></div>
+                </div>
+              </div>
+              <button type="button" class="rep-collect-btn" id="btn-collect-rep">
+                <div class="collect-title">COLLECT</div>
+                <svg aria-hidden="true" width="34" height="22" viewBox="0 0 34 22">
+                  <rect x="2" y="9" width="30" height="11" fill="#0A0A0A"></rect>
+                  <rect x="5" y="4" width="24" height="11" fill="#0A0A0A" opacity="0.7"></rect>
+                  <rect x="8" y="0" width="18" height="10" fill="#0A0A0A" opacity="0.45"></rect>
+                </svg>
+              </button>
+              <div class="alert-dot" id="dot-rep">!</div>
+            </div>
+          </section>
+
+          <!-- Event Banner: Indian Grand Prix -->
+          <section class="event-banner" id="banner-event" title="Event Progress">
+            <div class="event-info">
+              <div class="event-title">INDIAN GRAND PRIX 2024</div>
+              <div class="event-track">
+                <div class="event-fill" id="event-progress-bar"></div>
+              </div>
+            </div>
+            <div class="event-count">2<small>/9 LAPS</small></div>
+            <div class="alert-dot">!</div>
+          </section>
+
+          <!-- Action Buttons Group -->
+          <section class="action-buttons-wrap">
+            <!-- Giant Primary RACE CTA -->
+            <button type="button" class="btn-race-primary" id="btn-race-main" title="Launch F1 Cockpit Simulator">
+              <div class="race-text">RACE</div>
+              <div class="race-subtag">BUDDH GP · 3D COCKPIT SIMULATOR</div>
+            </button>
+
+            <!-- Secondary Buttons (Challenges + Duo Race) -->
+            <div class="secondary-buttons-row">
+              <button type="button" class="btn-challenges" id="btn-challenges">
+                CHALLENGES
+                <span class="alert-dot">!</span>
+              </button>
+              <button type="button" class="btn-turbo-cup" id="btn-turbo-cup">
+                DUO RACE
+                <span class="alert-dot">!</span>
+              </button>
+            </div>
+
+            <!-- Timer Pill -->
+            <div class="timer-pill">QUALIFYING STARTS IN 19H 46M</div>
+          </section>
+
+        </div>
       </div>
 
-      <p class="dialog-subtitle">Choose your driving experience on Buddh International Circuit:</p>
-
-      <div class="game-mode-grid">
-        <!-- 1. Single Player -->
-        <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="mode-card">
-          <div class="mode-card-badge single-badge">SOLO</div>
-          <div class="mode-icon-wrap">🏎️</div>
-          <h4>Single Player</h4>
-          <p class="mode-desc">Cockpit View Time Trial, practice racing lines, DRS zones & sector pacing.</p>
-          <div class="mode-footer">
-            <span class="mode-tag">1 Driver</span>
-            <span class="mode-ctrl">Keyboard / WASD</span>
-            <span class="mode-btn-pill">START SOLO →</span>
-          </div>
-        </a>
-
-        <!-- 2. Duo Player (Split-Screen) -->
-        <a href="duo_race.html" class="mode-card featured">
-          <div class="mode-card-badge duo-badge">SPLIT-SCREEN</div>
-          <div class="mode-icon-wrap">👥</div>
-          <h4>Duo Player (1 Device)</h4>
-          <p class="mode-desc">2 separate screens side-by-side on the same device! Head-to-head live battle.</p>
-          <div class="mode-footer">
-            <span class="mode-tag">2 Drivers</span>
-            <span class="mode-ctrl">P1: W,A,S,D • P2: ▲,◄,▼,►</span>
-            <span class="mode-btn-pill">PLAY DUO →</span>
-          </div>
-        </a>
-
-        <!-- 3. Multiplayer (Online Rooms) -->
-        <a href="multiplayer_race.html" class="mode-card online-featured">
-          <div class="mode-card-badge multi-badge">ONLINE GP</div>
-          <div class="mode-icon-wrap">🌐</div>
-          <h4>Multiplayer (Rooms)</h4>
-          <p class="mode-desc">Create or join rooms with invite codes, race friends & celebrate Top 3 Podium winners (🥇🥈🥉)!</p>
-          <div class="mode-footer">
-            <span class="mode-tag">Top 3 Podium</span>
-            <span class="mode-ctrl">Room Code / WebRTC</span>
-            <span class="mode-btn-pill">ENTER LOBBY →</span>
-          </div>
-        </a>
+      <!-- ═══════════ TICKER STRIP ═══════════ -->
+      <div class="ticker-strip">
+        <div class="ticker-content">
+          MADE BY ARIGATOO CLUB FOR FUN &nbsp;/&nbsp; BOX BOX NOW &nbsp;/&nbsp; DRS ENABLED &nbsp;/&nbsp; SECTOR 2 PURPLE &nbsp;/&nbsp; 1:27.249 VETTEL RECORD &nbsp;/&nbsp; PUSH LAP NOW &nbsp;/&nbsp; MAXIMUM ATTACK &nbsp;/&nbsp; FULL THROTTLE &nbsp;/&nbsp; BUDDH INTERNATIONAL CIRCUIT &nbsp;/&nbsp; MADE BY ARIGATOO CLUB FOR FUN &nbsp;/&nbsp;
+        </div>
       </div>
-    </div>
+
+      <!-- ═══════════ BOTTOM NAV ═══════════ -->
+      <nav class="bottom-nav" aria-label="Main Navigation">
+        <!-- Store / Shop -->
+        <button type="button" class="nav-tab" id="nav-btn-shop" aria-label="Store">
+          <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 4h3l2 11h10l2-8H7"></path>
+            <circle cx="10" cy="19" r="1.4"></circle>
+            <circle cx="17" cy="19" r="1.4"></circle>
+          </svg>
+          <span>STORE</span>
+          <span class="nav-tab-badge">!</span>
+        </button>
+
+        <!-- Garage / Car Setup -->
+        <button type="button" class="nav-tab" id="nav-btn-garage" aria-label="Garage">
+          <svg aria-hidden="true" width="28" height="26" viewBox="0 0 28 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="6" cy="17" r="4.5"></circle>
+            <circle cx="22" cy="17" r="4.5"></circle>
+            <path d="M6 17l6-8h7l3 8M12 9l-2-4h4M19 9l2-4h3"></path>
+          </svg>
+          <span>GARAGE</span>
+        </button>
+
+        <!-- Center Raised RACE Button -->
+        <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="nav-race-center" id="nav-btn-race" aria-label="Start Race">
+          <svg aria-hidden="true" width="46" height="34" viewBox="0 0 46 34" fill="#0A0A0A">
+            <path d="M2 32L16 8l8 12 6-8 14 20z"></path>
+            <path d="M13 14l3-6 3 6z" fill="#FFFFFF"></path>
+          </svg>
+          <span>RACE</span>
+        </a>
+
+        <!-- Telemetry / Track Info -->
+        <button type="button" class="nav-tab" id="nav-btn-gear" aria-label="Telemetry">
+          <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          <span>TELEMETRY</span>
+        </button>
+
+        <!-- Crew / Multiplayer -->
+        <button type="button" class="nav-tab" id="nav-btn-crew" aria-label="Online Crew">
+          <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path>
+            <path d="M9 12l2.2 2.2L15.5 10"></path>
+          </svg>
+          <span>CREW</span>
+          <span class="nav-tab-badge">!</span>
+        </button>
+      </nav>
+
+      <!-- ═══════════ RETRO POPUP TOAST ═══════════ -->
+      <div class="retro-toast" id="toast">CLAIMED +500 CASH!</div>
+
+      <!-- ═══════════ MODALS ═══════════ -->
+
+      <!-- 1. RACE MODE SELECTION MODAL -->
+      <div class="modal-overlay" id="modal-race-modes">
+        <div class="modal-card">
+          <div class="modal-card-inner">
+            <div class="modal-header">
+              <div class="modal-title">SELECT F1 RACE MODE</div>
+              <button type="button" class="modal-close-btn" data-close="modal-race-modes">X</button>
+            </div>
+
+            <!-- Mode 1: Cockpit Solo -->
+            <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="mode-option-btn">
+              <div class="mode-opt-header">
+                <span class="mode-opt-title" style="color:var(--neon-lime)">1. 3D COCKPIT TIME TRIAL</span>
+                <span class="mode-tag-pill">SOLO F1</span>
+              </div>
+              <div class="mode-opt-desc">Full 3D cockpit simulation at Buddh International Circuit. Realistic steering, DRS zones, 16 turns, gear shifting.</div>
+            </a>
+
+            <!-- Mode 2: Duo Split Screen -->
+            <a href="duo_race.html" class="mode-option-btn">
+              <div class="mode-opt-header">
+                <span class="mode-opt-title" style="color:var(--hot-orange)">2. DUO SPLIT-SCREEN</span>
+                <span class="mode-tag-pill">1 DEVICE</span>
+              </div>
+              <div class="mode-opt-desc">2 drivers on 1 device! Player 1 (WASD) vs Player 2 (Arrow Keys) in split-screen Grand Prix combat.</div>
+            </a>
+
+            <!-- Mode 3: Online GP -->
+            <a href="multiplayer_race.html" class="mode-option-btn">
+              <div class="mode-opt-header">
+                <span class="mode-opt-title" style="color:var(--pure-white)">3. ONLINE GP MULTIPLAYER</span>
+                <span class="mode-tag-pill">ROOMS</span>
+              </div>
+              <div class="mode-opt-desc">Create or join rooms with invite codes. Race friends with live sync and Top 3 Podium celebrations.</div>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. CHALLENGES MODAL -->
+      <div class="modal-overlay" id="modal-challenges">
+        <div class="modal-card">
+          <div class="modal-card-inner">
+            <div class="modal-header">
+              <div class="modal-title">CIRCUIT CHALLENGES</div>
+              <button type="button" class="modal-close-btn" data-close="modal-challenges">X</button>
+            </div>
+            <div style="font-size:12px; margin-bottom:12px; color:#c0c0c0">Complete daily Buddh Circuit challenges to earn gold tokens & super license points:</div>
+
+            <div class="mode-option-btn" style="cursor:default">
+              <div class="mode-opt-header">
+                <span class="mode-opt-title" style="font-size:18px">APEX HUNTER · 16 TURNS</span>
+                <span class="mode-tag-pill">+500 CREDITS</span>
+              </div>
+              <div class="mode-opt-desc">Hit all 16 apexes at Buddh Circuit with zero track limits warnings. Progress: 14/16</div>
+            </div>
+
+            <div class="mode-option-btn" style="cursor:default">
+              <div class="mode-opt-header">
+                <span class="mode-opt-title" style="font-size:18px">DRS SPEED TRAP: 320+ KM/H</span>
+                <span class="mode-tag-pill">+2 TOKENS</span>
+              </div>
+              <div class="mode-opt-desc">Reach 320+ km/h on the 1.06km straight into Turn 4 braking zone. Completed!</div>
+            </div>
+
+            <div class="mode-option-btn" style="cursor:default">
+              <div class="mode-opt-header">
+                <span class="mode-opt-title" style="font-size:18px">VETTEL'S RECORD CHASE</span>
+                <span class="mode-tag-pill">+10 LICENSE</span>
+              </div>
+              <div class="mode-opt-desc">Lap under 1:32.000 in dry cockpit conditions. Target: 1:27.249 record.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. GARAGE & TRACK TELEMETRY MODAL -->
+      <div class="modal-overlay" id="modal-garage">
+        <div class="modal-card">
+          <div class="modal-card-inner">
+            <div class="modal-header">
+              <div class="modal-title">GARAGE & TRACK SETUP</div>
+              <button type="button" class="modal-close-btn" data-close="modal-garage">X</button>
+            </div>
+
+            <!-- Weather switcher -->
+            <div style="margin-bottom:14px">
+              <div style="font-family:var(--font-display); font-size:16px; margin-bottom:6px; color:var(--neon-lime)">TRACK WEATHER & GRIP:</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px">
+                <button type="button" class="weather-toggle-btn active" data-weather="sunny" style="background:var(--ink-black); border:2px solid var(--neon-lime); color:var(--neon-lime); padding:6px; font-weight:800; font-size:11px; cursor:pointer">SUNNY · 100% GRIP</button>
+                <button type="button" class="weather-toggle-btn" data-weather="cloudy" style="background:var(--ink-black); border:2px solid #555; color:#fff; padding:6px; font-weight:800; font-size:11px; cursor:pointer">CLOUDY · 98% GRIP</button>
+                <button type="button" class="weather-toggle-btn" data-weather="rain" style="background:var(--ink-black); border:2px solid #555; color:#fff; padding:6px; font-weight:800; font-size:11px; cursor:pointer">RAIN · 60% GRIP</button>
+                <button type="button" class="weather-toggle-btn" data-weather="snow" style="background:var(--ink-black); border:2px solid #555; color:#fff; padding:6px; font-weight:800; font-size:11px; cursor:pointer">SNOW · 35% GRIP</button>
+              </div>
+            </div>
+
+            <!-- Circuit specs -->
+            <div style="background:var(--dark-gray); border:2px solid var(--ink-black); padding:10px; margin-bottom:12px; font-size:11px; line-height:1.6">
+              <div><b>CIRCUIT:</b> Buddh International Circuit (Greater Noida, India)</div>
+              <div><b>TRACK LENGTH:</b> 5.125 KM (3.185 mi) · 16 Turns (Clockwise)</div>
+              <div><b>LONGEST STRAIGHT:</b> 1,060 Meters (Turn 3 to Turn 4)</div>
+              <div><b>LAP RECORD:</b> 1:27.249 — Sebastian Vettel (Red Bull Racing)</div>
+              <div style="margin-top:4px; color:var(--neon-lime)"><b>CREATORS:</b> Made by Arigatoo Club for fun</div>
+            </div>
+
+            <!-- Launch cockpit button -->
+            <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="mode-option-btn" style="text-align:center; background:var(--neon-lime); color:var(--ink-black); font-family:var(--font-display); font-size:20px; letter-spacing:1px">
+              START 3D COCKPIT SIMULATOR →
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. SHOP MODAL -->
+      <div class="modal-overlay" id="modal-shop">
+        <div class="modal-card">
+          <div class="modal-card-inner">
+            <div class="modal-header">
+              <div class="modal-title">F1 PADDOCK STORE</div>
+              <button type="button" class="modal-close-btn" data-close="modal-shop">X</button>
+            </div>
+
+            <div class="mode-option-btn" id="shop-item-1">
+              <div class="mode-opt-header">
+                <span class="mode-opt-title" style="font-size:18px">PIRELLI SOFT SLICKS SET</span>
+                <span class="mode-tag-pill">2,500 CREDITS</span>
+              </div>
+              <div class="mode-opt-desc">Maximum dry grip compound. Optimum braking into Turn 1 and Turn 4.</div>
+            </div>
+
+            <div class="mode-option-btn" id="shop-item-2">
+              <div class="mode-opt-header">
+                <span class="mode-opt-title" style="font-size:18px">HIGH DOWNFORCE AERO WING</span>
+                <span class="mode-tag-pill">5,000 CREDITS</span>
+              </div>
+              <div class="mode-opt-desc">+12% cornering grip through Turn 10-11 parabolic curve.</div>
+            </div>
+
+            <div class="mode-option-btn" id="shop-item-3">
+              <div class="mode-opt-header">
+                <span class="mode-opt-title" style="font-size:18px">ARIGATOO CLUB SPECIAL LIVERY</span>
+                <span class="mode-tag-pill">3 TOKENS</span>
+              </div>
+              <div class="mode-opt-desc">Neon lime & matte carbon black F1 livery with gold race number 16. Made for fun!</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. MENU / SETTINGS MODAL -->
+      <div class="modal-overlay" id="modal-menu">
+        <div class="modal-card">
+          <div class="modal-card-inner">
+            <div class="modal-header">
+              <div class="modal-title">PADDOCK SETTINGS</div>
+              <button type="button" class="modal-close-btn" data-close="modal-menu">X</button>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px; font-size:13px">
+              <div style="display:flex; justify-content:space-between; align-items:center; background:var(--dark-gray); padding:10px; border:2px solid #333">
+                <span>SOUND EFFECTS</span>
+                <button type="button" id="btn-toggle-sound" style="background:var(--neon-lime); color:#000; border:2px solid #000; font-family:var(--font-display); padding:4px 12px; cursor:pointer">ON</button>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; background:var(--dark-gray); padding:10px; border:2px solid #333">
+                <span>TRACK: BUDDH INTERNATIONAL</span>
+                <span style="color:var(--neon-lime); font-weight:800">16 TURNS</span>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; background:var(--dark-gray); padding:10px; border:2px solid #333">
+                <span>PROJECT</span>
+                <span style="color:var(--hot-orange); font-weight:800">ARIGATOO CLUB · FOR FUN</span>
+              </div>
+
+              <a href="duo_race.html" class="mode-option-btn" style="text-align:center; margin-top:8px">
+                OPEN DUO SPLIT-SCREEN RACE
+              </a>
+
+              <a href="multiplayer_race.html" class="mode-option-btn" style="text-align:center">
+                OPEN MULTIPLAYER LOBBY
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
   </div>
 
+  <!-- Interactive JavaScript Engine -->
   <script src="assets/js/app.js"></script>
 </body>
 </html>
