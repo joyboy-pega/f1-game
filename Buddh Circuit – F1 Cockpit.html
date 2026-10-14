@@ -330,8 +330,16 @@ canvas{display:block;width:100%;height:100%}
     <div>
       <label for="car-select">VEHICLE</label>
       <select id="car-select">
+        <option value="cardboard">Cardboard Racer (DIY Spec-V)</option>
         <option value="standard">Formula V Standard</option>
-        <option value="cardboard">Cardboard Racer (DIY Edition)</option>
+      </select>
+    </div>
+    <div>
+      <label for="cam-select">CAMERA</label>
+      <select id="cam-select">
+        <option value="chase">Chase Cam (3rd Person 3D)</option>
+        <option value="cockpit">Cockpit (1st Person)</option>
+        <option value="hood">Nose / Hood Cam</option>
       </select>
     </div>
   </div>
@@ -413,9 +421,13 @@ canvas{display:block;width:100%;height:100%}
 <div id="lights"><span></span><span></span><span></span><span></span><span></span></div>
 <div id="msg"></div>
 <div id="top-tools">
-  <button id="car-toggle-btn" type="button" title="Switch between Standard Formula V & Cardboard Racer">
+  <button id="car-toggle-btn" type="button" title="Switch between Cardboard Racer & Standard Formula V">
     <span style="margin-right:4px">CAR:</span>
-    <span id="car-toggle-text">FORMULA V</span>
+    <span id="car-toggle-text">CARDBOARD</span>
+  </button>
+  <button id="cam-toggle-btn" type="button" title="Switch Camera View (Press C: Chase, Cockpit, Hood)">
+    <span style="margin-right:4px">CAM:</span>
+    <span id="cam-toggle-text">CHASE</span>
   </button>
   <a href="garage.html" class="tool-btn-link" id="top-garage-btn" title="Inspect Cardboard Racer in 3D Garage">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
@@ -452,8 +464,11 @@ canvas{display:block;width:100%;height:100%}
       <div class="control-row"><span>Steer</span><span class="keycaps"><span class="keycap">A</span><span class="keycap">D</span></span></div>
       <div class="control-row"><span>DRS (Straights)</span><span class="keycaps"><span class="keycap">SPACE</span></span></div>
       <div class="control-row"><span>ERS Boost</span><span class="keycaps"><span class="keycap">SHIFT</span></span></div>
+      <div class="control-row"><span>Camera Angle (Chase / Cockpit / Nose)</span><span class="keycaps"><span class="keycap">C</span></span></div>
+      <div class="control-row"><span>Vehicle Switch (Cardboard / F1)</span><span class="keycaps"><span class="keycap">V</span></span></div>
       <div class="control-row"><span>Restart Lap</span><span class="keycaps"><span class="keycap">R</span></span></div>
       <div class="control-row"><span>Toggle Map</span><span class="keycaps"><span class="keycap">M</span></span></div>
+      <div class="control-row"><span>Toggle Audio</span><span class="keycaps"><span class="keycap">U</span></span></div>
       <div class="control-row"><span>Pause / Menu</span><span class="keycaps"><span class="keycap">ESC</span><span class="keycap">P</span></span></div>
     </div>
   </div>
@@ -492,7 +507,7 @@ canvas{display:block;width:100%;height:100%}
     <div id="drs">DRS off</div>
   </div>
 </div>
-<div id="help"><b>Buddh International Circuit</b> · 5.13 km<br>↑ W throttle · ↓ S brake · ← → A D steer<br>Space: DRS · Shift: ERS · R: restart · M: map · V: audio · Esc: menu</div>
+<div id="help"><b>Buddh International Circuit</b> · 5.13 km<br>↑ W throttle · ↓ S brake · ← → A D steer<br>Space: DRS · Shift: ERS · C: camera view · R: restart · M: map · V: audio · Esc: menu</div>
 
 <script>
 (function(){
@@ -526,7 +541,8 @@ const car={x:0,y:0,a:0,vx:0,vy:0,steer:0,idx:0,ers:1,gear:0};
 let keys={},state='idle',t0=0,lapT=0,lapNo=1,best=null,last=null,halfway=false,lightsT=0,go=false,dist=0;
 let audioCtx=null,engineVoice=null,lastAudioGear=null,audioEnabled=true,volumeLevel=.75;
 let steeringSensitivity=1,cameraMotion=1,menuReturnState=null,guardRailSparks=0;
-let activeVehicle = new URLSearchParams(window.location.search).get('car') || localStorage.getItem('formula_v_car') || 'standard';
+let activeVehicle = new URLSearchParams(window.location.search).get('car') || localStorage.getItem('formula_v_car') || 'cardboard';
+let cameraView = new URLSearchParams(window.location.search).get('cam') || localStorage.getItem('formula_v_cam') || 'chase';
 
 function setCarModel(model){
   activeVehicle = model;
@@ -535,6 +551,31 @@ function setCarModel(model){
   if(btnText) btnText.textContent = model === 'cardboard' ? 'CARDBOARD' : 'FORMULA V';
   const sel = $('car-select');
   if(sel) sel.value = model;
+  const msgEl = $('msg');
+  if(msgEl && state !== 'idle'){
+    msgEl.textContent = 'VEHICLE: ' + (model === 'cardboard' ? 'CARDBOARD RACER (DIY)' : 'FORMULA V STANDARD');
+    setTimeout(()=>{ if(msgEl.textContent.startsWith('VEHICLE:')) msgEl.textContent=''; }, 1500);
+  }
+}
+
+const CAMERA_MODES = ['chase', 'cockpit', 'hood'];
+function setCameraView(mode){
+  cameraView = mode;
+  localStorage.setItem('formula_v_cam', mode);
+  const btnText = $('cam-toggle-text');
+  if(btnText) btnText.textContent = mode.toUpperCase();
+  const sel = $('cam-select');
+  if(sel) sel.value = mode;
+  const msgEl = $('msg');
+  if(msgEl && state !== 'idle'){
+    msgEl.textContent = 'CAM: ' + mode.toUpperCase() + (mode==='chase'?' (3RD PERSON 3D)':'');
+    setTimeout(()=>{ if(msgEl.textContent.startsWith('CAM:')) msgEl.textContent=''; }, 1500);
+  }
+}
+function cycleCameraView(){
+  const idx = CAMERA_MODES.indexOf(cameraView);
+  const next = CAMERA_MODES[(idx + 1) % CAMERA_MODES.length];
+  setCameraView(next);
 }
 
 // ---- Race Config ----
@@ -868,7 +909,16 @@ function reset(){
   $('msg').textContent='';
   $('lap').textContent=lapNo;
 }
-addEventListener('keydown',e=>{if(e.code!=='KeyV')startEngineAudio();keys[e.code]=1;if(e.code==='KeyR')reset();if(e.code==='KeyM'&&miniEl)miniEl.click();if(e.code.startsWith('Arrow')||e.code==='Space')e.preventDefault()});
+addEventListener('keydown',e=>{
+  if(e.code!=='KeyV'&&e.code!=='KeyC'&&e.code!=='KeyU')startEngineAudio();
+  keys[e.code]=1;
+  if(e.code==='KeyR')reset();
+  if(e.code==='KeyM'&&miniEl)miniEl.click();
+  if(e.code==='KeyC')cycleCameraView();
+  if(e.code==='KeyV')setCarModel(activeVehicle==='cardboard'?'standard':'cardboard');
+  if(e.code==='KeyU')toggleAudio();
+  if(e.code.startsWith('Arrow')||e.code==='Space')e.preventDefault();
+});
 addEventListener('keyup',e=>keys[e.code]=0);
 const soundToggle=$('sound-toggle');
 function toggleAudio(){
@@ -879,7 +929,6 @@ function toggleAudio(){
   if(engineVoice&&audioCtx)engineVoice.master.gain.setTargetAtTime(audioEnabled?0.12*volumeLevel:0.0001,audioCtx.currentTime,0.08);
 }
 soundToggle.addEventListener('click',toggleAudio);
-addEventListener('keydown',e=>{if(e.code==='KeyV')toggleAudio()});
 const raceMenu=$('race-menu'),menuToggle=$('menu-toggle');
 function setMenuOpen(open){
   if(open&&!menuReturnState){
@@ -1165,7 +1214,7 @@ if(miniEl){
     }
   });
 }
-const NEAR=3,FAR=3200,CAMH=10;
+const NEAR=3,FAR=3200; let CAMH=10;
 const nrm=pts.map((p,i)=>{const a=pts[(i+N-1)%N],b=pts[(i+1)%N],tx=b[0]-a[0],ty=b[1]-a[1],l=Math.hypot(tx,ty);return[-ty/l,tx/l]});
 const cf=new Float32Array(N),cl=new Float32Array(N),nf=new Float32Array(N),nl=new Float32Array(N);
 let T=0,focal=600,hor=300;
@@ -2046,14 +2095,508 @@ function cockpit(){
 
   ctx.restore(); // end steering wheel
 }
+
+function drawHoodNose(){
+  const u = H / 600;
+  const isCardboard = (activeVehicle === 'cardboard');
+  const steer = car.steer || 0;
+  const speedRatio = Math.min(1, Math.hypot(car.vx, car.vy) / 900);
+  const roadVibe = (Math.sin(T * 85) * (car.onTrack ? 0.5 : 2.5) * speedRatio) * u;
+  const cx = W / 2 + (car.roll || 0) * u * 0.5;
+  const cy = H + roadVibe;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  if (isCardboard) {
+    const nw = W * 0.18;
+    // Front Kraft Cardboard Wing
+    ctx.fillStyle = '#a66735';
+    ctx.beginPath();
+    ctx.roundRect(-W * 0.25, -42 * u, W * 0.5, 16 * u, [4 * u]);
+    ctx.fill();
+
+    // Red racing stripe on wing
+    ctx.fillStyle = '#bf2626';
+    ctx.fillRect(-W * 0.045, -42 * u, W * 0.09, 16 * u);
+
+    // Silver duct tape wing joints
+    ctx.fillStyle = '#7b838f';
+    ctx.fillRect(-W * 0.25, -42 * u, 16 * u, 16 * u);
+    ctx.fillRect(W * 0.25 - 16 * u, -42 * u, 16 * u, 16 * u);
+
+    // Front Kraft Hood
+    ctx.fillStyle = '#9e6434';
+    ctx.beginPath();
+    ctx.moveTo(-nw * 0.55, 0);
+    ctx.lineTo(-nw * 0.32, -48 * u);
+    ctx.lineTo(nw * 0.32, -48 * u);
+    ctx.lineTo(nw * 0.55, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Red racing stripe
+    ctx.fillStyle = '#bf2626';
+    ctx.fillRect(-nw * 0.16, -48 * u, nw * 0.24, 55 * u);
+
+    // Corner duct tape
+    ctx.fillStyle = '#7b838f';
+    ctx.fillRect(-nw * 0.36, -48 * u, 14 * u, 12 * u);
+    ctx.fillRect(nw * 0.36 - 14 * u, -48 * u, 14 * u, 12 * u);
+  } else {
+    // Formula 1 Sleek Carbon Nose
+    const nw = W * 0.16;
+    ctx.fillStyle = '#111317';
+    ctx.fillRect(-W * 0.22, -36 * u, W * 0.44, 14 * u);
+    ctx.fillStyle = '#e10600';
+    ctx.beginPath();
+    ctx.moveTo(-nw * 0.45, 0);
+    ctx.lineTo(-nw * 0.25, -50 * u);
+    ctx.lineTo(nw * 0.25, -50 * u);
+    ctx.lineTo(nw * 0.45, 0);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function draw3DPlayerCar() {
+  const u = H / 600;
+  const speedRatio = Math.min(1, Math.hypot(car.vx, car.vy) / 900);
+  const kmh = car.kmh || 0;
+  const steer = car.steer || 0;
+  const roadBounce = (Math.sin(T * 75) * (car.onTrack ? 0.6 : 2.5) * speedRatio) * u;
+
+  // Chase distance is 135 units ahead of camera
+  const chaseDist = 135;
+  const carScale = (focal / chaseDist) * 1.05;
+  const cx = W / 2 + (car.roll || 0) * 0.75 + (steer * 4 * u);
+  const cy = hor + (CAMH / chaseDist) * focal + roadBounce;
+
+  const isCardboard = (activeVehicle === 'cardboard');
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  if (isCardboard) {
+    drawCardboardRacerChase(carScale, u, speedRatio, steer, kmh);
+  } else {
+    drawFormulaOneRacerChase(carScale, u, speedRatio, steer, kmh);
+  }
+
+  ctx.restore();
+}
+
+function drawCardboardRacerChase(s, u, speedRatio, steer, kmh) {
+  const cw = 44 * s;
+  const ch = 33 * s;
+
+  // 1. Asphalt Contact Shadow
+  ctx.fillStyle = 'rgba(8, 10, 14, 0.68)';
+  ctx.beginPath();
+  ctx.ellipse(0, -1 * u, cw * 0.62, 12 * u, steer * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Twin Exhaust Flame Backfire Pops (Decel / ERS)
+  const isErsOn = keys['ShiftLeft'] || keys['ShiftRight'] || (car.ersOn && car.ers > 0);
+  const isDecel = (!keys['ArrowUp'] && !keys['KeyW'] && speedRatio > 0.22) || keys['ArrowDown'] || keys['KeyS'];
+  if (isErsOn || (isDecel && Math.sin(T * 42) > 0.15)) {
+    [-1, 1].forEach(sd => {
+      const exX = sd * cw * 0.16;
+      const exY = -ch * 0.15;
+      const flLen = (22 + Math.random() * 26) * u * (isErsOn ? 1.6 : 1.0);
+      const flGrad = ctx.createRadialGradient(exX, exY, 2 * u, exX, exY + flLen * 0.6, flLen);
+      flGrad.addColorStop(0, '#ffffff');
+      flGrad.addColorStop(0.3, isErsOn ? '#00e5ff' : '#ff9d00');
+      flGrad.addColorStop(0.8, isErsOn ? '#0051ff' : '#ff2200');
+      flGrad.addColorStop(1, 'rgba(255,0,0,0)');
+      ctx.fillStyle = flGrad;
+      ctx.beginPath();
+      ctx.moveTo(exX - 4 * u, exY);
+      ctx.lineTo(exX + 4 * u, exY);
+      ctx.lineTo(exX + sd * 2 * u, exY + flLen);
+      ctx.closePath();
+      ctx.fill();
+    });
+  }
+
+  // 3. Dual Front Wheels (Visible through sidepod gaps, rotating & steering)
+  [-1, 1].forEach(sd => {
+    ctx.save();
+    const fwx = sd * cw * 0.44 + (steer * 10 * u);
+    const fwy = -ch * 0.22;
+    ctx.translate(fwx, fwy);
+    ctx.rotate(steer * 0.42);
+
+    // Front tire (10-poly cylinder)
+    ctx.fillStyle = '#181716';
+    ctx.beginPath();
+    ctx.roundRect(-7 * u, -18 * u, 14 * u, 36 * u, [4 * u]);
+    ctx.fill();
+
+    // Cardboard hub
+    ctx.fillStyle = '#a66735';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 4 * u, 10 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Duct tape lug nut
+    ctx.fillStyle = '#7b838f';
+    ctx.fillRect(-2 * u, -3 * u, 4 * u, 6 * u);
+    ctx.restore();
+  });
+
+  // 4. Forward Headlights Glowing Beams on Track Ahead
+  [-1, 1].forEach(sd => {
+    const hx = sd * cw * 0.28;
+    const hy = -ch * 0.26;
+    const beamGrad = ctx.createRadialGradient(hx, hy, 4 * u, hx + sd * 18 * u, hy - 90 * u, 95 * u);
+    beamGrad.addColorStop(0, 'rgba(255, 240, 140, 0.42)');
+    beamGrad.addColorStop(0.5, 'rgba(255, 210, 60, 0.12)');
+    beamGrad.addColorStop(1, 'rgba(255, 210, 60, 0)');
+    ctx.fillStyle = beamGrad;
+    ctx.beginPath();
+    ctx.moveTo(hx - 8 * u, hy);
+    ctx.lineTo(hx + 8 * u, hy);
+    ctx.lineTo(hx + sd * 35 * u, hy - 95 * u);
+    ctx.lineTo(hx - sd * 5 * u, hy - 95 * u);
+    ctx.closePath();
+    ctx.fill();
+  });
+
+  // 5. Main Cardboard Chassis & Rear Trunk Box (Blender: 1.4 x 0.6 x 0.6)
+  const tbW = cw * 0.72;
+  const tbH = ch * 0.35;
+  const tbY = -ch * 0.44;
+
+  const trunkGrad = ctx.createLinearGradient(0, tbY, 0, tbY + tbH);
+  trunkGrad.addColorStop(0, '#b87944'); // Top highlight
+  trunkGrad.addColorStop(0.3, '#9e6434'); // Kraft cardboard body
+  trunkGrad.addColorStop(1, '#5e381b'); // Dark bottom shadow
+  ctx.fillStyle = trunkGrad;
+  ctx.beginPath();
+  ctx.roundRect(-tbW / 2, tbY, tbW, tbH, [4 * u, 4 * u, 2 * u, 2 * u]);
+  ctx.fill();
+
+  // Corrugation fluting texture lines across rear
+  ctx.strokeStyle = 'rgba(70, 36, 12, 0.35)';
+  ctx.lineWidth = 1.2 * u;
+  for (let l = 1; l < 6; l++) {
+    const ly = tbY + (tbH / 6) * l;
+    ctx.beginPath();
+    ctx.moveTo(-tbW / 2 + 6 * u, ly);
+    ctx.lineTo(tbW / 2 - 6 * u, ly);
+    ctx.stroke();
+  }
+
+  // Left & Right Doors (Blender: 0.1 x 0.9 x 0.5)
+  ctx.fillStyle = '#8f5223';
+  ctx.fillRect(-tbW / 2 - 3 * u, tbY + 2 * u, 4 * u, tbH - 6 * u);
+  ctx.fillRect(tbW / 2 - 1 * u, tbY + 2 * u, 4 * u, tbH - 6 * u);
+
+  // 6. Silver Duct Tape Corner Joints (Blender: Corner_Tape)
+  ctx.fillStyle = '#7b838f';
+  ctx.fillRect(-tbW / 2 - 2 * u, tbY - 2 * u, 12 * u, 20 * u);
+  ctx.strokeStyle = '#5a626d';
+  ctx.lineWidth = 1 * u;
+  ctx.strokeRect(-tbW / 2 - 2 * u, tbY - 2 * u, 12 * u, 20 * u);
+
+  ctx.fillRect(tbW / 2 - 10 * u, tbY - 2 * u, 12 * u, 20 * u);
+  ctx.strokeRect(tbW / 2 - 10 * u, tbY - 2 * u, 12 * u, 20 * u);
+
+  // Center seam tape
+  ctx.fillStyle = '#7b838f';
+  ctx.fillRect(-6 * u, tbY + tbH - 8 * u, 12 * u, 8 * u);
+
+  // 7. Red Racing Stripe (Blender: Hood_Stripe offset left x = -0.25)
+  const stripeX = -cw * 0.12;
+  const stripeW = 14 * u;
+  ctx.fillStyle = '#bf2626';
+  ctx.fillRect(stripeX - stripeW / 2, tbY, stripeW, tbH);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1 * u;
+  ctx.strokeRect(stripeX - stripeW / 2, tbY, stripeW, tbH);
+
+  // 8. Cabin Interior (Viewed from Behind & Above)
+  ctx.fillStyle = '#3a200a';
+  ctx.beginPath();
+  ctx.roundRect(-cw * 0.28, tbY - ch * 0.22, cw * 0.56, ch * 0.24, [4 * u, 4 * u, 0, 0]);
+  ctx.fill();
+
+  // Cardboard Bucket Seat Back (Blender: Seat_Back angled -10 deg)
+  ctx.fillStyle = '#9e6434';
+  ctx.beginPath();
+  ctx.roundRect(-cw * 0.16, tbY - ch * 0.26, cw * 0.32, ch * 0.24, [6 * u, 6 * u, 2 * u, 2 * u]);
+  ctx.fill();
+  ctx.fillStyle = '#5e381b';
+  ctx.beginPath();
+  ctx.roundRect(-cw * 0.12, tbY - ch * 0.24, cw * 0.24, ch * 0.20, [4 * u]);
+  ctx.fill();
+
+  // Driver in Racing Helmet (Yellow helmet with dark tinted visor)
+  const helmetY = tbY - ch * 0.30;
+  const helmetX = (steer * 4 * u);
+  ctx.fillStyle = '#ffd600';
+  ctx.beginPath();
+  ctx.arc(helmetX, helmetY, 11 * u, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#e10600';
+  ctx.fillRect(helmetX - 2.5 * u, helmetY - 11 * u, 5 * u, 22 * u);
+  ctx.fillStyle = '#111317';
+  ctx.beginPath();
+  ctx.roundRect(helmetX - 8 * u, helmetY - 4 * u, 16 * u, 6 * u, [2 * u]);
+  ctx.fill();
+
+  // Torus Steering Wheel top rim inside cabin
+  ctx.strokeStyle = '#181716';
+  ctx.lineWidth = 3 * u;
+  ctx.beginPath();
+  ctx.arc(helmetX, helmetY + 12 * u, 12 * u, Math.PI * 1.1, Math.PI * 1.9);
+  ctx.stroke();
+
+  // 9. Translucent Tinted Windshield (Blender: PlasticWindshield alpha 0.35)
+  ctx.fillStyle = 'rgba(165, 205, 235, 0.45)';
+  ctx.beginPath();
+  ctx.moveTo(-cw * 0.26, tbY - ch * 0.16);
+  ctx.lineTo(-cw * 0.21, tbY - ch * 0.36);
+  ctx.lineTo(cw * 0.21, tbY - ch * 0.36);
+  ctx.lineTo(cw * 0.26, tbY - ch * 0.16);
+  ctx.closePath();
+  ctx.fill();
+  // Glass highlight glare streak
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+  ctx.lineWidth = 1.5 * u;
+  ctx.beginPath();
+  ctx.moveTo(-cw * 0.12, tbY - ch * 0.34);
+  ctx.lineTo(cw * 0.08, tbY - ch * 0.18);
+  ctx.stroke();
+
+  // Cardboard A-Pillars (Blender: Pillar_L, Pillar_R)
+  ctx.fillStyle = '#9e6434';
+  ctx.beginPath();
+  ctx.moveTo(-cw * 0.26, tbY - ch * 0.16);
+  ctx.lineTo(-cw * 0.21, tbY - ch * 0.36);
+  ctx.lineTo(-cw * 0.18, tbY - ch * 0.36);
+  ctx.lineTo(-cw * 0.23, tbY - ch * 0.16);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(cw * 0.26, tbY - ch * 0.16);
+  ctx.lineTo(cw * 0.21, tbY - ch * 0.36);
+  ctx.lineTo(cw * 0.18, tbY - ch * 0.36);
+  ctx.lineTo(cw * 0.23, tbY - ch * 0.16);
+  ctx.closePath();
+  ctx.fill();
+
+  // 10. Rear Spoiler Assembly (Blender: Spoiler_Strut_L, R, Spoiler_Wing)
+  [-1, 1].forEach(sd => {
+    const sx = sd * cw * 0.22;
+    ctx.fillStyle = '#5e381b';
+    ctx.fillRect(sx - 3.5 * u, tbY - 30 * u, 7 * u, 32 * u);
+    ctx.fillStyle = '#7b838f';
+    ctx.fillRect(sx - 5.5 * u, tbY - 3 * u, 11 * u, 6 * u);
+  });
+
+  // Wide Kraft Spoiler Wing Blade (Spans 1.5 units across)
+  const wingW = cw * 0.94;
+  const wingH = 12 * u;
+  const wingY = tbY - 36 * u;
+
+  const wingGrad = ctx.createLinearGradient(0, wingY, 0, wingY + wingH);
+  wingGrad.addColorStop(0, '#c78a54');
+  wingGrad.addColorStop(0.5, '#a66735');
+  wingGrad.addColorStop(1, '#6e3d18');
+  ctx.fillStyle = wingGrad;
+  ctx.beginPath();
+  ctx.roundRect(-wingW / 2, wingY, wingW, wingH, [3 * u]);
+  ctx.fill();
+
+  // Red racing stripe continues across spoiler wing
+  ctx.fillStyle = '#bf2626';
+  ctx.fillRect(stripeX - stripeW / 2, wingY, stripeW, wingH);
+
+  // Duct Tape Reinforced Wingtip Endplates
+  [-1, 1].forEach(sd => {
+    const wx = sd * (wingW / 2);
+    ctx.fillStyle = '#7b838f';
+    ctx.fillRect(wx - (sd > 0 ? 10 * u : 0), wingY - 2 * u, 10 * u, wingH + 4 * u);
+    ctx.strokeStyle = '#4a515c';
+    ctx.lineWidth = 1 * u;
+    ctx.strokeRect(wx - (sd > 0 ? 10 * u : 0), wingY - 2 * u, 10 * u, wingH + 4 * u);
+  });
+
+  // FIA Flashing Red LED Rain Light
+  const isBlink = (Math.sin(T * 32) > 0) || (weather === 'rain');
+  if (isBlink) {
+    const flare = ctx.createRadialGradient(0, wingY + wingH + 2 * u, 1 * u, 0, wingY + wingH + 2 * u, 12 * u);
+    flare.addColorStop(0, '#ffffff');
+    flare.addColorStop(0.3, '#ff1a1a');
+    flare.addColorStop(1, 'rgba(255, 0, 0, 0)');
+    ctx.fillStyle = flare;
+    ctx.beginPath();
+    ctx.arc(0, wingY + wingH + 2 * u, 12 * u, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 11. Rear 10-Poly Wheels & Hubs (Blender: Wheel_RL, Wheel_RR)
+  [-1, 1].forEach(sd => {
+    const wx = sd * cw * 0.44;
+    const wy = -ch * 0.20;
+    const rtw = 21 * u, rth = 50 * u;
+
+    const tireGrad = ctx.createLinearGradient(wx - rtw / 2, 0, wx + rtw / 2, 0);
+    tireGrad.addColorStop(0, '#0f0e0d');
+    tireGrad.addColorStop(0.3, '#1c1a18');
+    tireGrad.addColorStop(0.7, '#242220');
+    tireGrad.addColorStop(1, '#11100f');
+    ctx.fillStyle = tireGrad;
+    ctx.beginPath();
+    ctx.roundRect(wx - rtw / 2, wy - rth / 2, rtw, rth, [5 * u]);
+    ctx.fill();
+
+    ctx.strokeStyle = '#2d2a27';
+    ctx.lineWidth = 1.2 * u;
+    for (let f = 1; f < 5; f++) {
+      const fy = wy - rth / 2 + (rth / 5) * f;
+      ctx.beginPath();
+      ctx.moveTo(wx - rtw / 2, fy);
+      ctx.lineTo(wx + rtw / 2, fy);
+      ctx.stroke();
+    }
+
+    // Kraft Cardboard Circular Hubcap (Blender: Wheel_Hub)
+    ctx.fillStyle = '#a66735';
+    ctx.beginPath();
+    ctx.ellipse(wx + (sd > 0 ? 2 * u : -2 * u), wy, 6 * u, 15 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#5e381b';
+    ctx.lineWidth = 1 * u;
+    ctx.stroke();
+
+    // Duct Tape Lug Nut (Blender: Wheel_Nut)
+    ctx.fillStyle = '#7b838f';
+    ctx.fillRect(wx + (sd > 0 ? 5 * u : -7 * u), wy - 4 * u, 3.5 * u, 8 * u);
+  });
+
+  // 12. Twin Exhaust Outlets below bumper
+  [-1, 1].forEach(sd => {
+    const exX = sd * cw * 0.16;
+    const exY = tbY + tbH;
+    ctx.fillStyle = '#222326';
+    ctx.beginPath();
+    ctx.roundRect(exX - 4.5 * u, exY - 2 * u, 9 * u, 8 * u, [2 * u]);
+    ctx.fill();
+    ctx.fillStyle = '#08080a';
+    ctx.beginPath();
+    ctx.ellipse(exX, exY + 5 * u, 3.5 * u, 2 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function drawFormulaOneRacerChase(s, u, speedRatio, steer, kmh) {
+  const cw = 44 * s;
+  const ch = 32 * s;
+
+  // Ground shadow
+  ctx.fillStyle = 'rgba(6, 8, 12, 0.7)';
+  ctx.beginPath();
+  ctx.ellipse(0, -1 * u, cw * 0.65, 12 * u, steer * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Wheels
+  [-1, 1].forEach(sd => {
+    const wx = sd * cw * 0.44;
+    const wy = -ch * 0.22;
+    const rtw = 22 * u, rth = 52 * u;
+    ctx.fillStyle = '#111317';
+    ctx.beginPath();
+    ctx.roundRect(wx - rtw / 2, wy - rth / 2, rtw, rth, [6 * u]);
+    ctx.fill();
+    ctx.strokeStyle = '#ffd600';
+    ctx.lineWidth = 1.8 * u;
+    ctx.beginPath();
+    ctx.ellipse(wx + (sd > 0 ? 2 * u : -2 * u), wy, 5 * u, 14 * u, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  // Carbon fiber body & sidepods
+  const tbW = cw * 0.68;
+  const tbH = ch * 0.32;
+  const tbY = -ch * 0.42;
+  ctx.fillStyle = '#e10600';
+  ctx.beginPath();
+  ctx.roundRect(-tbW / 2, tbY, tbW, tbH, [6 * u, 6 * u, 3 * u, 3 * u]);
+  ctx.fill();
+
+  // Cockpit & Halo
+  ctx.fillStyle = '#0a0d14';
+  ctx.beginPath();
+  ctx.roundRect(-cw * 0.22, tbY - ch * 0.24, cw * 0.44, ch * 0.26, [5 * u]);
+  ctx.fill();
+
+  // Driver Helmet
+  const hx = steer * 4 * u;
+  ctx.fillStyle = '#ffd600';
+  ctx.beginPath();
+  ctx.arc(hx, tbY - ch * 0.28, 10 * u, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#111';
+  ctx.fillRect(hx - 7 * u, tbY - ch * 0.29, 14 * u, 5 * u);
+
+  // Carbon Rear Wing
+  const wingW = cw * 0.92;
+  const wingH = 12 * u;
+  const wingY = tbY - 34 * u;
+  ctx.fillStyle = '#16191f';
+  ctx.beginPath();
+  ctx.roundRect(-wingW / 2, wingY, wingW, wingH, [3 * u]);
+  ctx.fill();
+
+  // DRS Flap
+  const isDrs = car.drsOn || (keys['Space'] && car.drs);
+  ctx.fillStyle = isDrs ? '#00e5ff' : '#e10600';
+  ctx.fillRect(-wingW * 0.4, isDrs ? wingY - 6 * u : wingY + 2 * u, wingW * 0.8, 3.5 * u);
+
+  // Endplates
+  [-1, 1].forEach(sd => {
+    ctx.fillStyle = '#e10600';
+    ctx.fillRect(sd * (wingW / 2) - (sd > 0 ? 5 * u : 0), wingY - 6 * u, 5 * u, wingH + 10 * u);
+  });
+
+  // Rain LED
+  ctx.fillStyle = '#ff1e00';
+  ctx.beginPath();
+  ctx.arc(0, wingY + wingH + 4 * u, 4 * u, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function draw(){
   T+=0.016;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   const sp=Math.hypot(car.vx,car.vy),k=sp/900;
   focal=Math.min(W,H*1.8)*0.62*(1-k*0.12);
-  hor=H*0.42+Math.sin(T*70)*k*1.5*cameraMotion+(car.onTrack?0:Math.sin(T*90)*3*cameraMotion);
-  const c=Math.cos(car.a),s=Math.sin(car.a);
-  for(let i=0;i<N;i++){const dx=pts[i][0]-car.x,dy=pts[i][1]-car.y;cf[i]=dx*c+dy*s;cl[i]=-dx*s+dy*c;nf[i]=nrm[i][0]*c+nrm[i][1]*s;nl[i]=-nrm[i][0]*s+nrm[i][1]*c}
+
+  // Dynamic Camera Placement & Height
+  CAMH = (cameraView === 'chase' ? 22 : (cameraView === 'hood' ? 7 : 10));
+  let camX = car.x, camY = car.y, camA = car.a;
+  if (cameraView === 'chase') {
+    const chaseDist = 135;
+    camX = car.x - Math.cos(car.a) * chaseDist;
+    camY = car.y - Math.sin(car.a) * chaseDist;
+  } else if (cameraView === 'hood') {
+    const hoodDist = 30;
+    camX = car.x + Math.cos(car.a) * hoodDist;
+    camY = car.y + Math.sin(car.a) * hoodDist;
+  }
+
+  hor=H*(cameraView==='chase'?0.44:(cameraView==='hood'?0.38:0.42))+Math.sin(T*70)*k*1.5*cameraMotion+(car.onTrack?0:Math.sin(T*90)*3*cameraMotion);
+  const c=Math.cos(camA),s=Math.sin(camA);
+  for(let i=0;i<N;i++){
+    const dx=pts[i][0]-camX,dy=pts[i][1]-camY;
+    cf[i]=dx*c+dy*s;cl[i]=-dx*s+dy*c;
+    nf[i]=nrm[i][0]*c+nrm[i][1]*s;nl[i]=-nrm[i][0]*s+nrm[i][1]*c;
+  }
   
   // Dynamic Sky & Atmosphere according to Weather
   const sg=ctx.createLinearGradient(0,0,0,hor);
@@ -2297,10 +2840,16 @@ function draw(){
   }
 
   car.rev=Math.max(0,Math.min(1,parseFloat($('rev').firstElementChild.style.width)/100||0));
-  cockpit();
+  if (cameraView === 'chase') {
+    draw3DPlayerCar();
+  } else if (cameraView === 'hood') {
+    drawHoodNose();
+  } else {
+    cockpit();
+  }
 
-  // ---- WINDSHIELD / VISOR WEATHER EFFECTS (Foreground overlay) ----
-  if(weather==='rain'){
+  // ---- WINDSHIELD / VISOR WEATHER EFFECTS (Cockpit mode foreground overlay) ----
+  if(cameraView === 'cockpit' && weather==='rain'){
     ctx.save();
     const vfSpeed = Math.max(0, car.vf||0);
     windshieldDroplets.forEach(d => {
@@ -2333,7 +2882,7 @@ function draw(){
       ctx.fill();
     });
     ctx.restore();
-  }else if(weather==='snow'){
+  }else if(cameraView === 'cockpit' && weather==='snow'){
     // Frosted visor vignette on edges
     ctx.save();
     const frostGrad = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.45, W/2, H/2, Math.max(W,H)*0.75);
@@ -2647,6 +3196,21 @@ function showRaceComplete(){
     });
   }
   setCarModel(activeVehicle);
+
+  const camSel=document.getElementById('cam-select');
+  if(camSel){
+    camSel.value=cameraView;
+    camSel.addEventListener('change',()=>{
+      setCameraView(camSel.value);
+    });
+  }
+  const camBtn=document.getElementById('cam-toggle-btn');
+  if(camBtn){
+    camBtn.addEventListener('click',()=>{
+      cycleCameraView();
+    });
+  }
+  setCameraView(cameraView);
   if(btn){
     btn.addEventListener('click',()=>{
       if(lsEl)lsEl.style.display='none';

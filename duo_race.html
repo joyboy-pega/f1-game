@@ -669,8 +669,9 @@ function resize(){
 addEventListener('resize',resize);resize();
 
 // Cars
-const p1={id:1, name:'PLAYER 1 (RED)', num:'16', color:'#e10600', x:0,y:0,a:0,vx:0,vy:0,steer:0,idx:0,ers:1,gear:0,lapT:0,lapNo:1,best:null,halfway:false,drs:false,onTrack:true,kmh:0,inG:0,vf:0,thr:false,brk:false,wheelSpin:0,pitch:0,roll:0};
-const p2={id:2, name:'PLAYER 2 (CYAN)', num:'44', color:'#00d2be', x:0,y:0,a:0,vx:0,vy:0,steer:0,idx:0,ers:1,gear:0,lapT:0,lapNo:1,best:null,halfway:false,drs:false,onTrack:true,kmh:0,inG:0,vf:0,thr:false,brk:false,wheelSpin:0,pitch:0,roll:0};
+const defaultDuoCar = (new URLSearchParams(location.search).get('car') || localStorage.getItem('formula_v_car') || 'cardboard');
+const p1={id:1, name:'PLAYER 1 (RED)', num:'16', color:'#e10600', vehicle: defaultDuoCar, x:0,y:0,a:0,vx:0,vy:0,steer:0,idx:0,ers:1,gear:0,lapT:0,lapNo:1,best:null,halfway:false,drs:false,onTrack:true,kmh:0,inG:0,vf:0,thr:false,brk:false,wheelSpin:0,pitch:0,roll:0};
+const p2={id:2, name:'PLAYER 2 (CYAN)', num:'44', color:'#00d2be', vehicle: defaultDuoCar, x:0,y:0,a:0,vx:0,vy:0,steer:0,idx:0,ers:1,gear:0,lapT:0,lapNo:1,best:null,halfway:false,drs:false,onTrack:true,kmh:0,inG:0,vf:0,thr:false,brk:false,wheelSpin:0,pitch:0,roll:0};
 
 let keys={}, gameState='lights', lightsT=0, go=false, T=0, winner=null;
 let weather=(new URLSearchParams(location.search).get('weather')||localStorage.getItem('f1_weather')||'sunny').toLowerCase();
@@ -1058,154 +1059,261 @@ function renderPlayerView(ctx, car, oppCar, primaryColor){
         }
       }
 
-      // 2. Ground Contact Shadow
-      ctx.fillStyle='rgba(0,0,0,0.75)';
-      ctx.beginPath();
-      ctx.ellipse(0, ch*0.36, cw*0.6, ch*0.22, 0, 0, Math.PI*2);
-      ctx.fill();
-
-      // 3. Pirelli 18" Slicks & Rims
-      const tireW = 20 * scale;
-      const tireH = 42 * scale;
-      const tireY = -tireH * 0.25;
-      [-cw*0.48, cw*0.48 - tireW].forEach((tx, idx) => {
-        // Rubber
-        ctx.fillStyle = '#111418';
+      if(oppCar.vehicle === 'cardboard'){
+        // ---- 3D DIY CARDBOARD RACER OPPONENT ----
+        // 1. Ground Contact Shadow
+        ctx.fillStyle='rgba(8,10,14,0.72)';
         ctx.beginPath();
-        ctx.roundRect(tx, tireY, tireW, tireH, [5*scale]);
+        ctx.ellipse(0, ch*0.36, cw*0.58, ch*0.2, 0, 0, Math.PI*2);
         ctx.fill();
 
-        // Pirelli Yellow/Red Stripe
-        ctx.strokeStyle = '#ffd700';
-        ctx.lineWidth = 1.6*scale;
+        // 2. 10-Poly Wheels with Cardboard Hubs and Duct-Tape Nuts
+        const tireW = 20 * scale;
+        const tireH = 40 * scale;
+        const tireY = -tireH * 0.25;
+        [-cw*0.46, cw*0.46 - tireW].forEach((tx) => {
+          ctx.fillStyle = '#1c1b18';
+          ctx.beginPath();
+          ctx.roundRect(tx, tireY, tireW, tireH, [4*scale]);
+          ctx.fill();
+
+          ctx.fillStyle = '#9e6b42';
+          ctx.beginPath();
+          ctx.ellipse(tx + tireW*0.5, tireY + tireH*0.5, tireW*0.32, tireH*0.35, 0, 0, Math.PI*2);
+          ctx.fill();
+
+          ctx.fillStyle = '#7a818c';
+          ctx.fillRect(tx + tireW*0.38, tireY + tireH*0.4, tireW*0.24, tireH*0.2);
+        });
+
+        // 3. Main Kraft Cardboard Chassis & Rear Trunk Box
+        const tbW = cw * 0.68;
+        const tbH = ch * 0.38;
+        const tbY = -ch * 0.12;
+        ctx.fillStyle = '#946033';
+        ctx.fillRect(-tbW/2, tbY, tbW, tbH);
+        ctx.fillStyle = '#6e441f';
+        ctx.fillRect(-tbW/2, tbY + tbH*0.7, tbW, tbH*0.3);
+
+        // Racing Stripe
+        ctx.fillStyle = oppCar.color || '#bf2626';
+        ctx.fillRect(-tbW*0.18, tbY, tbW*0.36, tbH);
+
+        // Cabin Interior & Cardboard Bucket Seat Back
+        ctx.fillStyle = '#543214';
+        ctx.fillRect(-cw*0.26, tbY - ch*0.25, cw*0.52, ch*0.25);
+        ctx.fillStyle = '#784720';
+        ctx.fillRect(-cw*0.22, tbY - ch*0.42, cw*0.44, ch*0.2);
+
+        // Driver Helmet
+        ctx.fillStyle = '#ffd700';
         ctx.beginPath();
-        ctx.ellipse(tx + tireW*0.5, tireY + tireH*0.5, tireW*0.3, tireH*0.35, 0, 0, Math.PI*2);
+        ctx.arc(0, tbY - ch*0.32, 6.5*scale, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.fillRect(-4*scale, tbY - ch*0.34, 8*scale, 2.5*scale);
+
+        // Windshield
+        ctx.fillStyle = 'rgba(160, 205, 235, 0.45)';
+        ctx.beginPath();
+        ctx.moveTo(-cw*0.24, tbY - ch*0.48);
+        ctx.lineTo(cw*0.24, tbY - ch*0.48);
+        ctx.lineTo(cw*0.28, tbY - ch*0.25);
+        ctx.lineTo(-cw*0.28, tbY - ch*0.25);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#6e441f';
+        ctx.lineWidth = 2*scale;
         ctx.stroke();
 
-        // Aero Cover Rim
-        ctx.fillStyle = '#0a0c10';
-        ctx.beginPath();
-        ctx.ellipse(tx + tireW*0.5, tireY + tireH*0.5, tireW*0.2, tireH*0.24, 0, 0, Math.PI*2);
-        ctx.fill();
-      });
+        // 4. Dual Spoiler Struts & 10° Cardboard Wing
+        ctx.fillStyle = '#543214';
+        [-cw*0.2, cw*0.2 - 4*scale].forEach((sx) => {
+          ctx.fillRect(sx, tbY - ch*0.5, 4*scale, ch*0.4);
+        });
+        ctx.fillStyle = '#946033';
+        ctx.fillRect(-cw*0.36, tbY - ch*0.58, cw*0.72, 7*scale);
+        ctx.fillStyle = '#7a818c';
+        ctx.fillRect(-cw*0.36, tbY - ch*0.58, 6*scale, 7*scale);
+        ctx.fillRect(cw*0.36 - 6*scale, tbY - ch*0.58, 6*scale, 7*scale);
 
-      // 4. Rear Diffuser
-      ctx.fillStyle = '#080b10';
-      ctx.beginPath();
-      ctx.moveTo(-cw*0.32, ch*0.14);
-      ctx.lineTo(cw*0.32, ch*0.14);
-      ctx.lineTo(cw*0.36, ch*0.36);
-      ctx.lineTo(-cw*0.36, ch*0.36);
-      ctx.closePath();
-      ctx.fill();
-
-      // 5. FIA Flashing Rain / ERS LED
-      const ledBlink = Math.sin(T*35) > 0;
-      if(ledBlink || weather==='rain'){
-        const flare = ctx.createRadialGradient(0, ch*0.2, 1*scale, 0, ch*0.2, 12*scale);
-        flare.addColorStop(0, '#ffffff');
-        flare.addColorStop(0.3, '#ff0000');
-        flare.addColorStop(1, 'rgba(255,0,0,0)');
-        ctx.fillStyle = flare;
+        // 5. Headlight Glow on Road
+        const hGlow = ctx.createRadialGradient(0, ch*0.1, 2*scale, 0, ch*0.1, 24*scale);
+        hGlow.addColorStop(0, 'rgba(255, 220, 100, 0.35)');
+        hGlow.addColorStop(1, 'rgba(255, 220, 100, 0)');
+        ctx.fillStyle = hGlow;
         ctx.beginPath();
-        ctx.arc(0, ch*0.2, 12*scale, 0, Math.PI*2);
+        ctx.arc(0, ch*0.1, 24*scale, 0, Math.PI*2);
         ctx.fill();
+
+        // 6. Opponent Driver Tag Billboard
+        ctx.font = `800 ${Math.max(9, Math.round(12*scale))}px "JetBrains Mono",monospace`;
+        const txt = `P${oppCar.id} • CARDBOARD RACER`;
+        const tw = ctx.measureText(txt).width;
+        ctx.fillStyle = 'rgba(10,14,22,0.9)';
+        ctx.beginPath();
+        ctx.roundRect(-tw/2 - 8*scale, -ch*0.9 - 18*scale, tw + 16*scale, 20*scale, [5*scale]);
+        ctx.fill();
+        ctx.strokeStyle = oppCar.color || '#bf2626';
+        ctx.lineWidth = 1.2*scale;
+        ctx.stroke();
+
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(txt, 0, -ch*0.9 - 8*scale);
+
+        ctx.restore();
+      }else{
+        // 2. Ground Contact Shadow
+        ctx.fillStyle='rgba(0,0,0,0.75)';
+        ctx.beginPath();
+        ctx.ellipse(0, ch*0.36, cw*0.6, ch*0.22, 0, 0, Math.PI*2);
+        ctx.fill();
+
+        // 3. Pirelli 18" Slicks & Rims
+        const tireW = 20 * scale;
+        const tireH = 42 * scale;
+        const tireY = -tireH * 0.25;
+        [-cw*0.48, cw*0.48 - tireW].forEach((tx, idx) => {
+          // Rubber
+          ctx.fillStyle = '#111418';
+          ctx.beginPath();
+          ctx.roundRect(tx, tireY, tireW, tireH, [5*scale]);
+          ctx.fill();
+
+          // Pirelli Yellow/Red Stripe
+          ctx.strokeStyle = '#ffd700';
+          ctx.lineWidth = 1.6*scale;
+          ctx.beginPath();
+          ctx.ellipse(tx + tireW*0.5, tireY + tireH*0.5, tireW*0.3, tireH*0.35, 0, 0, Math.PI*2);
+          ctx.stroke();
+
+          // Aero Cover Rim
+          ctx.fillStyle = '#0a0c10';
+          ctx.beginPath();
+          ctx.ellipse(tx + tireW*0.5, tireY + tireH*0.5, tireW*0.2, tireH*0.24, 0, 0, Math.PI*2);
+          ctx.fill();
+        });
+
+        // 4. Rear Diffuser
+        ctx.fillStyle = '#080b10';
+        ctx.beginPath();
+        ctx.moveTo(-cw*0.32, ch*0.14);
+        ctx.lineTo(cw*0.32, ch*0.14);
+        ctx.lineTo(cw*0.36, ch*0.36);
+        ctx.lineTo(-cw*0.36, ch*0.36);
+        ctx.closePath();
+        ctx.fill();
+
+        // 5. FIA Flashing Rain / ERS LED
+        const ledBlink = Math.sin(T*35) > 0;
+        if(ledBlink || weather==='rain'){
+          const flare = ctx.createRadialGradient(0, ch*0.2, 1*scale, 0, ch*0.2, 12*scale);
+          flare.addColorStop(0, '#ffffff');
+          flare.addColorStop(0.3, '#ff0000');
+          flare.addColorStop(1, 'rgba(255,0,0,0)');
+          ctx.fillStyle = flare;
+          ctx.beginPath();
+          ctx.arc(0, ch*0.2, 12*scale, 0, Math.PI*2);
+          ctx.fill();
+        }
+
+        // 6. Main Chassis & Sidepods
+        ctx.fillStyle = oppCar.color;
+        ctx.beginPath();
+        ctx.moveTo(-cw*0.34, ch*0.18);
+        ctx.lineTo(-cw*0.3, -ch*0.2);
+        ctx.lineTo(-cw*0.15, -ch*0.35);
+        ctx.lineTo(cw*0.15, -ch*0.35);
+        ctx.lineTo(cw*0.3, -ch*0.2);
+        ctx.lineTo(cw*0.34, ch*0.18);
+        ctx.closePath();
+        ctx.fill();
+
+        // Engine Shark Fin
+        ctx.fillStyle = oppCar.color === '#e10600' ? '#ffffff' : '#000000';
+        ctx.beginPath();
+        ctx.moveTo(-cw*0.03, -ch*0.6);
+        ctx.lineTo(cw*0.03, -ch*0.6);
+        ctx.lineTo(cw*0.04, -ch*0.08);
+        ctx.lineTo(-cw*0.04, -ch*0.08);
+        ctx.closePath();
+        ctx.fill();
+
+        // Airbox Intake & T-Cam
+        ctx.fillStyle = '#0a0d14';
+        ctx.beginPath();
+        ctx.ellipse(0, -ch*0.4, 9*scale, 11*scale, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#ffd700';
+        ctx.fillRect(-4*scale, -ch*0.64, 8*scale, 4*scale);
+
+        // Cockpit & Halo
+        ctx.fillStyle = '#06080d';
+        ctx.beginPath();
+        ctx.ellipse(0, -ch*0.18, 12*scale, 16*scale, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = '#1a2230';
+        ctx.lineWidth = 3*scale;
+        ctx.beginPath();
+        ctx.arc(0, -ch*0.2, 12*scale, Math.PI*0.85, Math.PI*0.15, true);
+        ctx.stroke();
+
+        // Driver Helmet
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.arc(0, -ch*0.22, 6.5*scale, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.fillRect(-4*scale, -ch*0.24, 8*scale, 2.5*scale);
+
+        // 7. Carbon Rear Wing & DRS
+        ctx.strokeStyle = '#111';
+        ctx.lineWidth = 2.5*scale;
+        ctx.beginPath();
+        ctx.moveTo(-cw*0.07, -ch*0.12);
+        ctx.lineTo(-cw*0.07, -ch*0.52);
+        ctx.moveTo(cw*0.07, -ch*0.12);
+        ctx.lineTo(cw*0.07, -ch*0.52);
+        ctx.stroke();
+
+        // Wing Blade
+        ctx.fillStyle = '#0f131a';
+        ctx.beginPath();
+        ctx.roundRect(-cw*0.42, -ch*0.58, cw*0.84, 14*scale, [3*scale]);
+        ctx.fill();
+
+        // DRS Flap
+        ctx.fillStyle = oppCar.color;
+        ctx.fillRect(-cw*0.4, -ch*0.6, cw*0.8, 3.5*scale);
+
+        // Endplates
+        ctx.fillStyle = oppCar.color;
+        ctx.beginPath();
+        ctx.roundRect(-cw*0.44, -ch*0.64, 4*scale, 22*scale, [2*scale]);
+        ctx.roundRect(cw*0.44 - 4*scale, -ch*0.64, 4*scale, 22*scale, [2*scale]);
+        ctx.fill();
+
+        // Opponent Driver Tag Billboard
+        ctx.font = `800 ${Math.max(9, Math.round(12*scale))}px "JetBrains Mono",monospace`;
+        const txt = `P${oppCar.id} • ${oppCar.id===1?'SCUDERIA RED':'PETRONAS CYAN'}`;
+        const tw = ctx.measureText(txt).width;
+        ctx.fillStyle = 'rgba(10,14,22,0.9)';
+        ctx.beginPath();
+        ctx.roundRect(-tw/2 - 8*scale, -ch*0.9 - 18*scale, tw + 16*scale, 20*scale, [5*scale]);
+        ctx.fill();
+        ctx.strokeStyle = oppCar.color;
+        ctx.lineWidth = 1.2*scale;
+        ctx.stroke();
+
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(txt, 0, -ch*0.9 - 8*scale);
+
+        ctx.restore();
       }
-
-      // 6. Main Chassis & Sidepods
-      ctx.fillStyle = oppCar.color;
-      ctx.beginPath();
-      ctx.moveTo(-cw*0.34, ch*0.18);
-      ctx.lineTo(-cw*0.3, -ch*0.2);
-      ctx.lineTo(-cw*0.15, -ch*0.35);
-      ctx.lineTo(cw*0.15, -ch*0.35);
-      ctx.lineTo(cw*0.3, -ch*0.2);
-      ctx.lineTo(cw*0.34, ch*0.18);
-      ctx.closePath();
-      ctx.fill();
-
-      // Engine Shark Fin
-      ctx.fillStyle = oppCar.color === '#e10600' ? '#ffffff' : '#000000';
-      ctx.beginPath();
-      ctx.moveTo(-cw*0.03, -ch*0.6);
-      ctx.lineTo(cw*0.03, -ch*0.6);
-      ctx.lineTo(cw*0.04, -ch*0.08);
-      ctx.lineTo(-cw*0.04, -ch*0.08);
-      ctx.closePath();
-      ctx.fill();
-
-      // Airbox Intake & T-Cam
-      ctx.fillStyle = '#0a0d14';
-      ctx.beginPath();
-      ctx.ellipse(0, -ch*0.4, 9*scale, 11*scale, 0, 0, Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle = '#ffd700';
-      ctx.fillRect(-4*scale, -ch*0.64, 8*scale, 4*scale);
-
-      // Cockpit & Halo
-      ctx.fillStyle = '#06080d';
-      ctx.beginPath();
-      ctx.ellipse(0, -ch*0.18, 12*scale, 16*scale, 0, 0, Math.PI*2);
-      ctx.fill();
-      ctx.strokeStyle = '#1a2230';
-      ctx.lineWidth = 3*scale;
-      ctx.beginPath();
-      ctx.arc(0, -ch*0.2, 12*scale, Math.PI*0.85, Math.PI*0.15, true);
-      ctx.stroke();
-
-      // Driver Helmet
-      ctx.fillStyle = '#ffd700';
-      ctx.beginPath();
-      ctx.arc(0, -ch*0.22, 6.5*scale, 0, Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle = '#111';
-      ctx.fillRect(-4*scale, -ch*0.24, 8*scale, 2.5*scale);
-
-      // 7. Carbon Rear Wing & DRS
-      ctx.strokeStyle = '#111';
-      ctx.lineWidth = 2.5*scale;
-      ctx.beginPath();
-      ctx.moveTo(-cw*0.07, -ch*0.12);
-      ctx.lineTo(-cw*0.07, -ch*0.52);
-      ctx.moveTo(cw*0.07, -ch*0.12);
-      ctx.lineTo(cw*0.07, -ch*0.52);
-      ctx.stroke();
-
-      // Wing Blade
-      ctx.fillStyle = '#0f131a';
-      ctx.beginPath();
-      ctx.roundRect(-cw*0.42, -ch*0.58, cw*0.84, 14*scale, [3*scale]);
-      ctx.fill();
-
-      // DRS Flap
-      ctx.fillStyle = oppCar.color;
-      ctx.fillRect(-cw*0.4, -ch*0.6, cw*0.8, 3.5*scale);
-
-      // Endplates
-      ctx.fillStyle = oppCar.color;
-      ctx.beginPath();
-      ctx.roundRect(-cw*0.44, -ch*0.64, 4*scale, 22*scale, [2*scale]);
-      ctx.roundRect(cw*0.44 - 4*scale, -ch*0.64, 4*scale, 22*scale, [2*scale]);
-      ctx.fill();
-
-      // Opponent Driver Tag Billboard
-      ctx.font = `800 ${Math.max(9, Math.round(12*scale))}px "JetBrains Mono",monospace`;
-      const txt = `P${oppCar.id} • ${oppCar.id===1?'SCUDERIA RED':'PETRONAS CYAN'}`;
-      const tw = ctx.measureText(txt).width;
-      ctx.fillStyle = 'rgba(10,14,22,0.9)';
-      ctx.beginPath();
-      ctx.roundRect(-tw/2 - 8*scale, -ch*0.9 - 18*scale, tw + 16*scale, 20*scale, [5*scale]);
-      ctx.fill();
-      ctx.strokeStyle = oppCar.color;
-      ctx.lineWidth = 1.2*scale;
-      ctx.stroke();
-
-      ctx.fillStyle = '#fff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(txt, 0, -ch*0.9 - 8*scale);
-
-      ctx.restore();
     }
   }
   ctx.restore();
