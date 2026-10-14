@@ -337,9 +337,10 @@ canvas{display:block;width:100%;height:100%}
     <div>
       <label for="cam-select">CAMERA</label>
       <select id="cam-select">
-        <option value="chase">Chase Cam (3rd Person 3D)</option>
-        <option value="cockpit">Cockpit (1st Person)</option>
-        <option value="hood">Nose / Hood Cam</option>
+        <option value="chase">F1 Chase Cam (3D CAD Model)</option>
+        <option value="tcam">F1 On-Board T-Cam (TV Pod)</option>
+        <option value="cockpit">F1 Cockpit (Driver Visor)</option>
+        <option value="hood">F1 Nose Cam (Low Apex)</option>
       </select>
     </div>
   </div>
@@ -558,17 +559,26 @@ function setCarModel(model){
   }
 }
 
-const CAMERA_MODES = ['chase', 'cockpit', 'hood'];
+const CAMERA_MODES = ['chase', 'tcam', 'cockpit', 'hood'];
 function setCameraView(mode){
   cameraView = mode;
   localStorage.setItem('formula_v_cam', mode);
   const btnText = $('cam-toggle-text');
-  if(btnText) btnText.textContent = mode.toUpperCase();
+  if(btnText) {
+    const labels = { chase: 'CHASE (3D CAD)', tcam: 'F1 T-CAM (TV)', cockpit: 'COCKPIT', hood: 'NOSE CAM' };
+    btnText.textContent = labels[mode] || mode.toUpperCase();
+  }
   const sel = $('cam-select');
   if(sel) sel.value = mode;
   const msgEl = $('msg');
   if(msgEl && state !== 'idle'){
-    msgEl.textContent = 'CAM: ' + mode.toUpperCase() + (mode==='chase'?' (3RD PERSON 3D)':'');
+    const msgs = {
+      chase: 'CAM: F1 CHASE CAM (3D CAD)',
+      tcam: 'CAM: F1 ON-BOARD T-CAM (TV POD)',
+      cockpit: 'CAM: F1 COCKPIT (DRIVER VISOR)',
+      hood: 'CAM: F1 NOSE CAM (LOW APEX)'
+    };
+    msgEl.textContent = msgs[mode] || ('CAM: ' + mode.toUpperCase());
     setTimeout(()=>{ if(msgEl.textContent.startsWith('CAM:')) msgEl.textContent=''; }, 1500);
   }
 }
@@ -2161,337 +2171,382 @@ function drawHoodNose(){
 }
 
 function draw3DPlayerCar() {
+  if (activeVehicle === 'cardboard') {
+    render3DCardboardCADCar(cameraView);
+  } else {
+    const u = H / 600;
+    const speedRatio = Math.min(1, Math.hypot(car.vx, car.vy) / 900);
+    const kmh = car.kmh || 0;
+    const steer = car.steer || 0;
+    const roadBounce = (Math.sin(T * 75) * (car.onTrack ? 0.6 : 2.5) * speedRatio) * u;
+    const chaseDist = (cameraView === 'tcam' ? 16 : 140);
+    const carScale = (focal / chaseDist) * 1.05;
+    const cx = W / 2 + (car.roll || 0) * 0.75 + (steer * 4 * u);
+    const cy = (cameraView === 'tcam' ? H * 0.78 : (hor + (CAMH / chaseDist) * focal + roadBounce));
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    drawFormulaOneRacerChase(carScale, u, speedRatio, steer, kmh);
+    ctx.restore();
+  }
+}
+
+// ==========================================================================
+// TRUE 3D CAD MODEL & POLYGONAL MESH ENGINE (FROM BLENDER SCRIPT SPECIFICATION)
+// ==========================================================================
+const CAD_PALETTE = {
+  cb: '#9e6234',       // Cardboard (0.58, 0.35, 0.18, roughness: 0.9)
+  darkCb: '#61381a',   // DarkCardboard (0.38, 0.22, 0.10, roughness: 0.9)
+  tire: '#1f1e1d',     // TireBlack (0.12, 0.11, 0.10, roughness: 0.85)
+  tape: '#737378',     // DuctTape (0.45, 0.45, 0.47, roughness: 0.4)
+  stripe: '#bf2626',   // RedStripe (0.75, 0.15, 0.15, roughness: 0.8)
+  light: '#ffe159',    // Headlight (1.0, 0.82, 0.35, emission: 3.0)
+  glass: 'rgba(153, 166, 179, 0.45)' // PlasticWindshield (0.6, 0.65, 0.7, alpha: 0.35)
+};
+
+function shadeCADColor(col, factor) {
+  if (typeof col !== 'string' || col.startsWith('rgba')) return col;
+  let num = parseInt(col.replace('#', ''), 16);
+  let r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+  r = Math.min(255, Math.max(0, Math.round(r * factor)));
+  g = Math.min(255, Math.max(0, Math.round(g * factor)));
+  b = Math.min(255, Math.max(0, Math.round(b * factor)));
+  return '#' + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
+}
+
+function createCADBox(name, loc, scale, rotX, colorKey, isTrans) {
+  const sx = scale[0] / 2, sy = scale[1] / 2, sz = scale[2] / 2;
+  const raw = [
+    [-sx, -sy, -sz], [sx, -sy, -sz], [sx, sy, -sz], [-sx, sy, -sz],
+    [-sx, -sy, sz],  [sx, -sy, sz],  [sx, sy, sz],  [-sx, sy, sz]
+  ];
+  const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+  const baseVerts = raw.map(v => {
+    const y = v[1] * cosX - v[2] * sinX + loc[1];
+    const z = v[1] * sinX + v[2] * cosX + loc[2];
+    return [v[0] + loc[0], y, z];
+  });
+  const faces = [
+    { idx: [0, 3, 2, 1], colorKey, isTrans },
+    { idx: [4, 5, 6, 7], colorKey, isTrans },
+    { idx: [0, 1, 5, 4], colorKey, isTrans },
+    { idx: [2, 3, 7, 6], colorKey, isTrans },
+    { idx: [0, 4, 7, 3], colorKey, isTrans },
+    { idx: [1, 2, 6, 5], colorKey, isTrans }
+  ];
+  return { name, baseVerts, faces, isWheel: false };
+}
+
+function createCADCylinder(name, segs, radius, depth, loc, axis, colorKey, isGlow, isWheel, wheelId, isFrontWheel) {
+  const halfD = depth / 2;
+  const baseVerts = [];
+  for (let i = 0; i < segs; i++) {
+    const a = (i / segs) * Math.PI * 2;
+    const rCos = radius * Math.cos(a), rSin = radius * Math.sin(a);
+    if (axis === 'X') {
+      baseVerts.push([-halfD + loc[0], rCos + loc[1], rSin + loc[2]]);
+      baseVerts.push([halfD + loc[0], rCos + loc[1], rSin + loc[2]]);
+    } else {
+      baseVerts.push([rCos + loc[0], -halfD + loc[1], rSin + loc[2]]);
+      baseVerts.push([rCos + loc[0], halfD + loc[1], rSin + loc[2]]);
+    }
+  }
+  const faces = [];
+  for (let i = 0; i < segs; i++) {
+    const next = (i + 1) % segs;
+    faces.push({
+      idx: [i * 2, i * 2 + 1, next * 2 + 1, next * 2],
+      colorKey,
+      isGlow,
+      isTrans: false
+    });
+  }
+  const cap1 = [], cap2 = [];
+  for (let i = 0; i < segs; i++) {
+    cap1.push(i * 2);
+    cap2.unshift(i * 2 + 1);
+  }
+  faces.push({ idx: cap1, colorKey, isGlow, isTrans: false });
+  faces.push({ idx: cap2, colorKey, isGlow, isTrans: false });
+  return { name, baseVerts, faces, isWheel, wheelId, isFrontWheel, center: loc, radius, depth, axis };
+}
+
+function buildCardboardCADModel() {
+  const parts = [];
+
+  // 1. Chassis & Cabin (Blender section 2)
+  parts.push(createCADBox("Front_Hood", [0, -0.75, 0.45], [1.4, 1.1, 0.5], 0, 'cb', false));
+  parts.push(createCADBox("Cabin_Floor", [0, 0.2, 0.25], [1.4, 0.9, 0.1], 0, 'darkCb', false));
+  parts.push(createCADBox("Door_Left", [-0.65, 0.2, 0.45], [0.1, 0.9, 0.5], 0, 'cb', false));
+  parts.push(createCADBox("Door_Right", [0.65, 0.2, 0.45], [0.1, 0.9, 0.5], 0, 'cb', false));
+  parts.push(createCADBox("Rear_Trunk", [0, 0.9, 0.5], [1.4, 0.6, 0.6], 0, 'cb', false));
+
+  // Racing Stripe on Hood
+  parts.push(createCADBox("Hood_Stripe", [-0.25, -0.75, 0.705], [0.22, 1.08, 0.02], 0, 'stripe', false));
+
+  // Cardboard Seat
+  parts.push(createCADBox("Seat_Base", [0, 0.35, 0.35], [0.85, 0.5, 0.2], 0, 'darkCb', false));
+  parts.push(createCADBox("Seat_Back", [0, 0.55, 0.65], [0.85, 0.15, 0.65], -10 * Math.PI / 180, 'cb', false));
+
+  // 2. Windshield & Frame (Blender section 3)
+  parts.push(createCADBox("Windshield", [0, -0.22, 0.88], [1.28, 0.03, 0.45], -25 * Math.PI / 180, 'glass', true));
+  parts.push(createCADBox("Pillar_L", [-0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, 'cb', false));
+  parts.push(createCADBox("Pillar_R", [0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, 'cb', false));
+
+  // 3. Steering Wheel & Column (Blender section 4)
+  parts.push(createCADBox("Steering_Col", [0, -0.15, 0.62], [0.08, 0.08, 0.4], -35 * Math.PI / 180, 'darkCb', false));
+  parts.push(createCADCylinder("Steering_Wheel", 12, 0.18, 0.06, [0, -0.05, 0.78], 'Y', 'tire', false, false));
+
+  // 4. Rear Spoiler (Blender section 5)
+  parts.push(createCADBox("Spoiler_Strut_L", [-0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, 'darkCb', false));
+  parts.push(createCADBox("Spoiler_Strut_R", [0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, 'darkCb', false));
+  parts.push(createCADBox("Spoiler_Wing", [0, 1.05, 1.12], [1.5, 0.4, 0.06], 10 * Math.PI / 180, 'cb', false));
+
+  // 5. Headlights & Duct Tape Accents (Blender section 6)
+  [-0.45, 0.45].forEach(x => {
+    parts.push(createCADCylinder("Headlight_Rim_" + x, 10, 0.15, 0.10, [x, -1.3, 0.42], 'Y', 'cb', false, false));
+    parts.push(createCADCylinder("Headlight_Bulb_" + x, 10, 0.11, 0.12, [x, -1.31, 0.42], 'Y', 'light', true, false));
+    parts.push(createCADBox("Fender_Arch_" + x, [x * 1.45, -0.8, 0.55], [0.25, 0.45, 0.05], 0, 'cb', false));
+    parts.push(createCADBox("Corner_Tape_" + x, [x * 1.48, -1.28, 0.68], [0.16, 0.16, 0.08], 0, 'tape', false));
+  });
+
+  // 6. 10-Poly Low-Poly Wheels with Cardboard Hubs and Hex Nuts (Blender section 7)
+  const wheelDefs = [
+    { id: 'FL', loc: [-0.82, -0.8, 0.32], isFront: true },
+    { id: 'FR', loc: [ 0.82, -0.8, 0.32], isFront: true },
+    { id: 'RL', loc: [-0.82,  0.8, 0.32], isFront: false },
+    { id: 'RR', loc: [ 0.82,  0.8, 0.32], isFront: false }
+  ];
+  wheelDefs.forEach(w => {
+    parts.push(createCADCylinder("Wheel_" + w.id, 10, 0.32, 0.26, w.loc, 'X', 'tire', false, true, w.id, w.isFront));
+    const hOff = w.loc[0] < 0 ? -0.02 : 0.02;
+    parts.push(createCADCylinder("Wheel_" + w.id + "_Hub", 10, 0.18, 0.28, [w.loc[0] + hOff, w.loc[1], w.loc[2]], 'X', 'cb', false, true, w.id, w.isFront));
+    const nOff = w.loc[0] < 0 ? -0.05 : 0.05;
+    parts.push(createCADCylinder("Wheel_" + w.id + "_Nut", 6, 0.06, 0.32, [w.loc[0] + nOff, w.loc[1], w.loc[2]], 'X', 'tape', false, true, w.id, w.isFront));
+  });
+
+  return parts;
+}
+
+const CAD_MODEL_PARTS = buildCardboardCADModel();
+let cadWheelSpinAngle = 0;
+
+function render3DCardboardCADCar(camMode) {
   const u = H / 600;
   const speedRatio = Math.min(1, Math.hypot(car.vx, car.vy) / 900);
   const kmh = car.kmh || 0;
   const steer = car.steer || 0;
   const roadBounce = (Math.sin(T * 75) * (car.onTrack ? 0.6 : 2.5) * speedRatio) * u;
 
-  // Chase distance is 135 units ahead of camera
-  const chaseDist = 135;
-  const carScale = (focal / chaseDist) * 1.05;
-  const cx = W / 2 + (car.roll || 0) * 0.75 + (steer * 4 * u);
-  const cy = hor + (CAMH / chaseDist) * focal + roadBounce;
+  cadWheelSpinAngle += (kmh * 0.06) * 0.016;
 
-  const isCardboard = (activeVehicle === 'cardboard');
-
-  ctx.save();
-  ctx.translate(cx, cy);
-
-  if (isCardboard) {
-    drawCardboardRacerChase(carScale, u, speedRatio, steer, kmh);
+  // Camera Eye & Target Setup
+  let eye, target, up = [0, 0, 1], carScale, cx, cy;
+  if (camMode === 'tcam') {
+    // Formula 1 Roll-Hoop TV Pod On-Board Camera
+    eye = [0, 0.48, 1.18];
+    target = [0, -7.0, 0.52];
+    carScale = Math.min(W, H * 1.5) * 1.05;
+    cx = W / 2 + (car.roll || 0) * 0.5;
+    cy = H * 0.74 + (car.pitch || 0) * 0.3 * u;
   } else {
-    drawFormulaOneRacerChase(carScale, u, speedRatio, steer, kmh);
+    // F1 Chase Camera (3rd Person 3D CAD on track)
+    eye = [0, 4.15, 1.62];
+    target = [0, -2.4, 0.44];
+    carScale = Math.min(W, H * 1.5) * 1.15;
+    cx = W / 2 + (car.roll || 0) * 0.65 + (steer * 6 * u);
+    cy = hor + (CAMH / 140) * focal + roadBounce;
   }
 
-  ctx.restore();
-}
+  // LookAt Camera Basis Vectors
+  let zx = eye[0] - target[0], zy = eye[1] - target[1], zz = eye[2] - target[2];
+  let zl = Math.hypot(zx, zy, zz) || 1;
+  zx /= zl; zy /= zl; zz /= zl;
 
-function drawCardboardRacerChase(s, u, speedRatio, steer, kmh) {
-  const cw = 44 * s;
-  const ch = 33 * s;
+  let xx = up[1] * zz - up[2] * zy, xy = up[2] * zx - up[0] * zz, xz = up[0] * zy - up[1] * zx;
+  let xl = Math.hypot(xx, xy, xz) || 1;
+  xx /= xl; xy /= xl; xz /= xl;
 
-  // 1. Asphalt Contact Shadow
-  ctx.fillStyle = 'rgba(8, 10, 14, 0.68)';
-  ctx.beginPath();
-  ctx.ellipse(0, -1 * u, cw * 0.62, 12 * u, steer * 0.15, 0, Math.PI * 2);
-  ctx.fill();
+  let yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
 
-  // 2. Twin Exhaust Flame Backfire Pops (Decel / ERS)
+  // 1. Asphalt Ground Contact Shadow
+  if (camMode === 'chase') {
+    ctx.fillStyle = 'rgba(8, 10, 14, 0.72)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 2 * u, 54 * u, 14 * u, steer * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 2. Twin 3D Exhaust Backfire Flames (Decel / ERS)
   const isErsOn = keys['ShiftLeft'] || keys['ShiftRight'] || (car.ersOn && car.ers > 0);
   const isDecel = (!keys['ArrowUp'] && !keys['KeyW'] && speedRatio > 0.22) || keys['ArrowDown'] || keys['KeyS'];
-  if (isErsOn || (isDecel && Math.sin(T * 42) > 0.15)) {
-    [-1, 1].forEach(sd => {
-      const exX = sd * cw * 0.16;
-      const exY = -ch * 0.15;
-      const flLen = (22 + Math.random() * 26) * u * (isErsOn ? 1.6 : 1.0);
-      const flGrad = ctx.createRadialGradient(exX, exY, 2 * u, exX, exY + flLen * 0.6, flLen);
-      flGrad.addColorStop(0, '#ffffff');
-      flGrad.addColorStop(0.3, isErsOn ? '#00e5ff' : '#ff9d00');
-      flGrad.addColorStop(0.8, isErsOn ? '#0051ff' : '#ff2200');
-      flGrad.addColorStop(1, 'rgba(255,0,0,0)');
-      ctx.fillStyle = flGrad;
+  if (camMode === 'chase' && (isErsOn || (isDecel && Math.sin(T * 42) > 0.15))) {
+    [-0.22, 0.22].forEach(ex => {
+      const flLen = (0.4 + Math.random() * 0.6) * (isErsOn ? 1.6 : 1.0);
+      const flameVerts = [
+        [ex - 0.05, 1.2, 0.35],
+        [ex + 0.05, 1.2, 0.35],
+        [ex, 1.2 + flLen, 0.35 + (Math.random() - 0.5) * 0.1]
+      ].map(v => {
+        const dx = v[0] - eye[0], dy = v[1] - eye[1], dz = v[2] - eye[2];
+        const px = dx * xx + dy * xy + dz * xz;
+        const py = dx * yx + dy * yy + dz * yz;
+        const pz = -(dx * zx + dy * zy + dz * zz);
+        return { sx: cx + (px / pz) * carScale, sy: cy - (py / pz) * carScale };
+      });
+      ctx.fillStyle = isErsOn ? '#00e5ff' : '#ff9500';
       ctx.beginPath();
-      ctx.moveTo(exX - 4 * u, exY);
-      ctx.lineTo(exX + 4 * u, exY);
-      ctx.lineTo(exX + sd * 2 * u, exY + flLen);
+      ctx.moveTo(flameVerts[0].sx, flameVerts[0].sy);
+      ctx.lineTo(flameVerts[1].sx, flameVerts[1].sy);
+      ctx.lineTo(flameVerts[2].sx, flameVerts[2].sy);
       ctx.closePath();
       ctx.fill();
     });
   }
 
-  // 3. Dual Front Wheels (Visible through sidepod gaps, rotating & steering)
-  [-1, 1].forEach(sd => {
-    ctx.save();
-    const fwx = sd * cw * 0.44 + (steer * 10 * u);
-    const fwy = -ch * 0.22;
-    ctx.translate(fwx, fwy);
-    ctx.rotate(steer * 0.42);
+  // 3. Dynamic Rigging: Steering, Wheel Spin, Chassis Pitch/Roll
+  const steerAngle = steer * 0.45;
+  const sinSteer = Math.sin(steerAngle), cosSteer = Math.cos(steerAngle);
+  const sinSpin = Math.sin(cadWheelSpinAngle), cosSpin = Math.cos(cadWheelSpinAngle);
+  const chassisPitch = (car.pitch || 0) * 0.003 + (car.brk ? 0.025 : (car.thr ? -0.018 : 0));
+  const chassisRoll = (car.roll || 0) * 0.003 + steer * 0.045;
+  const cosP = Math.cos(chassisPitch), sinP = Math.sin(chassisPitch);
+  const cosR = Math.cos(chassisRoll), sinR = Math.sin(chassisRoll);
 
-    // Front tire (10-poly cylinder)
-    ctx.fillStyle = '#181716';
-    ctx.beginPath();
-    ctx.roundRect(-7 * u, -18 * u, 14 * u, 36 * u, [4 * u]);
-    ctx.fill();
+  // Directional Sun Light Vector
+  const lx = 0.52, ly = -0.62, lz = 0.58;
 
-    // Cardboard hub
-    ctx.fillStyle = '#a66735';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 4 * u, 10 * u, 0, 0, Math.PI * 2);
-    ctx.fill();
+  const renderFaces = [];
 
-    // Duct tape lug nut
-    ctx.fillStyle = '#7b838f';
-    ctx.fillRect(-2 * u, -3 * u, 4 * u, 6 * u);
-    ctx.restore();
-  });
+  CAD_MODEL_PARTS.forEach(part => {
+    let partVerts = [];
 
-  // 4. Forward Headlights Glowing Beams on Track Ahead
-  [-1, 1].forEach(sd => {
-    const hx = sd * cw * 0.28;
-    const hy = -ch * 0.26;
-    const beamGrad = ctx.createRadialGradient(hx, hy, 4 * u, hx + sd * 18 * u, hy - 90 * u, 95 * u);
-    beamGrad.addColorStop(0, 'rgba(255, 240, 140, 0.42)');
-    beamGrad.addColorStop(0.5, 'rgba(255, 210, 60, 0.12)');
-    beamGrad.addColorStop(1, 'rgba(255, 210, 60, 0)');
-    ctx.fillStyle = beamGrad;
-    ctx.beginPath();
-    ctx.moveTo(hx - 8 * u, hy);
-    ctx.lineTo(hx + 8 * u, hy);
-    ctx.lineTo(hx + sd * 35 * u, hy - 95 * u);
-    ctx.lineTo(hx - sd * 5 * u, hy - 95 * u);
-    ctx.closePath();
-    ctx.fill();
-  });
+    if (part.isWheel) {
+      const c = part.center;
+      partVerts = part.baseVerts.map(bv => {
+        let rx = bv[0] - c[0], ry = bv[1] - c[1], rz = bv[2] - c[2];
 
-  // 5. Main Cardboard Chassis & Rear Trunk Box (Blender: 1.4 x 0.6 x 0.6)
-  const tbW = cw * 0.72;
-  const tbH = ch * 0.35;
-  const tbY = -ch * 0.44;
+        // Wheel spin around axle
+        const sY = ry * cosSpin - rz * sinSpin;
+        const sZ = ry * sinSpin + rz * cosSpin;
+        rx = rx; ry = sY; rz = sZ;
 
-  const trunkGrad = ctx.createLinearGradient(0, tbY, 0, tbY + tbH);
-  trunkGrad.addColorStop(0, '#b87944'); // Top highlight
-  trunkGrad.addColorStop(0.3, '#9e6434'); // Kraft cardboard body
-  trunkGrad.addColorStop(1, '#5e381b'); // Dark bottom shadow
-  ctx.fillStyle = trunkGrad;
-  ctx.beginPath();
-  ctx.roundRect(-tbW / 2, tbY, tbW, tbH, [4 * u, 4 * u, 2 * u, 2 * u]);
-  ctx.fill();
+        // Front wheel steering around Z
+        if (part.isFrontWheel) {
+          const tX = rx * cosSteer - ry * sinSteer;
+          const tY = rx * sinSteer + ry * cosSteer;
+          rx = tX; ry = tY;
+        }
 
-  // Corrugation fluting texture lines across rear
-  ctx.strokeStyle = 'rgba(70, 36, 12, 0.35)';
-  ctx.lineWidth = 1.2 * u;
-  for (let l = 1; l < 6; l++) {
-    const ly = tbY + (tbH / 6) * l;
-    ctx.beginPath();
-    ctx.moveTo(-tbW / 2 + 6 * u, ly);
-    ctx.lineTo(tbW / 2 - 6 * u, ly);
-    ctx.stroke();
-  }
-
-  // Left & Right Doors (Blender: 0.1 x 0.9 x 0.5)
-  ctx.fillStyle = '#8f5223';
-  ctx.fillRect(-tbW / 2 - 3 * u, tbY + 2 * u, 4 * u, tbH - 6 * u);
-  ctx.fillRect(tbW / 2 - 1 * u, tbY + 2 * u, 4 * u, tbH - 6 * u);
-
-  // 6. Silver Duct Tape Corner Joints (Blender: Corner_Tape)
-  ctx.fillStyle = '#7b838f';
-  ctx.fillRect(-tbW / 2 - 2 * u, tbY - 2 * u, 12 * u, 20 * u);
-  ctx.strokeStyle = '#5a626d';
-  ctx.lineWidth = 1 * u;
-  ctx.strokeRect(-tbW / 2 - 2 * u, tbY - 2 * u, 12 * u, 20 * u);
-
-  ctx.fillRect(tbW / 2 - 10 * u, tbY - 2 * u, 12 * u, 20 * u);
-  ctx.strokeRect(tbW / 2 - 10 * u, tbY - 2 * u, 12 * u, 20 * u);
-
-  // Center seam tape
-  ctx.fillStyle = '#7b838f';
-  ctx.fillRect(-6 * u, tbY + tbH - 8 * u, 12 * u, 8 * u);
-
-  // 7. Red Racing Stripe (Blender: Hood_Stripe offset left x = -0.25)
-  const stripeX = -cw * 0.12;
-  const stripeW = 14 * u;
-  ctx.fillStyle = '#bf2626';
-  ctx.fillRect(stripeX - stripeW / 2, tbY, stripeW, tbH);
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1 * u;
-  ctx.strokeRect(stripeX - stripeW / 2, tbY, stripeW, tbH);
-
-  // 8. Cabin Interior (Viewed from Behind & Above)
-  ctx.fillStyle = '#3a200a';
-  ctx.beginPath();
-  ctx.roundRect(-cw * 0.28, tbY - ch * 0.22, cw * 0.56, ch * 0.24, [4 * u, 4 * u, 0, 0]);
-  ctx.fill();
-
-  // Cardboard Bucket Seat Back (Blender: Seat_Back angled -10 deg)
-  ctx.fillStyle = '#9e6434';
-  ctx.beginPath();
-  ctx.roundRect(-cw * 0.16, tbY - ch * 0.26, cw * 0.32, ch * 0.24, [6 * u, 6 * u, 2 * u, 2 * u]);
-  ctx.fill();
-  ctx.fillStyle = '#5e381b';
-  ctx.beginPath();
-  ctx.roundRect(-cw * 0.12, tbY - ch * 0.24, cw * 0.24, ch * 0.20, [4 * u]);
-  ctx.fill();
-
-  // Driver in Racing Helmet (Yellow helmet with dark tinted visor)
-  const helmetY = tbY - ch * 0.30;
-  const helmetX = (steer * 4 * u);
-  ctx.fillStyle = '#ffd600';
-  ctx.beginPath();
-  ctx.arc(helmetX, helmetY, 11 * u, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#e10600';
-  ctx.fillRect(helmetX - 2.5 * u, helmetY - 11 * u, 5 * u, 22 * u);
-  ctx.fillStyle = '#111317';
-  ctx.beginPath();
-  ctx.roundRect(helmetX - 8 * u, helmetY - 4 * u, 16 * u, 6 * u, [2 * u]);
-  ctx.fill();
-
-  // Torus Steering Wheel top rim inside cabin
-  ctx.strokeStyle = '#181716';
-  ctx.lineWidth = 3 * u;
-  ctx.beginPath();
-  ctx.arc(helmetX, helmetY + 12 * u, 12 * u, Math.PI * 1.1, Math.PI * 1.9);
-  ctx.stroke();
-
-  // 9. Translucent Tinted Windshield (Blender: PlasticWindshield alpha 0.35)
-  ctx.fillStyle = 'rgba(165, 205, 235, 0.45)';
-  ctx.beginPath();
-  ctx.moveTo(-cw * 0.26, tbY - ch * 0.16);
-  ctx.lineTo(-cw * 0.21, tbY - ch * 0.36);
-  ctx.lineTo(cw * 0.21, tbY - ch * 0.36);
-  ctx.lineTo(cw * 0.26, tbY - ch * 0.16);
-  ctx.closePath();
-  ctx.fill();
-  // Glass highlight glare streak
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
-  ctx.lineWidth = 1.5 * u;
-  ctx.beginPath();
-  ctx.moveTo(-cw * 0.12, tbY - ch * 0.34);
-  ctx.lineTo(cw * 0.08, tbY - ch * 0.18);
-  ctx.stroke();
-
-  // Cardboard A-Pillars (Blender: Pillar_L, Pillar_R)
-  ctx.fillStyle = '#9e6434';
-  ctx.beginPath();
-  ctx.moveTo(-cw * 0.26, tbY - ch * 0.16);
-  ctx.lineTo(-cw * 0.21, tbY - ch * 0.36);
-  ctx.lineTo(-cw * 0.18, tbY - ch * 0.36);
-  ctx.lineTo(-cw * 0.23, tbY - ch * 0.16);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.moveTo(cw * 0.26, tbY - ch * 0.16);
-  ctx.lineTo(cw * 0.21, tbY - ch * 0.36);
-  ctx.lineTo(cw * 0.18, tbY - ch * 0.36);
-  ctx.lineTo(cw * 0.23, tbY - ch * 0.16);
-  ctx.closePath();
-  ctx.fill();
-
-  // 10. Rear Spoiler Assembly (Blender: Spoiler_Strut_L, R, Spoiler_Wing)
-  [-1, 1].forEach(sd => {
-    const sx = sd * cw * 0.22;
-    ctx.fillStyle = '#5e381b';
-    ctx.fillRect(sx - 3.5 * u, tbY - 30 * u, 7 * u, 32 * u);
-    ctx.fillStyle = '#7b838f';
-    ctx.fillRect(sx - 5.5 * u, tbY - 3 * u, 11 * u, 6 * u);
-  });
-
-  // Wide Kraft Spoiler Wing Blade (Spans 1.5 units across)
-  const wingW = cw * 0.94;
-  const wingH = 12 * u;
-  const wingY = tbY - 36 * u;
-
-  const wingGrad = ctx.createLinearGradient(0, wingY, 0, wingY + wingH);
-  wingGrad.addColorStop(0, '#c78a54');
-  wingGrad.addColorStop(0.5, '#a66735');
-  wingGrad.addColorStop(1, '#6e3d18');
-  ctx.fillStyle = wingGrad;
-  ctx.beginPath();
-  ctx.roundRect(-wingW / 2, wingY, wingW, wingH, [3 * u]);
-  ctx.fill();
-
-  // Red racing stripe continues across spoiler wing
-  ctx.fillStyle = '#bf2626';
-  ctx.fillRect(stripeX - stripeW / 2, wingY, stripeW, wingH);
-
-  // Duct Tape Reinforced Wingtip Endplates
-  [-1, 1].forEach(sd => {
-    const wx = sd * (wingW / 2);
-    ctx.fillStyle = '#7b838f';
-    ctx.fillRect(wx - (sd > 0 ? 10 * u : 0), wingY - 2 * u, 10 * u, wingH + 4 * u);
-    ctx.strokeStyle = '#4a515c';
-    ctx.lineWidth = 1 * u;
-    ctx.strokeRect(wx - (sd > 0 ? 10 * u : 0), wingY - 2 * u, 10 * u, wingH + 4 * u);
-  });
-
-  // FIA Flashing Red LED Rain Light
-  const isBlink = (Math.sin(T * 32) > 0) || (weather === 'rain');
-  if (isBlink) {
-    const flare = ctx.createRadialGradient(0, wingY + wingH + 2 * u, 1 * u, 0, wingY + wingH + 2 * u, 12 * u);
-    flare.addColorStop(0, '#ffffff');
-    flare.addColorStop(0.3, '#ff1a1a');
-    flare.addColorStop(1, 'rgba(255, 0, 0, 0)');
-    ctx.fillStyle = flare;
-    ctx.beginPath();
-    ctx.arc(0, wingY + wingH + 2 * u, 12 * u, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // 11. Rear 10-Poly Wheels & Hubs (Blender: Wheel_RL, Wheel_RR)
-  [-1, 1].forEach(sd => {
-    const wx = sd * cw * 0.44;
-    const wy = -ch * 0.20;
-    const rtw = 21 * u, rth = 50 * u;
-
-    const tireGrad = ctx.createLinearGradient(wx - rtw / 2, 0, wx + rtw / 2, 0);
-    tireGrad.addColorStop(0, '#0f0e0d');
-    tireGrad.addColorStop(0.3, '#1c1a18');
-    tireGrad.addColorStop(0.7, '#242220');
-    tireGrad.addColorStop(1, '#11100f');
-    ctx.fillStyle = tireGrad;
-    ctx.beginPath();
-    ctx.roundRect(wx - rtw / 2, wy - rth / 2, rtw, rth, [5 * u]);
-    ctx.fill();
-
-    ctx.strokeStyle = '#2d2a27';
-    ctx.lineWidth = 1.2 * u;
-    for (let f = 1; f < 5; f++) {
-      const fy = wy - rth / 2 + (rth / 5) * f;
-      ctx.beginPath();
-      ctx.moveTo(wx - rtw / 2, fy);
-      ctx.lineTo(wx + rtw / 2, fy);
-      ctx.stroke();
+        return [rx + c[0], ry + c[1], rz + c[2]];
+      });
+    } else {
+      // Chassis parts: apply subtle suspension pitch, roll & vibration
+      partVerts = part.baseVerts.map(bv => {
+        let x = bv[0], y = bv[1], z = bv[2];
+        let rx = x * cosR - z * sinR;
+        let rz = x * sinR + z * cosR;
+        let ry = y * cosP - rz * sinP;
+        rz = y * sinP + rz * cosP;
+        return [rx, ry, rz];
+      });
     }
 
-    // Kraft Cardboard Circular Hubcap (Blender: Wheel_Hub)
-    ctx.fillStyle = '#a66735';
+    // Transform into camera view space and project to screen
+    const transVerts = partVerts.map(wv => {
+      const dx = wv[0] - eye[0], dy = wv[1] - eye[1], dz = wv[2] - eye[2];
+      const px = dx * xx + dy * xy + dz * xz;
+      const py = dx * yx + dy * yy + dz * yz;
+      const pz = Math.max(0.05, -(dx * zx + dy * zy + dz * zz));
+      const sx = cx + (px / pz) * carScale;
+      const sy = cy - (py / pz) * carScale;
+      return { wx: wv[0], wy: wv[1], wz: wv[2], px, py, pz, sx, sy };
+    });
+
+    part.faces.forEach(face => {
+      const v0 = transVerts[face.idx[0]];
+      const v1 = transVerts[face.idx[1]];
+      const v2 = transVerts[face.idx[2]];
+
+      // Surface normal vector in world space
+      const e1x = v1.wx - v0.wx, e1y = v1.wy - v0.wy, e1z = v1.wz - v0.wz;
+      const e2x = v2.wx - v0.wx, e2y = v2.wy - v0.wy, e2z = v2.wz - v0.wz;
+      let nx = e1y * e2z - e1z * e2y;
+      let ny = e1z * e2x - e1x * e2z;
+      let nz = e1x * e2y - e1y * e2x;
+      const nLen = Math.hypot(nx, ny, nz) || 1;
+      nx /= nLen; ny /= nLen; nz /= nLen;
+
+      // Backface Culling (Vector from eye to face in world space)
+      const dx = v0.wx - eye[0], dy = v0.wy - eye[1], dz = v0.wz - eye[2];
+      const dotView = nx * dx + ny * dy + nz * dz;
+      if (dotView >= 0 && !face.isTrans) return;
+
+      // Crisp Flat Shading Calculation (Blender: poly.use_smooth = False)
+      let factor = 1.0;
+      if (!face.isGlow && !face.isTrans) {
+        const dotSun = Math.max(0, nx * lx + ny * ly + nz * lz);
+        factor = 0.44 + 0.56 * dotSun;
+      }
+
+      let avgZ = 0;
+      face.idx.forEach(i => { avgZ += transVerts[i].pz; });
+      avgZ /= face.idx.length;
+
+      const baseCol = CAD_PALETTE[face.colorKey] || '#9e6234';
+      const fillCol = face.isTrans ? baseCol : shadeCADColor(baseCol, factor);
+      const strokeCol = face.isTrans ? 'rgba(120, 160, 200, 0.4)' : shadeCADColor(fillCol, 0.78);
+
+      renderFaces.push({
+        face,
+        transVerts,
+        avgZ,
+        fillCol,
+        strokeCol
+      });
+    });
+  });
+
+  // 4. Painter's Depth Sorting (Draw back to front)
+  renderFaces.sort((a, b) => b.avgZ - a.avgZ);
+
+  // 5. Rasterize Polygons with Crisp Flat Shading & Clean CAD Edges
+  renderFaces.forEach(rf => {
+    const f = rf.face;
+    const tv = rf.transVerts;
+    ctx.fillStyle = rf.fillCol;
     ctx.beginPath();
-    ctx.ellipse(wx + (sd > 0 ? 2 * u : -2 * u), wy, 6 * u, 15 * u, 0, 0, Math.PI * 2);
+    f.idx.forEach((vi, i) => {
+      const v = tv[vi];
+      if (i === 0) ctx.moveTo(v.sx, v.sy);
+      else ctx.lineTo(v.sx, v.sy);
+    });
+    ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#5e381b';
-    ctx.lineWidth = 1 * u;
+
+    // 1px CAD Wire Edge Outline
+    ctx.strokeStyle = rf.strokeCol;
+    ctx.lineWidth = 1;
     ctx.stroke();
-
-    // Duct Tape Lug Nut (Blender: Wheel_Nut)
-    ctx.fillStyle = '#7b838f';
-    ctx.fillRect(wx + (sd > 0 ? 5 * u : -7 * u), wy - 4 * u, 3.5 * u, 8 * u);
   });
 
-  // 12. Twin Exhaust Outlets below bumper
-  [-1, 1].forEach(sd => {
-    const exX = sd * cw * 0.16;
-    const exY = tbY + tbH;
-    ctx.fillStyle = '#222326';
-    ctx.beginPath();
-    ctx.roundRect(exX - 4.5 * u, exY - 2 * u, 9 * u, 8 * u, [2 * u]);
-    ctx.fill();
-    ctx.fillStyle = '#08080a';
-    ctx.beginPath();
-    ctx.ellipse(exX, exY + 5 * u, 3.5 * u, 2 * u, 0, 0, Math.PI * 2);
-    ctx.fill();
-  });
+  // 6. Forward Headlight Ambient Glow Beams (Chase Cam)
+  if (camMode === 'chase') {
+    [-0.45, 0.45].forEach(hx => {
+      const beamGrad = ctx.createRadialGradient(cx + hx * carScale * 0.08, cy - 25 * u, 4 * u, cx + hx * carScale * 0.15, cy - 85 * u, 80 * u);
+      beamGrad.addColorStop(0, 'rgba(255, 235, 120, 0.35)');
+      beamGrad.addColorStop(0.5, 'rgba(255, 210, 60, 0.1)');
+      beamGrad.addColorStop(1, 'rgba(255, 210, 60, 0)');
+      ctx.fillStyle = beamGrad;
+      ctx.beginPath();
+      ctx.moveTo(cx + (hx - 0.15) * carScale * 0.08, cy - 25 * u);
+      ctx.lineTo(cx + (hx + 0.15) * carScale * 0.08, cy - 25 * u);
+      ctx.lineTo(cx + (hx + 0.4) * carScale * 0.22, cy - 95 * u);
+      ctx.lineTo(cx + (hx - 0.4) * carScale * 0.22, cy - 95 * u);
+      ctx.closePath();
+      ctx.fill();
+    });
+  }
 }
 
 function drawFormulaOneRacerChase(s, u, speedRatio, steer, kmh) {
@@ -2578,19 +2633,23 @@ function draw(){
   focal=Math.min(W,H*1.8)*0.62*(1-k*0.12);
 
   // Dynamic Camera Placement & Height
-  CAMH = (cameraView === 'chase' ? 22 : (cameraView === 'hood' ? 7 : 10));
+  CAMH = (cameraView === 'chase' ? 24 : (cameraView === 'tcam' ? 14 : (cameraView === 'hood' ? 7 : 10)));
   let camX = car.x, camY = car.y, camA = car.a;
   if (cameraView === 'chase') {
-    const chaseDist = 135;
+    const chaseDist = 140;
     camX = car.x - Math.cos(car.a) * chaseDist;
     camY = car.y - Math.sin(car.a) * chaseDist;
+  } else if (cameraView === 'tcam') {
+    const tcamDist = 14;
+    camX = car.x - Math.cos(car.a) * tcamDist;
+    camY = car.y - Math.sin(car.a) * tcamDist;
   } else if (cameraView === 'hood') {
     const hoodDist = 30;
     camX = car.x + Math.cos(car.a) * hoodDist;
     camY = car.y + Math.sin(car.a) * hoodDist;
   }
 
-  hor=H*(cameraView==='chase'?0.44:(cameraView==='hood'?0.38:0.42))+Math.sin(T*70)*k*1.5*cameraMotion+(car.onTrack?0:Math.sin(T*90)*3*cameraMotion);
+  hor=H*(cameraView==='chase'?0.44:(cameraView==='tcam'?0.42:(cameraView==='hood'?0.38:0.42)))+Math.sin(T*70)*k*1.5*cameraMotion+(car.onTrack?0:Math.sin(T*90)*3*cameraMotion);
   const c=Math.cos(camA),s=Math.sin(camA);
   for(let i=0;i<N;i++){
     const dx=pts[i][0]-camX,dy=pts[i][1]-camY;
@@ -2840,7 +2899,7 @@ function draw(){
   }
 
   car.rev=Math.max(0,Math.min(1,parseFloat($('rev').firstElementChild.style.width)/100||0));
-  if (cameraView === 'chase') {
+  if (cameraView === 'chase' || cameraView === 'tcam') {
     draw3DPlayerCar();
   } else if (cameraView === 'hood') {
     drawHoodNose();
