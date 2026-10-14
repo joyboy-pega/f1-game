@@ -234,17 +234,17 @@
                 <div class="cardboard-header">
                   <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
                     <div class="cardboard-badge-pill">SPECIAL DIY BUILD</div>
-                    <a href="garage.html" class="cardboard-scale-tag" style="text-decoration:none;background:var(--neon-lime);color:var(--ink-black);font-weight:800;border:1px solid #000;cursor:pointer" title="Open Dedicated 3D Garage">
-                      DEDICATED 3D GARAGE ⛶
+                    <a href="garage.html" class="cardboard-scale-tag" style="text-decoration:none;background:var(--neon-lime);color:var(--ink-black);font-weight:800;border:1px solid #000;cursor:pointer" title="Open Dedicated 3D Garage &amp; Paint Customizer">
+                      🎨 3D CUSTOMIZER &amp; GARAGE ⛶
                     </a>
                   </div>
                   <div class="cardboard-title-row">
-                    <span class="cardboard-title">CARDBOARD RACER</span>
+                    <span class="cardboard-title" id="showroom-car-title">DIY STREET RACER</span>
                     <span class="cardboard-scale-tag">3D TURNTABLE</span>
                   </div>
                 </div>
 
-                <div class="cardboard-canvas-wrap" id="cardboard-canvas-wrap" title="Drag to rotate 3D Cardboard Racer">
+                <div class="cardboard-canvas-wrap" id="cardboard-canvas-wrap" title="Drag to rotate 3D Cardboard Car">
                   <canvas id="cardboard-canvas" width="480" height="340"></canvas>
                   <div class="cardboard-rotate-overlay-hint">
                     <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
@@ -252,7 +252,7 @@
                   </div>
                 </div>
 
-                <div class="cardboard-specs-strip">
+                <div class="cardboard-specs-strip" id="showroom-specs-strip">
                   <span>KRAFT CHASSIS</span>
                   <span>•</span>
                   <span>DUCT TAPE AERO</span>
@@ -260,15 +260,21 @@
                   <span>10-POLY WHEELS</span>
                 </div>
 
+                <!-- Vehicle Selector Pills: Street Racer & Formula 1 (#7) -->
+                <div style="display:flex;gap:8px;padding:6px 12px;background:rgba(10,14,20,0.6);border-top:1px solid rgba(255,255,255,0.06);justify-content:center">
+                  <button type="button" class="btn-cardboard-ctrl active" id="btn-show-street" style="flex:1;cursor:pointer;font-size:11px;">🏎️ STREET RACER</button>
+                  <button type="button" class="btn-cardboard-ctrl" id="btn-show-f1" style="flex:1;cursor:pointer;font-size:11px;">🏁 FORMULA 1 (#7)</button>
+                </div>
+
                 <div class="cardboard-actions-row">
                   <button type="button" class="btn-cardboard-ctrl active" id="btn-toggle-cardboard-spin" title="Toggle Auto-Rotation">
                     SPIN: ON
                   </button>
-                  <a href="garage.html" class="btn-cardboard-ctrl active" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;" title="Open Dedicated 3D Inspection Garage">
-                    INSPECT 🔍
+                  <a href="garage.html" class="btn-cardboard-ctrl active" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;" title="Open Dedicated 3D Inspection &amp; Paint Customizer">
+                    🎨 PAINT 🔍
                   </a>
-                  <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html?car=cardboard&cam=chase" class="btn-drive-cardboard" id="btn-drive-cardboard" title="Drive Cardboard Racer with 3D Chase Camera">
-                    DRIVE THIS CAR (3D) →
+                  <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html?car=street&cam=chase" class="btn-drive-cardboard" id="btn-drive-cardboard" title="Drive this Cardboard Car in 3D">
+                    DRIVE ON TRACK →
                   </a>
                 </div>
               </div>

@@ -550,67 +550,137 @@
   }
 
   const cbCarModel = [];
+  let currentShowroomCar = (localStorage.getItem('formula_v_car') === 'f1') ? 'f1' : 'street';
 
-  function buildCardboardCar() {
+  function getShowroomColors() {
+    const body = localStorage.getItem('f1_body_color') || '#a66735';
+    return {
+      body,
+      dark: shadeHex(body, 0.62),
+      tire: '#1a1816',
+      tape: '#7b838f',
+      accent: localStorage.getItem('f1_accent_color') || '#bf2626',
+      rim: localStorage.getItem('f1_rim_color') || '#a66735',
+      light: '#ffd159',
+      glass: 'rgba(165, 205, 235, 0.45)'
+    };
+  }
+
+  function buildCardboardCar(carType) {
+    const type = carType || currentShowroomCar;
     cbCarModel.length = 0;
-    const MAT_CB = '#a66735';
-    const MAT_DARK_CB = '#5e381b';
-    const MAT_TIRE = '#1a1816';
-    const MAT_TAPE = '#7b838f';
-    const MAT_RED = '#bf2626';
-    const MAT_LIGHT = '#ffd159';
-    const MAT_GLASS = 'rgba(165, 205, 235, 0.45)';
+    const colors = getShowroomColors();
 
-    // Chassis & Cabin
-    cbCarModel.push(create3DBox([0, -0.75, 0.45], [1.4, 1.1, 0.5], 0, MAT_CB));
-    cbCarModel.push(create3DBox([0, 0.2, 0.25], [1.4, 0.9, 0.1], 0, MAT_DARK_CB));
-    cbCarModel.push(create3DBox([-0.65, 0.2, 0.45], [0.1, 0.9, 0.5], 0, MAT_CB));
-    cbCarModel.push(create3DBox([0.65, 0.2, 0.45], [0.1, 0.9, 0.5], 0, MAT_CB));
-    cbCarModel.push(create3DBox([0, 0.9, 0.5], [1.4, 0.6, 0.6], 0, MAT_CB));
+    if (type === 'f1') {
+      // 🏁 DIY FORMULA 1 (#7)
+      // 1. Undertray / Floor
+      cbCarModel.push(create3DBox([0, 0.15, 0.14], [1.35, 2.2, 0.04], 0, colors.dark));
+      // 2. Cockpit Tub
+      cbCarModel.push(create3DBox([0, -0.1, 0.36], [0.52, 1.5, 0.42], 0, colors.body));
+      // 3. Nose Cone & #7 Decal
+      cbCarModel.push(create3DBox([0, -1.25, 0.28], [0.36, 1.0, 0.26], -10 * Math.PI / 180, colors.body));
+      cbCarModel.push(create3DBox([0, -1.25, 0.42], [0.18, 0.88, 0.02], -10 * Math.PI / 180, colors.accent));
+      // 4. Front Wing & Cascades
+      cbCarModel.push(create3DBox([0, -1.75, 0.14], [1.65, 0.38, 0.04], 0, colors.body));
+      cbCarModel.push(create3DBox([-0.45, -1.68, 0.21], [0.55, 0.22, 0.03], -18 * Math.PI / 180, colors.body));
+      cbCarModel.push(create3DBox([ 0.45, -1.68, 0.21], [0.55, 0.22, 0.03], -18 * Math.PI / 180, colors.body));
+      cbCarModel.push(create3DBox([-0.82, -1.72, 0.22], [0.04, 0.46, 0.24], 0, colors.body));
+      cbCarModel.push(create3DBox([ 0.82, -1.72, 0.22], [0.04, 0.46, 0.24], 0, colors.body));
+      cbCarModel.push(create3DBox([-0.55, -1.76, 0.165], [0.12, 0.36, 0.02], 0, colors.accent));
+      cbCarModel.push(create3DBox([ 0.55, -1.76, 0.165], [0.12, 0.36, 0.02], 0, colors.accent));
+      // 5. Cockpit & Steering Wheel
+      cbCarModel.push(create3DBox([-0.23, 0.05, 0.62], [0.06, 0.65, 0.16], 0, colors.body));
+      cbCarModel.push(create3DBox([ 0.23, 0.05, 0.62], [0.06, 0.65, 0.16], 0, colors.body));
+      cbCarModel.push(create3DBox([0, -0.25, 0.63], [0.42, 0.12, 0.12], -25 * Math.PI / 180, colors.body));
+      cbCarModel.push(create3DBox([0, 0.28, 0.52], [0.36, 0.12, 0.45], -15 * Math.PI / 180, colors.dark));
+      cbCarModel.push(create3DCylinder(10, 0.14, 0.05, [0, -0.05, 0.62], false, colors.tire));
+      // 6. Sidepods with Louvers & Stripes
+      [-1, 1].forEach(side => {
+        const xPos = side * 0.48;
+        cbCarModel.push(create3DBox([xPos, 0.25, 0.35], [0.44, 0.95, 0.38], 0, colors.body));
+        cbCarModel.push(create3DBox([xPos, -0.23, 0.35], [0.36, 0.05, 0.30], 0, colors.dark));
+        cbCarModel.push(create3DBox([xPos, -0.18, 0.55], [0.46, 0.25, 0.04], 0, colors.body));
+        cbCarModel.push(create3DBox([xPos, 0.45, 0.545], [0.42, 0.12, 0.02], 0, colors.accent));
+      });
+      // 7. Airbox & Shark Fin
+      cbCarModel.push(create3DBox([0, 0.55, 0.78], [0.32, 0.45, 0.42], 0, colors.body));
+      cbCarModel.push(create3DBox([0, 0.32, 0.88], [0.18, 0.05, 0.18], 0, colors.dark));
+      cbCarModel.push(create3DBox([0, 0.92, 0.65], [0.06, 0.75, 0.38], 22 * Math.PI / 180, colors.body));
+      // 8. Rear Wing & DRS Flap
+      cbCarModel.push(create3DBox([-0.12, 1.32, 0.72], [0.05, 0.16, 0.48], -12 * Math.PI / 180, colors.dark));
+      cbCarModel.push(create3DBox([ 0.12, 1.32, 0.72], [0.05, 0.16, 0.48], -12 * Math.PI / 180, colors.dark));
+      cbCarModel.push(create3DBox([0, 1.38, 0.92], [1.35, 0.32, 0.04], 0, colors.body));
+      cbCarModel.push(create3DBox([0, 1.48, 1.04], [1.35, 0.22, 0.04], 25 * Math.PI / 180, colors.body));
+      cbCarModel.push(create3DBox([-0.68, 1.40, 0.86], [0.04, 0.48, 0.52], 0, colors.body));
+      cbCarModel.push(create3DBox([ 0.68, 1.40, 0.86], [0.04, 0.48, 0.52], 0, colors.body));
+      cbCarModel.push(create3DBox([-0.25, 1.38, 0.945], [0.14, 0.30, 0.02], 0, colors.accent));
+      // 9. Wheels (FL, FR, Wide Rear RL, RR)
+      const f1Wheels = [
+        [-0.82, -0.90, 0.32, 0.32, 0.30],
+        [ 0.82, -0.90, 0.32, 0.32, 0.30],
+        [-0.86,  0.98, 0.36, 0.36, 0.38],
+        [ 0.86,  0.98, 0.36, 0.36, 0.38]
+      ];
+      f1Wheels.forEach(([wx, wy, wz, rad, depth]) => {
+        cbCarModel.push(create3DCylinder(10, rad, depth, [wx, wy, wz], true, colors.tire));
+        const hOff = wx < 0 ? -0.02 : 0.02;
+        cbCarModel.push(create3DCylinder(10, rad * 0.55, depth + 0.02, [wx + hOff, wy, wz], true, colors.rim));
+        const nOff = wx < 0 ? -0.05 : 0.05;
+        cbCarModel.push(create3DCylinder(6, 0.06, depth + 0.05, [wx + nOff, wy, wz], true, colors.tape));
+      });
+    } else {
+      // 🏎️ DIY STREET RACER
+      // Chassis & Cabin
+      cbCarModel.push(create3DBox([0, -0.75, 0.45], [1.4, 1.1, 0.5], 0, colors.body));
+      cbCarModel.push(create3DBox([0, 0.2, 0.25], [1.4, 0.9, 0.1], 0, colors.dark));
+      cbCarModel.push(create3DBox([-0.65, 0.2, 0.45], [0.1, 0.9, 0.5], 0, colors.body));
+      cbCarModel.push(create3DBox([0.65, 0.2, 0.45], [0.1, 0.9, 0.5], 0, colors.body));
+      cbCarModel.push(create3DBox([0, 0.9, 0.5], [1.4, 0.6, 0.6], 0, colors.body));
 
-    // Racing Stripe on Hood
-    cbCarModel.push(create3DBox([-0.25, -0.75, 0.705], [0.22, 1.08, 0.02], 0, MAT_RED));
+      // Racing Stripe on Hood
+      cbCarModel.push(create3DBox([-0.25, -0.75, 0.705], [0.22, 1.08, 0.02], 0, colors.accent));
 
-    // Cardboard Bucket Seat
-    cbCarModel.push(create3DBox([0, 0.35, 0.35], [0.85, 0.5, 0.2], 0, MAT_DARK_CB));
-    cbCarModel.push(create3DBox([0, 0.55, 0.65], [0.85, 0.15, 0.65], -10 * Math.PI / 180, MAT_CB));
+      // Cardboard Bucket Seat
+      cbCarModel.push(create3DBox([0, 0.35, 0.35], [0.85, 0.5, 0.2], 0, colors.dark));
+      cbCarModel.push(create3DBox([0, 0.55, 0.65], [0.85, 0.15, 0.65], -10 * Math.PI / 180, colors.body));
 
-    // Windshield & Frame
-    cbCarModel.push(create3DBox([0, -0.22, 0.88], [1.28, 0.03, 0.45], -25 * Math.PI / 180, MAT_GLASS, true));
-    cbCarModel.push(create3DBox([-0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, MAT_CB));
-    cbCarModel.push(create3DBox([0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, MAT_CB));
+      // Windshield & Frame
+      cbCarModel.push(create3DBox([0, -0.22, 0.88], [1.28, 0.03, 0.45], -25 * Math.PI / 180, colors.glass, true));
+      cbCarModel.push(create3DBox([-0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, colors.body));
+      cbCarModel.push(create3DBox([0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, colors.body));
 
-    // Steering Column & Wheel
-    cbCarModel.push(create3DBox([0, -0.15, 0.62], [0.08, 0.08, 0.4], -35 * Math.PI / 180, MAT_DARK_CB));
-    cbCarModel.push(create3DCylinder(10, 0.18, 0.06, [0, -0.05, 0.78], false, MAT_TIRE));
+      // Steering Column & Wheel
+      cbCarModel.push(create3DBox([0, -0.15, 0.62], [0.08, 0.08, 0.4], -35 * Math.PI / 180, colors.dark));
+      cbCarModel.push(create3DCylinder(10, 0.18, 0.06, [0, -0.05, 0.78], false, colors.tire));
 
-    // Rear Spoiler
-    cbCarModel.push(create3DBox([-0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, MAT_DARK_CB));
-    cbCarModel.push(create3DBox([0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, MAT_DARK_CB));
-    cbCarModel.push(create3DBox([0, 1.05, 1.12], [1.5, 0.4, 0.06], 10 * Math.PI / 180, MAT_CB));
+      // Rear Spoiler
+      cbCarModel.push(create3DBox([-0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, colors.dark));
+      cbCarModel.push(create3DBox([0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, colors.dark));
+      cbCarModel.push(create3DBox([0, 1.05, 1.12], [1.5, 0.4, 0.06], 10 * Math.PI / 180, colors.body));
 
-    // Headlights & Accents
-    [-0.45, 0.45].forEach(x => {
-      cbCarModel.push(create3DCylinder(10, 0.15, 0.10, [x, -1.3, 0.42], false, MAT_CB));
-      cbCarModel.push(create3DCylinder(10, 0.11, 0.12, [x, -1.31, 0.42], false, MAT_LIGHT, true));
-      cbCarModel.push(create3DBox([x * 1.45, -0.8, 0.55], [0.25, 0.45, 0.05], 0, MAT_CB));
-      cbCarModel.push(create3DBox([x * 1.48, -1.28, 0.68], [0.16, 0.16, 0.08], 0, MAT_TAPE));
-    });
+      // Headlights & Accents
+      [-0.45, 0.45].forEach(x => {
+        cbCarModel.push(create3DCylinder(10, 0.15, 0.10, [x, -1.3, 0.42], false, colors.body));
+        cbCarModel.push(create3DCylinder(10, 0.11, 0.12, [x, -1.31, 0.42], false, colors.light, true));
+        cbCarModel.push(create3DBox([x * 1.45, -0.8, 0.55], [0.25, 0.45, 0.05], 0, colors.body));
+        cbCarModel.push(create3DBox([x * 1.48, -1.28, 0.68], [0.16, 0.16, 0.08], 0, colors.tape));
+      });
 
-    // 4 Low-Poly Wheels (FL, FR, RL, RR)
-    const wheelCoords = [
-      [-0.82, -0.8, 0.32],
-      [ 0.82, -0.8, 0.32],
-      [-0.82,  0.8, 0.32],
-      [ 0.82,  0.8, 0.32]
-    ];
-    wheelCoords.forEach(([wx, wy, wz]) => {
-      cbCarModel.push(create3DCylinder(10, 0.32, 0.26, [wx, wy, wz], true, MAT_TIRE));
-      const hOff = wx < 0 ? -0.02 : 0.02;
-      cbCarModel.push(create3DCylinder(10, 0.18, 0.28, [wx + hOff, wy, wz], true, MAT_CB));
-      const nOff = wx < 0 ? -0.05 : 0.05;
-      cbCarModel.push(create3DCylinder(6, 0.06, 0.32, [wx + nOff, wy, wz], true, MAT_TAPE));
-    });
+      // 4 Low-Poly Wheels (FL, FR, RL, RR)
+      const wheelCoords = [
+        [-0.82, -0.8, 0.32],
+        [ 0.82, -0.8, 0.32],
+        [-0.82,  0.8, 0.32],
+        [ 0.82,  0.8, 0.32]
+      ];
+      wheelCoords.forEach(([wx, wy, wz]) => {
+        cbCarModel.push(create3DCylinder(10, 0.32, 0.26, [wx, wy, wz], true, colors.tire));
+        const hOff = wx < 0 ? -0.02 : 0.02;
+        cbCarModel.push(create3DCylinder(10, 0.18, 0.28, [wx + hOff, wy, wz], true, colors.rim));
+        const nOff = wx < 0 ? -0.05 : 0.05;
+        cbCarModel.push(create3DCylinder(6, 0.06, 0.32, [wx + nOff, wy, wz], true, colors.tape));
+      });
+    }
   }
 
   function computeCbCameraView(eye, target, up) {
@@ -823,16 +893,47 @@
     });
   }
 
+  const btnShowStreet = document.getElementById('btn-show-street');
+  const btnShowF1 = document.getElementById('btn-show-f1');
+  const showroomTitle = document.getElementById('showroom-car-title');
+  const showroomSpecs = document.getElementById('showroom-specs-strip');
+
+  function setShowroomCar(type) {
+    currentShowroomCar = type;
+    localStorage.setItem('formula_v_car', type);
+    if (btnShowStreet) btnShowStreet.classList.toggle('active', type === 'street');
+    if (btnShowF1) btnShowF1.classList.toggle('active', type === 'f1');
+    if (showroomTitle) {
+      showroomTitle.textContent = type === 'f1' ? '🏁 DIY FORMULA 1 (#7)' : '🏎️ DIY STREET RACER';
+    }
+    if (showroomSpecs) {
+      showroomSpecs.innerHTML = type === 'f1'
+        ? '<span>MONOCOQUE TUB</span> • <span>WIDE FRONT WING</span> • <span>REAR SLICKS</span>'
+        : '<span>KRAFT CHASSIS</span> • <span>DUCT TAPE AERO</span> • <span>10-POLY WHEELS</span>';
+    }
+    if (btnDriveCb) {
+      btnDriveCb.href = `Buddh Circuit – F1 Cockpit.html?car=${type}&cam=chase`;
+    }
+    buildCardboardCar(type);
+  }
+
+  if (btnShowStreet) {
+    btnShowStreet.addEventListener('click', () => setShowroomCar('street'));
+  }
+  if (btnShowF1) {
+    btnShowF1.addEventListener('click', () => setShowroomCar('f1'));
+  }
+
   if (btnDriveCb) {
     btnDriveCb.addEventListener('click', () => {
-      localStorage.setItem('formula_v_car', 'cardboard');
+      localStorage.setItem('formula_v_car', currentShowroomCar);
     });
   }
 
   // --- Initialize ---
   updateCurrencies();
   initHeroTrack();
-  buildCardboardCar();
+  setShowroomCar(currentShowroomCar);
   renderCardboardShowroom();
 
   window.addEventListener('click', () => {

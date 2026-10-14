@@ -669,7 +669,7 @@ function resize(){
 addEventListener('resize',resize);resize();
 
 // Cars
-const defaultDuoCar = (new URLSearchParams(location.search).get('car') || localStorage.getItem('formula_v_car') || 'cardboard');
+const defaultDuoCar = (new URLSearchParams(location.search).get('car') || localStorage.getItem('formula_v_car') || 'street');
 const p1={id:1, name:'PLAYER 1 (RED)', num:'16', color:'#e10600', vehicle: defaultDuoCar, x:0,y:0,a:0,vx:0,vy:0,steer:0,idx:0,ers:1,gear:0,lapT:0,lapNo:1,best:null,halfway:false,drs:false,onTrack:true,kmh:0,inG:0,vf:0,thr:false,brk:false,wheelSpin:0,pitch:0,roll:0};
 const p2={id:2, name:'PLAYER 2 (CYAN)', num:'44', color:'#00d2be', vehicle: defaultDuoCar, x:0,y:0,a:0,vx:0,vy:0,steer:0,idx:0,ers:1,gear:0,lapT:0,lapNo:1,best:null,halfway:false,drs:false,onTrack:true,kmh:0,inG:0,vf:0,thr:false,brk:false,wheelSpin:0,pitch:0,roll:0};
 
@@ -1059,7 +1059,7 @@ function renderPlayerView(ctx, car, oppCar, primaryColor){
         }
       }
 
-      if(oppCar.vehicle === 'cardboard'){
+      if(oppCar.vehicle === 'cardboard' || oppCar.vehicle === 'street' || oppCar.vehicle === 'f1'){
         // ---- 3D DIY CARDBOARD RACER OPPONENT ----
         // 1. Ground Contact Shadow
         ctx.fillStyle='rgba(8,10,14,0.72)';

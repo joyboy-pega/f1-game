@@ -330,8 +330,8 @@ canvas{display:block;width:100%;height:100%}
     <div>
       <label for="car-select">VEHICLE</label>
       <select id="car-select">
-        <option value="cardboard">Cardboard Racer (DIY Spec-V)</option>
-        <option value="standard">Formula V Standard</option>
+        <option value="street">🏎️ DIY Street Racer</option>
+        <option value="f1">🏁 DIY Formula 1 (#7)</option>
       </select>
     </div>
     <div>
@@ -422,17 +422,17 @@ canvas{display:block;width:100%;height:100%}
 <div id="lights"><span></span><span></span><span></span><span></span><span></span></div>
 <div id="msg"></div>
 <div id="top-tools">
-  <button id="car-toggle-btn" type="button" title="Switch between Cardboard Racer & Standard Formula V">
+  <button id="car-toggle-btn" type="button" title="Switch between DIY Street Racer & DIY Formula 1 (#7) [Key: V]">
     <span style="margin-right:4px">CAR:</span>
-    <span id="car-toggle-text">CARDBOARD</span>
+    <span id="car-toggle-text">STREET RACER</span>
   </button>
   <button id="cam-toggle-btn" type="button" title="Switch Camera View (Press C: Chase, Cockpit, Hood)">
     <span style="margin-right:4px">CAM:</span>
     <span id="cam-toggle-text">CHASE</span>
   </button>
-  <a href="garage.html" class="tool-btn-link" id="top-garage-btn" title="Inspect Cardboard Racer in 3D Garage">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-    <span>3D GARAGE</span>
+  <a href="garage.html" class="tool-btn-link" id="top-garage-btn" title="Inspect & Paint Cars in 3D Customizer Sandbox">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+    <span>🎨 3D PAINT &amp; GARAGE</span>
   </a>
   <button id="menu-toggle" type="button" aria-expanded="false" aria-controls="race-menu" title="Pause Race & Open Settings">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="margin-right:6px"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
@@ -542,19 +542,28 @@ const car={x:0,y:0,a:0,vx:0,vy:0,steer:0,idx:0,ers:1,gear:0};
 let keys={},state='idle',t0=0,lapT=0,lapNo=1,best=null,last=null,halfway=false,lightsT=0,go=false,dist=0;
 let audioCtx=null,engineVoice=null,lastAudioGear=null,audioEnabled=true,volumeLevel=.75;
 let steeringSensitivity=1,cameraMotion=1,menuReturnState=null,guardRailSparks=0;
-let activeVehicle = new URLSearchParams(window.location.search).get('car') || localStorage.getItem('formula_v_car') || 'cardboard';
+const urlCarParam = new URLSearchParams(window.location.search).get('car');
+let activeVehicle = (urlCarParam === 'f1' || urlCarParam === 'standard') ? 'f1' :
+                    (urlCarParam === 'street' || urlCarParam === 'cardboard') ? 'street' :
+                    (localStorage.getItem('formula_v_car') === 'f1' ? 'f1' : 'street');
 let cameraView = new URLSearchParams(window.location.search).get('cam') || localStorage.getItem('formula_v_cam') || 'chase';
 
+// Customizer Color Persistence (Synchronized with 3D Paint Garage)
+const customParams = new URLSearchParams(window.location.search);
+let customBodyColor = customParams.get('body') || localStorage.getItem('f1_body_color') || '#9e6234';
+let customAccentColor = customParams.get('accent') || localStorage.getItem('f1_accent_color') || '#bf2626';
+let customRimColor = customParams.get('rim') || localStorage.getItem('f1_rim_color') || '#9e6234';
+
 function setCarModel(model){
-  activeVehicle = model;
-  localStorage.setItem('formula_v_car', model);
+  activeVehicle = (model === 'f1' || model === 'standard') ? 'f1' : 'street';
+  localStorage.setItem('formula_v_car', activeVehicle);
   const btnText = $('car-toggle-text');
-  if(btnText) btnText.textContent = model === 'cardboard' ? 'CARDBOARD' : 'FORMULA V';
+  if(btnText) btnText.textContent = activeVehicle === 'f1' ? 'FORMULA 1 (#7)' : 'STREET RACER';
   const sel = $('car-select');
-  if(sel) sel.value = model;
+  if(sel) sel.value = activeVehicle;
   const msgEl = $('msg');
   if(msgEl && state !== 'idle'){
-    msgEl.textContent = 'VEHICLE: ' + (model === 'cardboard' ? 'CARDBOARD RACER (DIY)' : 'FORMULA V STANDARD');
+    msgEl.textContent = 'VEHICLE: ' + (activeVehicle === 'f1' ? '🏁 DIY FORMULA 1 (#7)' : '🏎️ DIY STREET RACER');
     setTimeout(()=>{ if(msgEl.textContent.startsWith('VEHICLE:')) msgEl.textContent=''; }, 1500);
   }
 }
@@ -925,7 +934,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyR')reset();
   if(e.code==='KeyM'&&miniEl)miniEl.click();
   if(e.code==='KeyC')cycleCameraView();
-  if(e.code==='KeyV')setCarModel(activeVehicle==='cardboard'?'standard':'cardboard');
+  if(e.code==='KeyV')setCarModel(activeVehicle==='street'?'f1':'street');
   if(e.code==='KeyU')toggleAudio();
   if(e.code.startsWith('Arrow')||e.code==='Space')e.preventDefault();
 });
@@ -1318,7 +1327,8 @@ function cockpit(){
   const cx=W/2+(car.roll||0)*u;
   const cy=H+(car.pitch||0)*u+roadVibe;
 
-  const isCardboard = (activeVehicle === 'cardboard');
+  const isF1 = (activeVehicle === 'f1');
+  const isCardboard = true;
 
   // 1. FRONT WING (Visible ahead of nose tip)
   const fwY=H*0.648+(car.pitch||0)*u*0.35;
@@ -1329,17 +1339,11 @@ function cockpit(){
   ctx.ellipse(cx,fwY+22*u,fwW*1.05,8*u,0,0,Math.PI*2);
   ctx.fill();
 
-  // Front wing mainplane (carbon fiber or kraft cardboard)
+  // Front wing mainplane (custom kraft cardboard body color)
   const fwGrad=ctx.createLinearGradient(cx-fwW,fwY,cx+fwW,fwY);
-  if(isCardboard){
-    fwGrad.addColorStop(0,'#6d411e');
-    fwGrad.addColorStop(0.5,'#a66735');
-    fwGrad.addColorStop(1,'#6d411e');
-  }else{
-    fwGrad.addColorStop(0,'#111317');
-    fwGrad.addColorStop(0.5,'#23272f');
-    fwGrad.addColorStop(1,'#111317');
-  }
+  fwGrad.addColorStop(0, shadeCADColor(customBodyColor || '#9e6234', 0.68));
+  fwGrad.addColorStop(0.5, customBodyColor || '#9e6234');
+  fwGrad.addColorStop(1, shadeCADColor(customBodyColor || '#9e6234', 0.68));
   ctx.fillStyle=fwGrad;
   ctx.beginPath();
   ctx.moveTo(cx-fwW,fwY+10*u);
@@ -2108,7 +2112,8 @@ function cockpit(){
 
 function drawHoodNose(){
   const u = H / 600;
-  const isCardboard = (activeVehicle === 'cardboard');
+  const isF1 = (activeVehicle === 'f1');
+  const isCardboard = true;
   const steer = car.steer || 0;
   const speedRatio = Math.min(1, Math.hypot(car.vx, car.vy) / 900);
   const roadVibe = (Math.sin(T * 85) * (car.onTrack ? 0.5 : 2.5) * speedRatio) * u;
@@ -2121,13 +2126,13 @@ function drawHoodNose(){
   if (isCardboard) {
     const nw = W * 0.18;
     // Front Kraft Cardboard Wing
-    ctx.fillStyle = '#a66735';
+    ctx.fillStyle = customBodyColor || '#a66735';
     ctx.beginPath();
     ctx.roundRect(-W * 0.25, -42 * u, W * 0.5, 16 * u, [4 * u]);
     ctx.fill();
 
-    // Red racing stripe on wing
-    ctx.fillStyle = '#bf2626';
+    // Custom racing stripe on wing
+    ctx.fillStyle = customAccentColor || '#bf2626';
     ctx.fillRect(-W * 0.045, -42 * u, W * 0.09, 16 * u);
 
     // Silver duct tape wing joints
@@ -2171,37 +2176,21 @@ function drawHoodNose(){
 }
 
 function draw3DPlayerCar() {
-  if (activeVehicle === 'cardboard') {
-    render3DCardboardCADCar(cameraView);
-  } else {
-    const u = H / 600;
-    const speedRatio = Math.min(1, Math.hypot(car.vx, car.vy) / 900);
-    const kmh = car.kmh || 0;
-    const steer = car.steer || 0;
-    const roadBounce = (Math.sin(T * 75) * (car.onTrack ? 0.6 : 2.5) * speedRatio) * u;
-    const chaseDist = (cameraView === 'tcam' ? 16 : 140);
-    const carScale = (focal / chaseDist) * 1.05;
-    const cx = W / 2 + (car.roll || 0) * 0.75 + (steer * 4 * u);
-    const cy = (cameraView === 'tcam' ? H * 0.78 : (hor + (CAMH / chaseDist) * focal + roadBounce));
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    drawFormulaOneRacerChase(carScale, u, speedRatio, steer, kmh);
-    ctx.restore();
-  }
+  render3DCardboardCADCar(cameraView);
 }
 
 // ==========================================================================
 // TRUE 3D CAD MODEL & POLYGONAL MESH ENGINE (FROM BLENDER SCRIPT SPECIFICATION)
 // ==========================================================================
-const CAD_PALETTE = {
-  cb: '#9e6234',       // Cardboard (0.58, 0.35, 0.18, roughness: 0.9)
-  darkCb: '#61381a',   // DarkCardboard (0.38, 0.22, 0.10, roughness: 0.9)
+let CAD_PALETTE = {
+  cb: customBodyColor,       // Cardboard Body (Kraft / Custom color)
+  darkCb: shadeCADColor(customBodyColor, 0.62),   // Dark Cardboard accent
   tire: '#1f1e1d',     // TireBlack (0.12, 0.11, 0.10, roughness: 0.85)
   tape: '#737378',     // DuctTape (0.45, 0.45, 0.47, roughness: 0.4)
-  stripe: '#bf2626',   // RedStripe (0.75, 0.15, 0.15, roughness: 0.8)
+  stripe: customAccentColor,   // Accent / Racing Stripe (customized)
+  rim: customRimColor, // Wheel Hubs / Rims (customized)
   light: '#ffe159',    // Headlight (1.0, 0.82, 0.35, emission: 3.0)
-  glass: 'rgba(153, 166, 179, 0.45)' // PlasticWindshield (0.6, 0.65, 0.7, alpha: 0.35)
+  glass: 'rgba(153, 166, 179, 0.45)' // PlasticWindshield (alpha: 0.35)
 };
 
 function shadeCADColor(col, factor) {
@@ -2271,10 +2260,11 @@ function createCADCylinder(name, segs, radius, depth, loc, axis, colorKey, isGlo
   return { name, baseVerts, faces, isWheel, wheelId, isFrontWheel, center: loc, radius, depth, axis };
 }
 
+// 1. DIY STREET RACER (Cardboard Street Rod / Kart Spec)
 function buildCardboardCADModel() {
   const parts = [];
 
-  // 1. Chassis & Cabin (Blender section 2)
+  // Chassis & Cabin
   parts.push(createCADBox("Front_Hood", [0, -0.75, 0.45], [1.4, 1.1, 0.5], 0, 'cb', false));
   parts.push(createCADBox("Cabin_Floor", [0, 0.2, 0.25], [1.4, 0.9, 0.1], 0, 'darkCb', false));
   parts.push(createCADBox("Door_Left", [-0.65, 0.2, 0.45], [0.1, 0.9, 0.5], 0, 'cb', false));
@@ -2288,21 +2278,21 @@ function buildCardboardCADModel() {
   parts.push(createCADBox("Seat_Base", [0, 0.35, 0.35], [0.85, 0.5, 0.2], 0, 'darkCb', false));
   parts.push(createCADBox("Seat_Back", [0, 0.55, 0.65], [0.85, 0.15, 0.65], -10 * Math.PI / 180, 'cb', false));
 
-  // 2. Windshield & Frame (Blender section 3)
+  // Windshield & Frame
   parts.push(createCADBox("Windshield", [0, -0.22, 0.88], [1.28, 0.03, 0.45], -25 * Math.PI / 180, 'glass', true));
   parts.push(createCADBox("Pillar_L", [-0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, 'cb', false));
   parts.push(createCADBox("Pillar_R", [0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, 'cb', false));
 
-  // 3. Steering Wheel & Column (Blender section 4)
+  // Steering Wheel & Column
   parts.push(createCADBox("Steering_Col", [0, -0.15, 0.62], [0.08, 0.08, 0.4], -35 * Math.PI / 180, 'darkCb', false));
   parts.push(createCADCylinder("Steering_Wheel", 12, 0.18, 0.06, [0, -0.05, 0.78], 'Y', 'tire', false, false));
 
-  // 4. Rear Spoiler (Blender section 5)
+  // Rear Spoiler
   parts.push(createCADBox("Spoiler_Strut_L", [-0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, 'darkCb', false));
   parts.push(createCADBox("Spoiler_Strut_R", [0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, 'darkCb', false));
   parts.push(createCADBox("Spoiler_Wing", [0, 1.05, 1.12], [1.5, 0.4, 0.06], 10 * Math.PI / 180, 'cb', false));
 
-  // 5. Headlights & Duct Tape Accents (Blender section 6)
+  // Headlights & Duct Tape Accents
   [-0.45, 0.45].forEach(x => {
     parts.push(createCADCylinder("Headlight_Rim_" + x, 10, 0.15, 0.10, [x, -1.3, 0.42], 'Y', 'cb', false, false));
     parts.push(createCADCylinder("Headlight_Bulb_" + x, 10, 0.11, 0.12, [x, -1.31, 0.42], 'Y', 'light', true, false));
@@ -2310,7 +2300,7 @@ function buildCardboardCADModel() {
     parts.push(createCADBox("Corner_Tape_" + x, [x * 1.48, -1.28, 0.68], [0.16, 0.16, 0.08], 0, 'tape', false));
   });
 
-  // 6. 10-Poly Low-Poly Wheels with Cardboard Hubs and Hex Nuts (Blender section 7)
+  // 10-Poly Low-Poly Wheels with Cardboard Hubs and Hex Nuts
   const wheelDefs = [
     { id: 'FL', loc: [-0.82, -0.8, 0.32], isFront: true },
     { id: 'FR', loc: [ 0.82, -0.8, 0.32], isFront: true },
@@ -2320,7 +2310,7 @@ function buildCardboardCADModel() {
   wheelDefs.forEach(w => {
     parts.push(createCADCylinder("Wheel_" + w.id, 10, 0.32, 0.26, w.loc, 'X', 'tire', false, true, w.id, w.isFront));
     const hOff = w.loc[0] < 0 ? -0.02 : 0.02;
-    parts.push(createCADCylinder("Wheel_" + w.id + "_Hub", 10, 0.18, 0.28, [w.loc[0] + hOff, w.loc[1], w.loc[2]], 'X', 'cb', false, true, w.id, w.isFront));
+    parts.push(createCADCylinder("Wheel_" + w.id + "_Hub", 10, 0.18, 0.28, [w.loc[0] + hOff, w.loc[1], w.loc[2]], 'X', 'rim', false, true, w.id, w.isFront));
     const nOff = w.loc[0] < 0 ? -0.05 : 0.05;
     parts.push(createCADCylinder("Wheel_" + w.id + "_Nut", 6, 0.06, 0.32, [w.loc[0] + nOff, w.loc[1], w.loc[2]], 'X', 'tape', false, true, w.id, w.isFront));
   });
@@ -2328,7 +2318,88 @@ function buildCardboardCADModel() {
   return parts;
 }
 
-const CAD_MODEL_PARTS = buildCardboardCADModel();
+// 2. DIY FORMULA 1 (#7) (Grand Prix Aero Spec)
+function buildF1CADModel() {
+  const parts = [];
+
+  // Undertray / Floor plank
+  parts.push(createCADBox("Floor_Plank", [0, 0.15, 0.14], [1.35, 2.2, 0.04], 0, 'darkCb', false));
+
+  // Monocoque / Main chassis tub
+  parts.push(createCADBox("Chassis_Tub", [0, -0.1, 0.36], [0.52, 1.5, 0.42], 0, 'cb', false));
+
+  // F1 #7 Nose Cone (sloped down) & Racing Stripe Decal
+  parts.push(createCADBox("Nose_Cone", [0, -1.25, 0.28], [0.36, 1.0, 0.26], -10 * Math.PI / 180, 'cb', false));
+  parts.push(createCADBox("Nose_Stripe", [0, -1.25, 0.42], [0.18, 0.88, 0.02], -10 * Math.PI / 180, 'stripe', false));
+
+  // Wide Front Wing with Endplates & Cascades
+  parts.push(createCADBox("FW_Main", [0, -1.75, 0.14], [1.65, 0.38, 0.04], 0, 'cb', false));
+  parts.push(createCADBox("FW_Casc_L", [-0.45, -1.68, 0.21], [0.55, 0.22, 0.03], -18 * Math.PI / 180, 'cb', false));
+  parts.push(createCADBox("FW_Casc_R", [ 0.45, -1.68, 0.21], [0.55, 0.22, 0.03], -18 * Math.PI / 180, 'cb', false));
+  parts.push(createCADBox("FW_End_L", [-0.82, -1.72, 0.22], [0.04, 0.46, 0.24], 0, 'cb', false));
+  parts.push(createCADBox("FW_End_R", [ 0.82, -1.72, 0.22], [0.04, 0.46, 0.24], 0, 'cb', false));
+  parts.push(createCADBox("FW_Flap_L", [-0.55, -1.76, 0.165], [0.12, 0.36, 0.02], 0, 'stripe', false));
+  parts.push(createCADBox("FW_Flap_R", [ 0.55, -1.76, 0.165], [0.12, 0.36, 0.02], 0, 'stripe', false));
+
+  // Cockpit & Driver Surround
+  parts.push(createCADBox("Cockpit_L", [-0.23, 0.05, 0.62], [0.06, 0.65, 0.16], 0, 'cb', false));
+  parts.push(createCADBox("Cockpit_R", [ 0.23, 0.05, 0.62], [0.06, 0.65, 0.16], 0, 'cb', false));
+  parts.push(createCADBox("Cockpit_Dash", [0, -0.25, 0.63], [0.42, 0.12, 0.12], -25 * Math.PI / 180, 'cb', false));
+  parts.push(createCADBox("Seat_Back_F1", [0, 0.28, 0.52], [0.36, 0.12, 0.45], -15 * Math.PI / 180, 'darkCb', false));
+  parts.push(createCADCylinder("Steering_Wheel_F1", 12, 0.14, 0.05, [0, -0.05, 0.62], 'Y', 'tire', false, false));
+
+  // Sidepods with Undercut Vents and Upper Louvers
+  [-1, 1].forEach(side => {
+    const xPos = side * 0.48;
+    parts.push(createCADBox("Sidepod_" + side, [xPos, 0.25, 0.35], [0.44, 0.95, 0.38], 0, 'cb', false));
+    parts.push(createCADBox("Sidepod_Vent_" + side, [xPos, -0.23, 0.35], [0.36, 0.05, 0.30], 0, 'darkCb', false));
+    parts.push(createCADBox("Sidepod_Top_" + side, [xPos, -0.18, 0.55], [0.46, 0.25, 0.04], 0, 'cb', false));
+    parts.push(createCADBox("Sidepod_Stripe_" + side, [xPos, 0.45, 0.545], [0.42, 0.12, 0.02], 0, 'stripe', false));
+  });
+
+  // Engine Airbox & Dorsal Shark Fin
+  parts.push(createCADBox("Airbox", [0, 0.55, 0.78], [0.32, 0.45, 0.42], 0, 'cb', false));
+  parts.push(createCADBox("Airbox_Intake", [0, 0.32, 0.88], [0.18, 0.05, 0.18], 0, 'darkCb', false));
+  parts.push(createCADBox("Shark_Fin", [0, 0.92, 0.65], [0.06, 0.75, 0.38], 22 * Math.PI / 180, 'cb', false));
+
+  // Multi-Tier High Downforce Rear Wing & DRS Flap
+  parts.push(createCADBox("RW_Pillar_L", [-0.12, 1.32, 0.72], [0.05, 0.16, 0.48], -12 * Math.PI / 180, 'darkCb', false));
+  parts.push(createCADBox("RW_Pillar_R", [ 0.12, 1.32, 0.72], [0.05, 0.16, 0.48], -12 * Math.PI / 180, 'darkCb', false));
+  parts.push(createCADBox("RW_Main", [0, 1.38, 0.92], [1.35, 0.32, 0.04], 0, 'cb', false));
+  parts.push(createCADBox("RW_DRS_Flap", [0, 1.48, 1.04], [1.35, 0.22, 0.04], 25 * Math.PI / 180, 'cb', false));
+  parts.push(createCADBox("RW_End_L", [-0.68, 1.40, 0.86], [0.04, 0.48, 0.52], 0, 'cb', false));
+  parts.push(createCADBox("RW_End_R", [ 0.68, 1.40, 0.86], [0.04, 0.48, 0.52], 0, 'cb', false));
+  parts.push(createCADBox("RW_Stripe", [-0.25, 1.38, 0.945], [0.14, 0.30, 0.02], 0, 'stripe', false));
+
+  // Suspension Wishbones & Duct Tape Reinforcements
+  [-1, 1].forEach(side => {
+    parts.push(createCADBox("Susp_F_Top_" + side, [side * 0.48, -0.95, 0.36], [0.55, 0.06, 0.04], 0, 'cb', false));
+    parts.push(createCADBox("Susp_F_Bot_" + side, [side * 0.48, -0.82, 0.22], [0.55, 0.06, 0.04], 0, 'darkCb', false));
+    parts.push(createCADBox("Susp_R_Top_" + side, [side * 0.52,  0.95, 0.38], [0.55, 0.07, 0.04], 0, 'cb', false));
+    parts.push(createCADBox("Susp_R_Bot_" + side, [side * 0.52,  1.08, 0.24], [0.55, 0.07, 0.04], 0, 'darkCb', false));
+    parts.push(createCADBox("Tape_Nose_" + side, [side * 0.14, -1.58, 0.26], [0.11, 0.15, 0.08], -10 * Math.PI / 180, 'tape', false));
+  });
+
+  // Front and Wide Rear 10-Poly Slicks
+  const f1WheelDefs = [
+    { id: 'FL', loc: [-0.82, -0.90, 0.32], rad: 0.32, depth: 0.30, isFront: true },
+    { id: 'FR', loc: [ 0.82, -0.90, 0.32], rad: 0.32, depth: 0.30, isFront: true },
+    { id: 'RL', loc: [-0.86,  0.98, 0.36], rad: 0.36, depth: 0.38, isFront: false },
+    { id: 'RR', loc: [ 0.86,  0.98, 0.36], rad: 0.36, depth: 0.38, isFront: false }
+  ];
+  f1WheelDefs.forEach(w => {
+    parts.push(createCADCylinder("Wheel_" + w.id, 10, w.rad, w.depth, w.loc, 'X', 'tire', false, true, w.id, w.isFront));
+    const hOff = w.loc[0] < 0 ? -0.02 : 0.02;
+    parts.push(createCADCylinder("Wheel_" + w.id + "_Hub", 10, w.rad * 0.55, w.depth + 0.02, [w.loc[0] + hOff, w.loc[1], w.loc[2]], 'X', 'rim', false, true, w.id, w.isFront));
+    const nOff = w.loc[0] < 0 ? -0.05 : 0.05;
+    parts.push(createCADCylinder("Wheel_" + w.id + "_Nut", 6, 0.06, w.depth + 0.05, [w.loc[0] + nOff, w.loc[1], w.loc[2]], 'X', 'tape', false, true, w.id, w.isFront));
+  });
+
+  return parts;
+}
+
+const CAD_STREET_PARTS = buildCardboardCADModel();
+const CAD_F1_PARTS = buildF1CADModel();
 let cadWheelSpinAngle = 0;
 
 function render3DCardboardCADCar(camMode) {
@@ -2417,8 +2488,8 @@ function render3DCardboardCADCar(camMode) {
   const lx = 0.52, ly = -0.62, lz = 0.58;
 
   const renderFaces = [];
-
-  CAD_MODEL_PARTS.forEach(part => {
+  const activeCADParts = (activeVehicle === 'f1') ? CAD_F1_PARTS : CAD_STREET_PARTS;
+  activeCADParts.forEach(part => {
     let partVerts = [];
 
     if (part.isWheel) {
@@ -3111,21 +3182,21 @@ function draw(){
   mx.translate(carX, carY);
   mx.rotate(car.a - Math.PI / 2);
 
-  const isCb = (activeVehicle === 'cardboard');
+  const isF1 = (activeVehicle === 'f1');
   // Rear Wing
-  mx.fillStyle = isCb ? '#a66735' : '#ffffff';
-  mx.fillRect(-5.5, -6.5, 11, 1.8);
+  mx.fillStyle = customAccentColor || '#bf2626';
+  mx.fillRect(isF1 ? -7 : -5.5, -6.5, isF1 ? 14 : 11, 2.0);
   // Rear Tires
   mx.fillStyle = '#0a0d14';
-  mx.fillRect(-6.8, -6, 2.4, 4.2);
-  mx.fillRect(4.4, -6, 2.4, 4.2);
+  mx.fillRect(-7.2, -6, isF1 ? 3.0 : 2.4, 4.2);
+  mx.fillRect(4.2, -6, isF1 ? 3.0 : 2.4, 4.2);
   // Front Tires
   mx.fillRect(-6.8, 3, 2.4, 4.2);
   mx.fillRect(4.4, 3, 2.4, 4.2);
   // Sidepods & Chassis
-  mx.fillStyle = isCb ? '#a66735' : '#e10600';
+  mx.fillStyle = customBodyColor || '#9e6234';
   mx.beginPath();
-  mx.moveTo(0, 9.5); // Nose tip
+  mx.moveTo(0, isF1 ? 11.5 : 9.5); // Nose tip
   mx.lineTo(2.4, 3.8);
   mx.lineTo(3.5, -2.5);
   mx.lineTo(2.6, -6);
@@ -3251,7 +3322,7 @@ function showRaceComplete(){
   const carBtn=document.getElementById('car-toggle-btn');
   if(carBtn){
     carBtn.addEventListener('click',()=>{
-      setCarModel(activeVehicle==='cardboard'?'standard':'cardboard');
+      setCarModel(activeVehicle==='street'?'f1':'street');
     });
   }
   setCarModel(activeVehicle);
