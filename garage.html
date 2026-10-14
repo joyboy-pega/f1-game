@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Buddh Circuit Garage · 3D Cardboard Racer Spec-V — Arigatoo Club</title>
+  <meta name="description" content="Dedicated 3D Vehicle Inspector & Garage for the Cardboard Racer. 360° rotation, exploded view, parts inspection, liveries, and sound.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --neon-lime:   #C8FF2E;
+      --ink-black:   #0A0A0A;
+      --hot-orange:  #FF6B1A;
+      --pure-white:  #FFFFFF;
+      --deep-gray:   #111111;
+      --dark-gray:   #171717;
+      --mid-gray:    #242424;
+      --border-gray: #333333;
+      --font-display: 'Anton', Impact, sans-serif;
+      --font-ui:      'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono:    'JetBrains Mono', monospace;
+      --shadow-lime:  4px 4px 0 var(--neon-lime);
+      --shadow-black: 4px 4px 0 #000;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      background: var(--ink-black);
+      color: var(--pure-white);
+      font-family: var(--font-ui);
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Ambient Floor Glow & Grid */
+    .bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(200, 255, 46, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(200, 255, 46, 0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .bg-radial {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 55%, rgba(200, 255, 46, 0.09) 0%, rgba(10, 10, 10, 0.95) 75%);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* ══════════ TOP NAV BAR ══════════ */
+    .garage-topbar {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: rgba(17, 17, 17, 0.94);
+      border-bottom: 3px solid var(--ink-black);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--neon-lime);
+      color: var(--ink-black);
+      font-family: var(--font-display);
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      text-decoration: none;
+      border: 2px solid var(--ink-black);
+      box-shadow: var(--shadow-black);
+      transition: transform 0.1s, box-shadow 0.1s;
+      cursor: pointer;
+    }
+    .btn-back:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 5px 5px 0 var(--hot-orange);
+    }
+    .brand-title {
+      display: flex;
+      flex-direction: column;
+    }
+    .brand-title h1 {
+      font-family: var(--font-display);
+      font-size: 22px;
+      letter-spacing: 1px;
+      line-height: 1.1;
+      color: var(--pure-white);
+    }
+    .brand-title span {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--neon-lime);
+      letter-spacing: 1px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-action-drive {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: var(--hot-orange);
+      color: var(--ink-black);
+      font-family: var(--font-display);
+      font-size: 16px;
+      letter-spacing: 0.5px;
+      text-decoration: none;
+      border: 2px solid var(--ink-black);
+      box-shadow: 4px 4px 0 var(--neon-lime);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-action-drive:hover {
+      transform: scale(1.03);
+      box-shadow: 6px 6px 0 var(--pure-white);
+    }
+
+    /* ══════════ MAIN WORKSPACE ══════════ */
+    .garage-body {
+      position: relative;
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    /* 3D Canvas Area */
+    .canvas-container {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      cursor: grab;
+      touch-action: none;
+    }
+    .canvas-container:active {
+      cursor: grabbing;
+    }
+    #garage-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Floating Viewport Overlays */
+    .viewport-overlay-hint {
+      position: absolute;
+      top: 18px;
+      left: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(10, 10, 10, 0.78);
+      border: 1px solid var(--border-gray);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #aaa;
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+    }
+    .viewport-overlay-hint b {
+      color: var(--neon-lime);
+    }
+
+    /* Rev Gauge Indicator (Floating) */
+    .rev-hud-widget {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      background: rgba(17, 17, 17, 0.9);
+      border: 2px solid var(--ink-black);
+      box-shadow: var(--shadow-lime);
+      padding: 12px 16px;
+      min-width: 220px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: auto;
+    }
+    .rev-hud-title {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-display);
+      font-size: 13px;
+      letter-spacing: 0.5px;
+      color: var(--pure-white);
+    }
+    .rev-bar-track {
+      width: 100%;
+      height: 10px;
+      background: #222;
+      border: 1px solid #444;
+      overflow: hidden;
+      position: relative;
+    }
+    .rev-bar-fill {
+      height: 100%;
+      width: 15%;
+      background: linear-gradient(90deg, var(--neon-lime), var(--hot-orange), #ff2a2a);
+      transition: width 0.05s ease-out;
+    }
+    .btn-rev-action {
+      margin-top: 4px;
+      padding: 6px 10px;
+      background: var(--ink-black);
+      color: var(--neon-lime);
+      font-family: var(--font-display);
+      font-size: 13px;
+      border: 1.5px solid var(--neon-lime);
+      cursor: pointer;
+      text-align: center;
+    }
+    .btn-rev-action:active {
+      background: var(--neon-lime);
+      color: var(--ink-black);
+    }
+
+    /* Floating Camera Angle Bar */
+    .cam-presets-bar {
+      position: absolute;
+      top: 18px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 15;
+    }
+    .cam-btn {
+      padding: 7px 12px;
+      background: rgba(17, 17, 17, 0.88);
+      color: #eee;
+      border: 1.5px solid var(--border-gray);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.12s;
+      text-align: left;
+    }
+    .cam-btn:hover, .cam-btn.active {
+      background: var(--neon-lime);
+      color: var(--ink-black);
+      border-color: var(--neon-lime);
+      font-weight: 800;
+      transform: translateX(-4px);
+    }
+
+    /* Zoom & Mode Controls Floating Toolbar */
+    .floating-tools-bottom {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(17, 17, 17, 0.94);
+      padding: 8px 14px;
+      border: 2px solid var(--ink-black);
+      box-shadow: 4px 4px 0 var(--border-gray);
+      border-radius: 6px;
+      z-index: 15;
+    }
+    .tool-btn {
+      padding: 8px 12px;
+      background: var(--mid-gray);
+      color: var(--pure-white);
+      border: 1px solid #444;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.1s;
+    }
+    .tool-btn:hover {
+      background: #333;
+      border-color: var(--pure-white);
+    }
+    .tool-btn.active {
+      background: var(--neon-lime);
+      color: var(--ink-black);
+      border-color: var(--neon-lime);
+      font-weight: 700;
+    }
+    .tool-separator {
+      width: 1px;
+      height: 20px;
+      background: #444;
+      margin: 0 4px;
+    }
+
+    /* ══════════ RIGHT SIDEBAR: INSPECTOR & CUSTOMIZER ══════════ */
+    .garage-sidebar {
+      width: 380px;
+      height: 100%;
+      background: rgba(17, 17, 17, 0.96);
+      border-left: 3px solid var(--ink-black);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 20;
+      box-shadow: -6px 0 24px rgba(0,0,0,0.7);
+    }
+
+    .sidebar-section {
+      padding: 18px 20px;
+      border-bottom: 2px solid var(--border-gray);
+    }
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 15px;
+      letter-spacing: 1px;
+      color: var(--neon-lime);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Spec Stats Grid */
+    .specs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .spec-card {
+      background: var(--deep-gray);
+      border: 1px solid var(--border-gray);
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .spec-card .label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #888;
+      text-transform: uppercase;
+    }
+    .spec-card .val {
+      font-family: var(--font-display);
+      font-size: 17px;
+      color: var(--pure-white);
+    }
+
+    /* Exploded View Slider */
+    .exploded-control-box {
+      background: var(--deep-gray);
+      border: 1px solid var(--border-gray);
+      padding: 12px;
+      margin-top: 10px;
+    }
+    .exploded-row {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+    .exploded-slider {
+      width: 100%;
+      accent-color: var(--neon-lime);
+      cursor: pointer;
+    }
+
+    /* Liveries / Theme Switcher */
+    .livery-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .livery-card {
+      background: var(--deep-gray);
+      border: 1.5px solid var(--border-gray);
+      padding: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.15s;
+    }
+    .livery-card:hover {
+      border-color: var(--pure-white);
+    }
+    .livery-card.active {
+      border-color: var(--neon-lime);
+      background: #1c2610;
+    }
+    .livery-swatch {
+      width: 22px;
+      height: 22px;
+      border: 1px solid var(--ink-black);
+      border-radius: 3px;
+    }
+    .livery-name {
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    /* Parts Breakdown List */
+    .parts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 240px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .part-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--deep-gray);
+      padding: 7px 10px;
+      border: 1px solid var(--border-gray);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .part-item:hover {
+      background: #2a2a2a;
+      border-color: var(--neon-lime);
+    }
+    .part-item.active {
+      border-color: var(--neon-lime);
+      background: #1e2810;
+      color: var(--neon-lime);
+    }
+    .part-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #888;
+    }
+
+    /* Blueprint Notes */
+    .blueprint-box {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.5;
+      color: #999;
+      background: #0d0d0d;
+      border: 1px dashed #444;
+      padding: 10px;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #111;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #333;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--neon-lime);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .garage-body {
+        flex-direction: column;
+      }
+      .garage-sidebar {
+        width: 100%;
+        height: 280px;
+        border-left: none;
+        border-top: 3px solid var(--ink-black);
+      }
+      .cam-presets-bar {
+        top: 10px;
+        right: 10px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        max-width: 240px;
+      }
+      .cam-btn {
+        padding: 4px 8px;
+        font-size: 9px;
+      }
+      .rev-hud-widget {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient background -->
+  <div class="bg-grid"></div>
+  <div class="bg-radial"></div>
+
+  <!-- ══════════ TOP BAR ══════════ -->
+  <header class="garage-topbar">
+    <div class="topbar-left">
+      <a href="index.html" class="btn-back" title="Return to Circuit Lobby">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <span>LOBBY MAP</span>
+      </a>
+      <div class="brand-title">
+        <h1>CARDBOARD RACER SPEC-V</h1>
+        <span>3D DEDICATED INSPECTION & GARAGE · BLENDER PY ENGINE</span>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html?car=cardboard" class="btn-action-drive" title="Launch into Cockpit Race Mode">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span>DRIVE ON BUDDH GP</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- ══════════ MAIN 3D WORKSPACE ══════════ -->
+  <main class="garage-body">
+
+    <!-- 3D Canvas Area -->
+    <section class="canvas-container" id="canvas-container" title="Drag to Orbit · Wheel to Zoom">
+      <canvas id="garage-canvas"></canvas>
+
+      <!-- Viewport Controls Hint -->
+      <div class="viewport-overlay-hint">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+        <span><b>ORBIT:</b> Drag &nbsp;|&nbsp; <b>ZOOM:</b> Scroll/Pinch &nbsp;|&nbsp; <b>PAN:</b> Right-Drag</span>
+      </div>
+
+      <!-- Camera Presets Floating Menu -->
+      <nav class="cam-presets-bar" aria-label="Camera Presets">
+        <button type="button" class="cam-btn active" data-cam="iso">3/4 PERSPECTIVE</button>
+        <button type="button" class="cam-btn" data-cam="front">FRONT NOSE</button>
+        <button type="button" class="cam-btn" data-cam="cockpit">COCKPIT VIEW</button>
+        <button type="button" class="cam-btn" data-cam="side">SIDE PROFILE</button>
+        <button type="button" class="cam-btn" data-cam="rear">REAR SPOILER</button>
+        <button type="button" class="cam-btn" data-cam="wheel">WHEEL & NUT</button>
+        <button type="button" class="cam-btn" data-cam="top">TOP BLUEPRINT</button>
+      </nav>
+
+      <!-- Interactive Rev Engine Widget -->
+      <div class="rev-hud-widget" id="rev-hud">
+        <div class="rev-hud-title">
+          <span>SPEC-V 1.6L V6 TURBO</span>
+          <span id="rev-rpm-display" style="color:var(--neon-lime);font-family:var(--font-mono)">1,800 RPM</span>
+        </div>
+        <div class="rev-bar-track">
+          <div class="rev-bar-fill" id="rev-bar-fill"></div>
+        </div>
+        <button type="button" class="btn-rev-action" id="btn-rev-engine" title="Hold to Rev Engine">
+          REV ENGINE (HOLD OR PRESS W)
+        </button>
+      </div>
+
+      <!-- Floating Bottom Tool Bar -->
+      <div class="floating-tools-bottom">
+        <button type="button" class="tool-btn active" id="btn-toggle-spin" title="Toggle Auto-Spin">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span id="spin-btn-label">SPIN: ON</span>
+        </button>
+
+        <button type="button" class="tool-btn" id="btn-toggle-wireframe" title="Toggle Low-Poly Wireframe Topology">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+          <span>WIREFRAME</span>
+        </button>
+
+        <button type="button" class="tool-btn" id="btn-toggle-lights" title="Toggle Headlight Beams">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
+          <span id="lights-btn-label">HEADLIGHTS</span>
+        </button>
+
+        <div class="tool-separator"></div>
+
+        <button type="button" class="tool-btn" id="btn-zoom-in" title="Zoom In">+</button>
+        <button type="button" class="tool-btn" id="btn-zoom-out" title="Zoom Out">-</button>
+        <button type="button" class="tool-btn" id="btn-reset-view" title="Reset Camera">RESET</button>
+      </div>
+
+    </section>
+
+    <!-- ══════════ RIGHT SIDEBAR: INSPECTION & CUSTOMIZER ══════════ -->
+    <aside class="garage-sidebar">
+
+      <!-- Specs & Telemetry -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>VEHICLE TELEMETRY</span>
+          <span style="font-family:var(--font-mono);font-size:10px;color:#aaa">HOMOLOGATION 2026</span>
+        </div>
+        <div class="specs-grid">
+          <div class="spec-card">
+            <span class="label">CURB WEIGHT</span>
+            <span class="val" style="color:var(--neon-lime)">385 KG</span>
+          </div>
+          <div class="spec-card">
+            <span class="label">TOP SPEED</span>
+            <span class="val">318 KM/H</span>
+          </div>
+          <div class="spec-card">
+            <span class="label">DOWNFORCE</span>
+            <span class="val">420 KG @ 250</span>
+          </div>
+          <div class="spec-card">
+            <span class="label">DUCT TAPE ROLLS</span>
+            <span class="val" style="color:var(--hot-orange)">14 ROLLS</span>
+          </div>
+        </div>
+
+        <!-- Exploded View Disassembly -->
+        <div class="exploded-control-box">
+          <div class="exploded-row">
+            <span>EXPLODED ASSEMBLY VIEW</span>
+            <span id="exploded-val" style="color:var(--neon-lime);font-weight:700">0%</span>
+          </div>
+          <input type="range" class="exploded-slider" id="exploded-slider" min="0" max="100" value="0">
+        </div>
+      </div>
+
+      <!-- Livery Color Switcher -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>LIVERY & TEXTURE THEMES</span>
+        </div>
+        <div class="livery-grid">
+          <div class="livery-card active" data-livery="kraft">
+            <div class="livery-swatch" style="background:#a66735"></div>
+            <div class="livery-name">KRAFT CLASSIC<br><small style="color:#888;font-size:10px">Original Cardboard</small></div>
+          </div>
+          <div class="livery-card" data-livery="stealth">
+            <div class="livery-swatch" style="background:#222226"></div>
+            <div class="livery-name">MIDNIGHT STEALTH<br><small style="color:#888;font-size:10px">Recycled Matte</small></div>
+          </div>
+          <div class="livery-card" data-livery="scuderia">
+            <div class="livery-swatch" style="background:#d92525"></div>
+            <div class="livery-name">SCUDERIA RED<br><small style="color:#888;font-size:10px">Racing Crimson</small></div>
+          </div>
+          <div class="livery-card" data-livery="neon">
+            <div class="livery-swatch" style="background:#C8FF2E"></div>
+            <div class="livery-name">NEON BEAST<br><small style="color:#888;font-size:10px">Arigatoo Special</small></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Parts Component Inspector -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>BLENDER MESH INSPECTOR</span>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--neon-lime)">16 PARTS</span>
+        </div>
+        <div class="parts-list" id="parts-list">
+          <div class="part-item" data-part="hood"><span>Front Hood & Grille</span><span class="part-tag">Box (1.4, 1.1, 0.5)</span></div>
+          <div class="part-item" data-part="stripe"><span>Red Racing Stripe</span><span class="part-tag">Offset (-0.25)</span></div>
+          <div class="part-item" data-part="cabin"><span>Cabin Floor & Doors</span><span class="part-tag">Cardboard Shell</span></div>
+          <div class="part-item" data-part="seat"><span>Cardboard Bucket Seat</span><span class="part-tag">-10° Rake Back</span></div>
+          <div class="part-item" data-part="windshield"><span>Plastic Windshield</span><span class="part-tag">Alpha 0.45 Tint</span></div>
+          <div class="part-item" data-part="steering"><span>Steering Torus & Col</span><span class="part-tag">-35° Inclination</span></div>
+          <div class="part-item" data-part="spoiler"><span>Rear Spoiler Wing</span><span class="part-tag">Dual Struts + 10°</span></div>
+          <div class="part-item" data-part="headlights"><span>Twin Headlight Bulbs</span><span class="part-tag">Emission 3.0</span></div>
+          <div class="part-item" data-part="wheels"><span>10-Poly Wheels & Hubs</span><span class="part-tag">4x Hex Nuts</span></div>
+        </div>
+      </div>
+
+      <!-- Technical Architecture Blueprint -->
+      <div class="sidebar-section" style="border-bottom:none">
+        <div class="section-title">
+          <span>ENGINEERING NOTES</span>
+        </div>
+        <div class="blueprint-box">
+          • Chassis geometry derived directly from low-poly Blender bpy script.<br>
+          • 10-vertex cylinder wheels with independent cardboard hubcaps and duct tape lug nuts.<br>
+          • Painter's algorithm depth sorting with flat normal diffuse shading.<br>
+          • Fully compatible with Buddh Circuit F1 Cockpit physics simulator.
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- ══════════ JS 3D RENDER ENGINE ══════════ -->
+  <script>
+  (function(){
+    const canvas = document.getElementById('garage-canvas');
+    const container = document.getElementById('canvas-container');
+    const ctx = canvas.getContext('2d');
+
+    // Camera state
+    let yaw = 0.65;
+    let pitch = 0.32;
+    let camDist = 3.8;
+    let panX = 0;
+    let panY = 0;
+    let targetYaw = yaw, targetPitch = pitch, targetDist = camDist, targetPanX = 0, targetPanY = 0;
+
+    let autoSpin = true;
+    let isWireframe = false;
+    let isHeadlightsOn = true;
+    let explodedFactor = 0; // 0 to 1
+    let activePartHighlight = null;
+
+    // Mouse & Touch Interaction
+    let isDragging = false;
+    let isPanning = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
+    // Livery Colors Palette
+    const LIVERIES = {
+      kraft: {
+        cb: '#a66735',
+        darkCb: '#5e381b',
+        tire: '#181716',
+        tape: '#7b838f',
+        stripe: '#bf2626',
+        light: '#ffd159',
+        glass: 'rgba(165, 205, 235, 0.42)'
+      },
+      stealth: {
+        cb: '#222226',
+        darkCb: '#131316',
+        tire: '#0a0a0c',
+        tape: '#C8FF2E',
+        stripe: '#00D2BE',
+        light: '#C8FF2E',
+        glass: 'rgba(40, 60, 70, 0.55)'
+      },
+      scuderia: {
+        cb: '#d92525',
+        darkCb: '#851212',
+        tire: '#161616',
+        tape: '#ffffff',
+        stripe: '#ffffff',
+        light: '#ffe17d',
+        glass: 'rgba(210, 230, 250, 0.45)'
+      },
+      neon: {
+        cb: '#C8FF2E',
+        darkCb: '#111111',
+        tire: '#141414',
+        tape: '#FF6B1A',
+        stripe: '#0A0A0A',
+        light: '#ffffff',
+        glass: 'rgba(200, 255, 46, 0.35)'
+      }
+    };
+    let currentLivery = 'kraft';
+
+    function resizeCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function shadeHex(hex, factor) {
+      if (hex.startsWith('rgba')) return hex;
+      let r = parseInt(hex.slice(1, 3), 16);
+      let g = parseInt(hex.slice(3, 5), 16);
+      let b = parseInt(hex.slice(5, 7), 16);
+      r = Math.min(255, Math.max(0, Math.round(r * factor)));
+      g = Math.min(255, Math.max(0, Math.round(g * factor)));
+      b = Math.min(255, Math.max(0, Math.round(b * factor)));
+      return '#' + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
+    }
+
+    // Geometry Primitives
+    function create3DBox(loc, scale, rotX, colorKey, isTrans, explodeDir, partKey) {
+      const sx = scale[0] / 2, sy = scale[1] / 2, sz = scale[2] / 2;
+      const raw = [
+        [-sx, -sy, -sz], [sx, -sy, -sz], [sx, sy, -sz], [-sx, sy, -sz],
+        [-sx, -sy, sz],  [sx, -sy, sz],  [sx, sy, sz],  [-sx, sy, sz]
+      ];
+      const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+      const baseVerts = raw.map(v => {
+        const y = v[1] * cosX - v[2] * sinX + loc[1];
+        const z = v[1] * sinX + v[2] * cosX + loc[2];
+        return [v[0] + loc[0], y, z];
+      });
+      const faces = [
+        { idx: [0, 3, 2, 1], colorKey, isTrans },
+        { idx: [4, 5, 6, 7], colorKey, isTrans },
+        { idx: [0, 1, 5, 4], colorKey, isTrans },
+        { idx: [2, 3, 7, 6], colorKey, isTrans },
+        { idx: [0, 4, 7, 3], colorKey, isTrans },
+        { idx: [1, 2, 6, 5], colorKey, isTrans }
+      ];
+      return { baseVerts, faces, explodeDir: explodeDir || [0,0,0], partKey };
+    }
+
+    function create3DCylinder(segs, radius, depth, loc, alongX, colorKey, isGlow, explodeDir, partKey) {
+      const halfD = depth / 2;
+      const baseVerts = [];
+      for (let i = 0; i < segs; i++) {
+        const a = (i / segs) * Math.PI * 2;
+        const rCos = radius * Math.cos(a), rSin = radius * Math.sin(a);
+        if (alongX) {
+          baseVerts.push([-halfD + loc[0], rCos + loc[1], rSin + loc[2]]);
+          baseVerts.push([halfD + loc[0], rCos + loc[1], rSin + loc[2]]);
+        } else {
+          baseVerts.push([rCos + loc[0], -halfD + loc[1], rSin + loc[2]]);
+          baseVerts.push([rCos + loc[0], halfD + loc[1], rSin + loc[2]]);
+        }
+      }
+      const faces = [];
+      for (let i = 0; i < segs; i++) {
+        const next = (i + 1) % segs;
+        faces.push({
+          idx: [i * 2, i * 2 + 1, next * 2 + 1, next * 2],
+          colorKey,
+          isGlow
+        });
+      }
+      const cap1 = [], cap2 = [];
+      for (let i = 0; i < segs; i++) {
+        cap1.push(i * 2);
+        cap2.unshift(i * 2 + 1);
+      }
+      faces.push({ idx: cap1, colorKey, isGlow });
+      faces.push({ idx: cap2, colorKey, isGlow });
+      return { baseVerts, faces, explodeDir: explodeDir || [0,0,0], partKey };
+    }
+
+    const modelParts = [];
+
+    function buildModel() {
+      modelParts.length = 0;
+
+      // Chassis & Cabin
+      modelParts.push(create3DBox([0, -0.75, 0.45], [1.4, 1.1, 0.5], 0, 'cb', false, [0, -1.2, 0.2], 'hood'));
+      modelParts.push(create3DBox([0, 0.2, 0.25], [1.4, 0.9, 0.1], 0, 'darkCb', false, [0, 0, -0.6], 'cabin'));
+      modelParts.push(create3DBox([-0.65, 0.2, 0.45], [0.1, 0.9, 0.5], 0, 'cb', false, [-1.2, 0, 0], 'cabin'));
+      modelParts.push(create3DBox([0.65, 0.2, 0.45], [0.1, 0.9, 0.5], 0, 'cb', false, [1.2, 0, 0], 'cabin'));
+      modelParts.push(create3DBox([0, 0.9, 0.5], [1.4, 0.6, 0.6], 0, 'cb', false, [0, 1.0, 0.1], 'cabin'));
+
+      // Racing Stripe on Hood
+      modelParts.push(create3DBox([-0.25, -0.75, 0.705], [0.22, 1.08, 0.02], 0, 'stripe', false, [0, -1.2, 0.4], 'stripe'));
+
+      // Cardboard Bucket Seat
+      modelParts.push(create3DBox([0, 0.35, 0.35], [0.85, 0.5, 0.2], 0, 'darkCb', false, [0, 0, 0.9], 'seat'));
+      modelParts.push(create3DBox([0, 0.55, 0.65], [0.85, 0.15, 0.65], -10 * Math.PI / 180, 'cb', false, [0, 0.3, 1.1], 'seat'));
+
+      // Windshield & Frame
+      modelParts.push(create3DBox([0, -0.22, 0.88], [1.28, 0.03, 0.45], -25 * Math.PI / 180, 'glass', true, [0, -0.4, 1.4], 'windshield'));
+      modelParts.push(create3DBox([-0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, 'cb', false, [-0.5, -0.4, 1.4], 'windshield'));
+      modelParts.push(create3DBox([0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, 'cb', false, [0.5, -0.4, 1.4], 'windshield'));
+
+      // Steering Column & Torus Steering Wheel
+      modelParts.push(create3DBox([0, -0.15, 0.62], [0.08, 0.08, 0.4], -35 * Math.PI / 180, 'darkCb', false, [0, -0.2, 0.8], 'steering'));
+      modelParts.push(create3DCylinder(12, 0.18, 0.06, [0, -0.05, 0.78], false, 'tire', false, [0, -0.1, 1.1], 'steering'));
+
+      // Rear Spoiler (Dual Struts + Wing)
+      modelParts.push(create3DBox([-0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, 'darkCb', false, [-0.2, 1.2, 0.9], 'spoiler'));
+      modelParts.push(create3DBox([0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, 'darkCb', false, [0.2, 1.2, 0.9], 'spoiler'));
+      modelParts.push(create3DBox([0, 1.05, 1.12], [1.5, 0.4, 0.06], 10 * Math.PI / 180, 'cb', false, [0, 1.4, 1.2], 'spoiler'));
+
+      // Headlights & Duct Tape Corners
+      [-0.45, 0.45].forEach(x => {
+        const sign = x < 0 ? -1 : 1;
+        modelParts.push(create3DCylinder(10, 0.15, 0.10, [x, -1.3, 0.42], false, 'cb', false, [sign * 0.4, -1.5, 0], 'headlights'));
+        modelParts.push(create3DCylinder(10, 0.11, 0.12, [x, -1.31, 0.42], false, 'light', true, [sign * 0.4, -1.7, 0], 'headlights'));
+        modelParts.push(create3DBox([x * 1.45, -0.8, 0.55], [0.25, 0.45, 0.05], 0, 'cb', false, [sign * 0.9, -0.8, 0.2], 'hood'));
+        modelParts.push(create3DBox([x * 1.48, -1.28, 0.68], [0.16, 0.16, 0.08], 0, 'tape', false, [sign * 1.0, -1.3, 0.3], 'hood'));
+      });
+
+      // 4 Wheels with Hubs & Nuts
+      const wheels = [
+        [-0.82, -0.8, 0.32, [-1.3, -0.5, 0]],
+        [ 0.82, -0.8, 0.32, [ 1.3, -0.5, 0]],
+        [-0.82,  0.8, 0.32, [-1.3,  0.5, 0]],
+        [ 0.82,  0.8, 0.32, [ 1.3,  0.5, 0]]
+      ];
+      wheels.forEach(([wx, wy, wz, expDir]) => {
+        modelParts.push(create3DCylinder(10, 0.32, 0.26, [wx, wy, wz], true, 'tire', false, expDir, 'wheels'));
+        const hOff = wx < 0 ? -0.02 : 0.02;
+        modelParts.push(create3DCylinder(10, 0.18, 0.28, [wx + hOff, wy, wz], true, 'cb', false, [expDir[0] * 1.2, expDir[1], 0], 'wheels'));
+        const nOff = wx < 0 ? -0.05 : 0.05;
+        modelParts.push(create3DCylinder(6, 0.06, 0.32, [wx + nOff, wy, wz], true, 'tape', false, [expDir[0] * 1.4, expDir[1], 0], 'wheels'));
+      });
+    }
+
+    buildModel();
+
+    function computeCameraView(eye, target, up) {
+      let zx = eye[0] - target[0], zy = eye[1] - target[1], zz = eye[2] - target[2];
+      let zl = Math.hypot(zx, zy, zz) || 1;
+      zx /= zl; zy /= zl; zz /= zl;
+
+      let xx = up[1] * zz - up[2] * zy, xy = up[2] * zx - up[0] * zz, xz = up[0] * zy - up[1] * zx;
+      let xl = Math.hypot(xx, xy, xz) || 1;
+      xx /= xl; xy /= xl; xz /= xl;
+
+      let yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
+
+      return {
+        project(px, py, pz) {
+          const dx = px - eye[0], dy = py - eye[1], dz = pz - eye[2];
+          const cx = dx * xx + dy * xy + dz * xz;
+          const cy = dx * yx + dy * yy + dz * yz;
+          const cz = -(dx * zx + dy * zy + dz * zz);
+          return { cx, cy, cz };
+        }
+      };
+    }
+
+    // Main 3D Render Loop
+    function render() {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      // Smooth camera interpolation
+      yaw += (targetYaw - yaw) * 0.1;
+      pitch += (targetPitch - pitch) * 0.1;
+      camDist += (targetDist - camDist) * 0.1;
+      panX += (targetPanX - panX) * 0.1;
+      panY += (targetPanY - panY) * 0.1;
+
+      if (autoSpin && !isDragging && !isPanning) {
+        targetYaw += 0.008;
+      }
+
+      const target = [0, 0, 0.45];
+      const curPitch = Math.max(-0.25, Math.min(1.48, pitch));
+      const eye = [
+        camDist * Math.cos(curPitch) * Math.sin(yaw),
+        -camDist * Math.cos(curPitch) * Math.cos(yaw),
+        target[2] + camDist * Math.sin(curPitch)
+      ];
+      const view = computeCameraView(eye, target, [0, 0, 1]);
+      const focal = Math.min(w, h) * 1.7;
+
+      const lightDir = [0.45, -0.65, 0.85];
+      const lightLen = Math.hypot(...lightDir);
+      const lx = lightDir[0] / lightLen, ly = lightDir[1] / lightLen, lz = lightDir[2] / lightLen;
+
+      function projectPt(vx, vy, vz) {
+        const p = view.project(vx, vy, vz);
+        const cz = Math.max(0.1, p.cz);
+        const sx = w / 2 + panX + (p.cx / cz) * focal;
+        const sy = h / 2 + panY - (p.cy / cz) * focal;
+        return { cx: p.cx, cy: p.cy, cz, sx, sy };
+      }
+
+      // 1. Draw 3D Podium & Floor Grid
+      const pedR = 2.25;
+      ctx.save();
+      ctx.beginPath();
+      for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.2) {
+        const px = pedR * Math.cos(a), py = pedR * Math.sin(a), pz = 0;
+        const pt = projectPt(px, py, pz);
+        if (a === 0) ctx.moveTo(pt.sx, pt.sy); else ctx.lineTo(pt.sx, pt.sy);
+      }
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(25, 25, 28, 0.85)';
+      ctx.fill();
+      ctx.strokeStyle = '#C8FF2E';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Concentric inner ring
+      ctx.beginPath();
+      for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.3) {
+        const px = (pedR * 0.6) * Math.cos(a), py = (pedR * 0.6) * Math.sin(a), pz = 0;
+        const pt = projectPt(px, py, pz);
+        if (a === 0) ctx.moveTo(pt.sx, pt.sy); else ctx.lineTo(pt.sx, pt.sy);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = 'rgba(200, 255, 46, 0.35)';
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. Headlight Beams Projection on Floor
+      if (isHeadlightsOn) {
+        ctx.save();
+        [-0.45, 0.45].forEach(hx => {
+          const p0 = projectPt(hx, -1.31, 0.42);
+          const p1 = projectPt(hx - 0.6, -4.5, 0.05);
+          const p2 = projectPt(hx + 0.6, -4.5, 0.05);
+
+          const grad = ctx.createRadialGradient(p0.sx, p0.sy, 5, (p1.sx + p2.sx) / 2, (p1.sy + p2.sy) / 2, 160);
+          grad.addColorStop(0, 'rgba(255, 235, 120, 0.55)');
+          grad.addColorStop(0.5, 'rgba(255, 210, 60, 0.15)');
+          grad.addColorStop(1, 'rgba(255, 210, 60, 0)');
+
+          ctx.beginPath();
+          ctx.moveTo(p0.sx, p0.sy);
+          ctx.lineTo(p1.sx, p1.sy);
+          ctx.lineTo(p2.sx, p2.sy);
+          ctx.closePath();
+          ctx.fillStyle = grad;
+          ctx.fill();
+        });
+        ctx.restore();
+      }
+
+      // 3. Transform All Model Vertices with Exploded Offsets
+      const palette = LIVERIES[currentLivery];
+      const renderFaces = [];
+
+      modelParts.forEach(part => {
+        const exp = part.explodeDir;
+        const offX = exp[0] * explodedFactor;
+        const offY = exp[1] * explodedFactor;
+        const offZ = exp[2] * explodedFactor;
+
+        const worldVerts = part.baseVerts.map(v => [v[0] + offX, v[1] + offY, v[2] + offZ]);
+        const transVerts = worldVerts.map(wv => {
+          const pt = projectPt(wv[0], wv[1], wv[2]);
+          return { wx: wv[0], wy: wv[1], wz: wv[2], cx: pt.cx, cy: pt.cy, cz: pt.cz, sx: pt.sx, sy: pt.sy };
+        });
+
+        part.faces.forEach(face => {
+          const v0 = transVerts[face.idx[0]];
+          const v1 = transVerts[face.idx[1]];
+          const v2 = transVerts[face.idx[2]];
+
+          // Compute surface normal in world space
+          const e1x = v1.wx - v0.wx, e1y = v1.wy - v0.wy, e1z = v1.wz - v0.wz;
+          const e2x = v2.wx - v0.wx, e2y = v2.wy - v0.wy, e2z = v2.wz - v0.wz;
+          let nx = e1y * e2z - e1z * e2y;
+          let ny = e1z * e2x - e1x * e2z;
+          let nz = e1x * e2y - e1y * e2x;
+          const nLen = Math.hypot(nx, ny, nz) || 1;
+          nx /= nLen; ny /= nLen; nz /= nLen;
+
+          // Backface culling: vector from eye to face in world space
+          const dx = v0.wx - eye[0], dy = v0.wy - eye[1], dz = v0.wz - eye[2];
+          const dotView = nx * dx + ny * dy + nz * dz;
+          if (dotView >= 0 && !face.isTrans) return;
+
+          let avgZ = 0;
+          face.idx.forEach(i => { avgZ += transVerts[i].cz; });
+          avgZ /= face.idx.length;
+
+          renderFaces.push({
+            face,
+            transVerts,
+            avgZ,
+            nx, ny, nz,
+            partKey: part.partKey
+          });
+        });
+      });
+
+      // Sort faces back to front (Painter's algorithm)
+      renderFaces.sort((a, b) => b.avgZ - a.avgZ);
+
+      // 4. Rasterize Faces
+      renderFaces.forEach(rf => {
+        const face = rf.face;
+        const tv = rf.transVerts;
+        const colorKey = face.colorKey;
+        let baseColor = palette[colorKey] || '#a66735';
+
+        // Diffuse lighting factor
+        let factor = 1.0;
+        if (!face.isGlow && !face.isTrans) {
+          const dot = Math.max(0, rf.nx * lx + rf.ny * ly + rf.nz * lz);
+          factor = 0.48 + 0.52 * dot;
+        }
+
+        let fillColor = shadeHex(baseColor, factor);
+        if (face.isTrans) fillColor = baseColor;
+        if (face.isGlow && isHeadlightsOn) fillColor = '#fff5aa';
+
+        // Active part selection highlight
+        const isHighlight = (activePartHighlight && rf.partKey === activePartHighlight);
+
+        ctx.beginPath();
+        const start = tv[face.idx[0]];
+        ctx.moveTo(start.sx, start.sy);
+        for (let i = 1; i < face.idx.length; i++) {
+          ctx.lineTo(tv[face.idx[i]].sx, tv[face.idx[i]].sy);
+        }
+        ctx.closePath();
+
+        if (!isWireframe) {
+          ctx.fillStyle = isHighlight ? 'rgba(200, 255, 46, 0.75)' : fillColor;
+          ctx.fill();
+        }
+
+        // Polygon wireframe outline
+        if (isWireframe) {
+          ctx.strokeStyle = isHighlight ? '#FF6B1A' : (face.isGlow ? '#ffd159' : '#C8FF2E');
+          ctx.lineWidth = isHighlight ? 2 : 1;
+          ctx.stroke();
+        } else if (isHighlight) {
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      });
+
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+
+    // ══════════ INTERACTION CONTROLS ══════════
+
+    container.addEventListener('mousedown', e => {
+      if (e.button === 2) {
+        isPanning = true;
+      } else {
+        isDragging = true;
+        autoSpin = false;
+        updateSpinButtonUI();
+      }
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+    });
+
+    window.addEventListener('mousemove', e => {
+      const dx = e.clientX - lastMouseX;
+      const dy = e.clientY - lastMouseY;
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+
+      if (isDragging) {
+        targetYaw += dx * 0.009;
+        targetPitch = Math.max(-0.4, Math.min(1.2, targetPitch + dy * 0.009));
+      } else if (isPanning) {
+        targetPanX += dx * 0.8;
+        targetPanY += dy * 0.8;
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+      isPanning = false;
+    });
+
+    container.addEventListener('contextmenu', e => e.preventDefault());
+
+    // Wheel Zoom
+    container.addEventListener('wheel', e => {
+      e.preventDefault();
+      targetDist = Math.max(1.8, Math.min(7.5, targetDist + e.deltaY * 0.003));
+    }, { passive: false });
+
+    // Touch Support
+    let lastTouchDist = 0;
+    container.addEventListener('touchstart', e => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        autoSpin = false;
+        updateSpinButtonUI();
+        lastMouseX = e.touches[0].clientX;
+        lastMouseY = e.touches[0].clientY;
+      } else if (e.touches.length === 2) {
+        isDragging = false;
+        lastTouchDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+      }
+    });
+
+    container.addEventListener('touchmove', e => {
+      if (e.touches.length === 1 && isDragging) {
+        const dx = e.touches[0].clientX - lastMouseX;
+        const dy = e.touches[0].clientY - lastMouseY;
+        lastMouseX = e.touches[0].clientX;
+        lastMouseY = e.touches[0].clientY;
+        targetYaw += dx * 0.01;
+        targetPitch = Math.max(-0.4, Math.min(1.2, targetPitch + dy * 0.01));
+      } else if (e.touches.length === 2) {
+        const curDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const diff = lastTouchDist - curDist;
+        targetDist = Math.max(1.8, Math.min(7.5, targetDist + diff * 0.01));
+        lastTouchDist = curDist;
+      }
+    }, { passive: false });
+
+    container.addEventListener('touchend', () => {
+      isDragging = false;
+    });
+
+    // Camera Presets (Front = 0.0, Rear = 3.14, Side = 1.57, Iso = 0.65)
+    const CAM_PRESETS = {
+      iso:     { yaw: 0.65,  pitch: 0.32, dist: 3.8, panX: 0, panY: 0 },
+      front:   { yaw: 0.00,  pitch: 0.12, dist: 3.0, panX: 0, panY: 0 },
+      cockpit: { yaw: 0.15,  pitch: 0.35, dist: 1.85, panX: 0, panY: 0 },
+      side:    { yaw: 1.57,  pitch: 0.08, dist: 3.4, panX: 0, panY: 0 },
+      rear:    { yaw: 3.14,  pitch: 0.22, dist: 3.2, panX: 0, panY: 0 },
+      wheel:   { yaw: 0.95,  pitch: 0.15, dist: 2.1, panX: -40, panY: 0 },
+      top:     { yaw: 0.00,  pitch: 1.48, dist: 4.5, panX: 0, panY: 0 }
+    };
+
+    document.querySelectorAll('.cam-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const cam = CAM_PRESETS[btn.dataset.cam];
+        if (cam) {
+          targetYaw = cam.yaw;
+          targetPitch = cam.pitch;
+          targetDist = cam.dist;
+          targetPanX = cam.panX;
+          targetPanY = cam.panY;
+          autoSpin = false;
+          updateSpinButtonUI();
+        }
+      });
+    });
+
+    // Auto-Spin Toggle
+    const btnSpin = document.getElementById('btn-toggle-spin');
+    const spinLabel = document.getElementById('spin-btn-label');
+    function updateSpinButtonUI() {
+      if (btnSpin) {
+        btnSpin.classList.toggle('active', autoSpin);
+        if (spinLabel) spinLabel.textContent = autoSpin ? 'SPIN: ON' : 'SPIN: OFF';
+      }
+    }
+    if (btnSpin) {
+      btnSpin.addEventListener('click', () => {
+        autoSpin = !autoSpin;
+        updateSpinButtonUI();
+      });
+    }
+
+    // Wireframe Toggle
+    const btnWire = document.getElementById('btn-toggle-wireframe');
+    if (btnWire) {
+      btnWire.addEventListener('click', () => {
+        isWireframe = !isWireframe;
+        btnWire.classList.toggle('active', isWireframe);
+      });
+    }
+
+    // Headlights Toggle
+    const btnLights = document.getElementById('btn-toggle-lights');
+    if (btnLights) {
+      btnLights.addEventListener('click', () => {
+        isHeadlightsOn = !isHeadlightsOn;
+        btnLights.classList.toggle('active', isHeadlightsOn);
+      });
+    }
+
+    // Zoom Buttons
+    document.getElementById('btn-zoom-in')?.addEventListener('click', () => {
+      targetDist = Math.max(1.8, targetDist - 0.4);
+    });
+    document.getElementById('btn-zoom-out')?.addEventListener('click', () => {
+      targetDist = Math.min(7.5, targetDist + 0.4);
+    });
+    document.getElementById('btn-reset-view')?.addEventListener('click', () => {
+      const def = CAM_PRESETS.iso;
+      targetYaw = def.yaw;
+      targetPitch = def.pitch;
+      targetDist = def.dist;
+      targetPanX = def.panX;
+      targetPanY = def.panY;
+      autoSpin = true;
+      activePartHighlight = null;
+      document.querySelectorAll('.part-item').forEach(p => p.classList.remove('active'));
+      updateSpinButtonUI();
+    });
+
+    // Exploded View Slider
+    const expSlider = document.getElementById('exploded-slider');
+    const expVal = document.getElementById('exploded-val');
+    if (expSlider) {
+      expSlider.addEventListener('input', () => {
+        explodedFactor = parseFloat(expSlider.value) / 100;
+        if (expVal) expVal.textContent = Math.round(explodedFactor * 100) + '%';
+      });
+    }
+
+    // Livery Switcher
+    document.querySelectorAll('.livery-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.livery-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        currentLivery = card.dataset.livery || 'kraft';
+      });
+    });
+
+    // Parts Inspector Highlight
+    document.querySelectorAll('.part-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const part = item.dataset.part;
+        if (activePartHighlight === part) {
+          activePartHighlight = null;
+          item.classList.remove('active');
+        } else {
+          document.querySelectorAll('.part-item').forEach(p => p.classList.remove('active'));
+          item.classList.add('active');
+          activePartHighlight = part;
+
+          // Focus camera towards that part
+          if (part === 'hood' || part === 'stripe') {
+            targetYaw = 0.0; targetPitch = 0.22; targetDist = 2.6; targetPanX = 0; targetPanY = 0;
+          } else if (part === 'steering' || part === 'seat') {
+            targetYaw = 0.15; targetPitch = 0.40; targetDist = 1.9; targetPanX = 0; targetPanY = 0;
+          } else if (part === 'spoiler') {
+            targetYaw = 3.14; targetPitch = 0.20; targetDist = 2.7; targetPanX = 0; targetPanY = 0;
+          } else if (part === 'wheels') {
+            targetYaw = 0.95; targetPitch = 0.15; targetDist = 2.1; targetPanX = -30; targetPanY = 0;
+          }
+        }
+      });
+    });
+
+    // ══════════ WEB AUDIO ENGINE REV SYNTHESIZER ══════════
+    let audioCtx = null;
+    let engineOsc = null;
+    let engineGain = null;
+    let revInterval = null;
+    let currentRpm = 1800;
+    const revBarFill = document.getElementById('rev-bar-fill');
+    const revRpmDisplay = document.getElementById('rev-rpm-display');
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        engineGain = audioCtx.createGain();
+        engineGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, audioCtx.currentTime);
+
+        engineOsc = audioCtx.createOscillator();
+        engineOsc.type = 'sawtooth';
+        engineOsc.frequency.setValueAtTime(65, audioCtx.currentTime);
+
+        engineOsc.connect(filter);
+        filter.connect(engineGain);
+        engineGain.connect(audioCtx.destination);
+        engineOsc.start();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function setRevLevel(rpm) {
+      currentRpm = rpm;
+      const pct = Math.min(100, Math.max(0, ((rpm - 1000) / 11000) * 100));
+      if (revBarFill) revBarFill.style.width = pct + '%';
+      if (revRpmDisplay) revRpmDisplay.textContent = Math.round(rpm).toLocaleString() + ' RPM';
+
+      if (audioCtx && engineOsc && engineGain) {
+        const baseFreq = 50 + (rpm / 12000) * 280;
+        engineOsc.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.04);
+        engineGain.gain.setTargetAtTime(0.18, audioCtx.currentTime, 0.04);
+      }
+    }
+
+    function startRevving() {
+      initAudio();
+      clearInterval(revInterval);
+      revInterval = setInterval(() => {
+        if (currentRpm < 11800) {
+          setRevLevel(currentRpm + 650);
+        }
+      }, 35);
+    }
+
+    function stopRevving() {
+      clearInterval(revInterval);
+      revInterval = setInterval(() => {
+        if (currentRpm > 1800) {
+          setRevLevel(currentRpm - 500);
+        } else {
+          setRevLevel(1800);
+          if (engineGain && audioCtx) {
+            engineGain.gain.setTargetAtTime(0.04, audioCtx.currentTime, 0.2);
+          }
+          clearInterval(revInterval);
+        }
+      }, 40);
+    }
+
+    const btnRev = document.getElementById('btn-rev-engine');
+    if (btnRev) {
+      btnRev.addEventListener('mousedown', startRevving);
+      window.addEventListener('mouseup', stopRevving);
+      btnRev.addEventListener('touchstart', e => { e.preventDefault(); startRevving(); });
+      window.addEventListener('touchend', stopRevving);
+    }
+
+    // Keyboard controls (Space: spin, W/Up: rev, 1-7: cams)
+    window.addEventListener('keydown', e => {
+      if (e.key === ' ' || e.code === 'Space') {
+        autoSpin = !autoSpin;
+        updateSpinButtonUI();
+      } else if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+        startRevving();
+      } else if (e.key === 'r' || e.key === 'R') {
+        document.getElementById('btn-reset-view')?.click();
+      }
+    });
+    window.addEventListener('keyup', e => {
+      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+        stopRevving();
+      }
+    });
+
+  })();
+  </script>
+</body>
+</html>

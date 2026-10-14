@@ -573,6 +573,7 @@ canvas.game-canvas{
 
 <!-- Top Toolbar -->
 <div id="top-controls">
+  <a href="garage.html" class="tool-btn" style="color:var(--neon-lime)">3D GARAGE 🔍</a>
   <button id="btn-pause-toggle" type="button">SETTINGS &amp; PAUSE</button>
   <button id="btn-audio-toggle" type="button">AUDIO ON</button>
   <a href="index.html" class="tool-btn tool-btn-home">EXIT TO MAP</a>
@@ -950,6 +951,79 @@ function renderPlayerView(ctx, car, oppCar, primaryColor){
     ctx.fill();
   }
 
+  function renderGuardRail(i,w,railH){
+    const j=(i+1)%N;
+    let f1=cf[i]+nf[i]*w, l1=cl[i]+nl[i]*w;
+    let f2=cf[j]+nf[j]*w, l2=cl[j]+nl[j]*w;
+    if(f1<NEAR && f2<NEAR) return;
+    if(f1>FAR && f2>FAR) return;
+    if(f1<NEAR){
+      const t=(NEAR-f1)/(f2-f1);
+      f1=NEAR; l1=l1+(l2-l1)*t;
+    }else if(f2<NEAR){
+      const t=(NEAR-f2)/(f1-f2);
+      f2=NEAR; l2=l2+(l1-l2)*t;
+    }
+    const x1=W/2+l1/f1*focal, x2=W/2+l2/f2*focal;
+    const yBot1=hor+CAMH/f1*focal, yBot2=hor+CAMH/f2*focal;
+    const yTop1=hor+(CAMH-railH)/f1*focal, yTop2=hor+(CAMH-railH)/f2*focal;
+
+    // 1. Steel Armco Barrier Face
+    const isAlt=((i>>2)&1);
+    ctx.fillStyle=isAlt?'#d0d8e2':'#b0bac6';
+    ctx.beginPath();
+    ctx.moveTo(x1,yTop1);ctx.lineTo(x2,yTop2);ctx.lineTo(x2,yBot2);ctx.lineTo(x1,yBot1);
+    ctx.closePath();
+    ctx.fill();
+
+    // 2. Corrugated shadow ridge
+    const yMid1=hor+(CAMH-railH*0.5)/f1*focal, yMid2=hor+(CAMH-railH*0.5)/f2*focal;
+    ctx.strokeStyle='#526071';
+    ctx.lineWidth=Math.max(1, 1.8*focal/((f1+f2)*0.5));
+    ctx.beginPath();
+    ctx.moveTo(x1,yMid1);ctx.lineTo(x2,yMid2);
+    ctx.stroke();
+
+    // 3. Reflective Top Cap Rail
+    ctx.strokeStyle='#f8fafc';
+    ctx.lineWidth=Math.max(1.2, 2.4*focal/((f1+f2)*0.5));
+    ctx.beginPath();
+    ctx.moveTo(x1,yTop1);ctx.lineTo(x2,yTop2);
+    ctx.stroke();
+
+    // 4. Red & White FIA hazard block sections
+    if((i%12)<4){
+      ctx.fillStyle=(i%2===0)?'#e10600':'#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(x1,yTop1);ctx.lineTo(x2,yTop2);ctx.lineTo(x2,yMid2);ctx.lineTo(x1,yMid1);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 5. Vertical I-Beam Posts
+    if(i%3===0){
+      const postW=Math.max(2, 4*focal/f1);
+      ctx.fillStyle='#1e293b';
+      ctx.fillRect(x1-postW*0.5, yTop1-postW*0.3, postW, yBot1-yTop1+postW*0.3);
+    }
+
+    // 6. Transparent safety catch fence
+    const yFence1=hor+(CAMH-railH*2.2)/f1*focal, yFence2=hor+(CAMH-railH*2.2)/f2*focal;
+    ctx.fillStyle='rgba(15, 23, 42, 0.22)';
+    ctx.beginPath();
+    ctx.moveTo(x1,yFence1);ctx.lineTo(x2,yFence2);ctx.lineTo(x2,yTop2);ctx.lineTo(x1,yTop1);
+    ctx.closePath();
+    ctx.fill();
+
+    if(i%6===0){
+      ctx.strokeStyle='#475569';
+      ctx.lineWidth=Math.max(1, 1.8*focal/f1);
+      ctx.beginPath();
+      ctx.moveTo(x1,yFence1);ctx.lineTo(x1,yTop1);
+      ctx.stroke();
+    }
+  }
+
   for(const [d,i,t] of items){
     if(t===0){
       const isSnow=weather==='snow', isRain=weather==='rain';
@@ -960,14 +1034,19 @@ function renderPlayerView(ctx, car, oppCar, primaryColor){
       renderQuad(i,-HW,HW,isSnow?'#6c7e94':(isRain?'#1f232b':'#3b3d40'));
       if(i>=N-1||i===0)renderQuad(i,-HW,HW,'#f2f2ee');
       if(i%6<3)renderQuad(i,-2,2,isSnow?'#a4b4c7':'#8c8f94');
+
+      // 3D Continuous Guard Rails
+      renderGuardRail(i,-HW-86,14);
+      renderGuardRail(i,HW+86,14);
     }else if(t===99){
-      // Hyper-detailed 3D Formula 1 Car Rendering for Opponent
+      // Hyper-detailed 3D Formula 1 Car Rendering for Opponent (resting directly above track surface)
       const scale=focal/ocf;
       const ox=W/2+ocl/ocf*focal, oy=hor+CAMH/ocf*focal;
       const cw=Math.max(12, 110*scale), ch=Math.max(6, 54*scale);
+      const tireBottomOffset = 31.5 * scale; // ensure tire contact patch is strictly above track
 
       ctx.save();
-      ctx.translate(ox, oy);
+      ctx.translate(ox, oy - tireBottomOffset);
 
       // 1. Wet Weather Spray
       if(weather==='rain' && oppCar.kmh > 40){

@@ -141,6 +141,8 @@
   const modalMenu = document.getElementById('modal-menu');
 
   // Track & Telemetry DOM
+  const trackGuardrailPath = document.getElementById('track-guardrail-path');
+  const trackGuardrailSteel = document.getElementById('track-guardrail-steel');
   const trackGlowPath = document.getElementById('track-glow-path');
   const trackAsphaltPath = document.getElementById('track-asphalt-path');
   const trackCurbPath = document.getElementById('track-curb-path');
@@ -395,7 +397,7 @@
   let trackProgress = 0.0;
 
   function initHeroTrack() {
-    [trackGlowPath, trackAsphaltPath, trackCurbPath, trackRacingLine].forEach(path => {
+    [trackGuardrailPath, trackGuardrailSteel, trackGlowPath, trackAsphaltPath, trackCurbPath, trackRacingLine].forEach(path => {
       if (path) path.setAttribute('d', TRACK_D);
     });
 
@@ -408,11 +410,16 @@
   function animateHeroTrack() {
     if (!totalTrackLength || !animatedCarBeacon) return;
 
-    // Advance car progress
+    // Advance car progress along track
     trackProgress = (trackProgress + 0.0018) % 1.0;
-    const pt = trackRacingLine.getPointAtLength(trackProgress * totalTrackLength);
+    const currentLen = trackProgress * totalTrackLength;
+    const pt = trackRacingLine.getPointAtLength(currentLen);
+    const nextLen = (currentLen + 3) % totalTrackLength;
+    const nextPt = trackRacingLine.getPointAtLength(nextLen);
+    const angleDeg = Math.atan2(nextPt.y - pt.y, nextPt.x - pt.x) * (180 / Math.PI);
 
-    animatedCarBeacon.setAttribute('transform', `translate(${pt.x}, ${pt.y})`);
+    // Car rides directly on top of track, rotated with circuit curvature
+    animatedCarBeacon.setAttribute('transform', `translate(${pt.x}, ${pt.y}) rotate(${angleDeg})`);
 
     // Dynamic speed & telemetry based on sector / track position
     // Buddh Circuit 1.06km straight is roughly progress 0.25 to 0.45
@@ -458,9 +465,375 @@
     requestAnimationFrame(animateHeroTrack);
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // 3D CARDBOARD RACER SHOWROOM ENGINE (HOMESCREEN TURNTABLE)
+  // ═══════════════════════════════════════════════════════════
+  const cbCanvas = document.getElementById('cardboard-canvas');
+  const cbWrap = document.getElementById('cardboard-canvas-wrap');
+  const btnCbSpin = document.getElementById('btn-toggle-cardboard-spin');
+  const btnCbReset = document.getElementById('btn-reset-cardboard-view');
+  const btnDriveCb = document.getElementById('btn-drive-cardboard');
+
+  let cbCtx = cbCanvas ? cbCanvas.getContext('2d') : null;
+  let cbYaw = 0.65;
+  let cbPitch = 0.32;
+  let cbAutoSpin = true;
+  let cbDragging = false;
+  let cbLastX = 0;
+  let cbLastY = 0;
+
+  function shadeHex(hex, factor) {
+    if (hex.startsWith('rgba')) return hex;
+    let r = parseInt(hex.slice(1, 3), 16);
+    let g = parseInt(hex.slice(3, 5), 16);
+    let b = parseInt(hex.slice(5, 7), 16);
+    r = Math.min(255, Math.max(0, Math.round(r * factor)));
+    g = Math.min(255, Math.max(0, Math.round(g * factor)));
+    b = Math.min(255, Math.max(0, Math.round(b * factor)));
+    return '#' + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
+  }
+
+  function create3DBox(loc, scale, rotX, color, isTrans) {
+    const sx = scale[0] / 2, sy = scale[1] / 2, sz = scale[2] / 2;
+    const raw = [
+      [-sx, -sy, -sz], [sx, -sy, -sz], [sx, sy, -sz], [-sx, sy, -sz],
+      [-sx, -sy, sz],  [sx, -sy, sz],  [sx, sy, sz],  [-sx, sy, sz]
+    ];
+    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+    const verts = raw.map(v => {
+      const y = v[1] * cosX - v[2] * sinX + loc[1];
+      const z = v[1] * sinX + v[2] * cosX + loc[2];
+      return [v[0] + loc[0], y, z];
+    });
+    const faces = [
+      { idx: [0, 3, 2, 1], col: color, isTrans },
+      { idx: [4, 5, 6, 7], col: color, isTrans },
+      { idx: [0, 1, 5, 4], col: color, isTrans },
+      { idx: [2, 3, 7, 6], col: color, isTrans },
+      { idx: [0, 4, 7, 3], col: color, isTrans },
+      { idx: [1, 2, 6, 5], col: color, isTrans }
+    ];
+    return { verts, faces };
+  }
+
+  function create3DCylinder(segs, radius, depth, loc, alongX, color, isGlow) {
+    const halfD = depth / 2;
+    const verts = [];
+    for (let i = 0; i < segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      const rCos = radius * Math.cos(a), rSin = radius * Math.sin(a);
+      if (alongX) {
+        verts.push([-halfD + loc[0], rCos + loc[1], rSin + loc[2]]);
+        verts.push([halfD + loc[0], rCos + loc[1], rSin + loc[2]]);
+      } else {
+        verts.push([rCos + loc[0], -halfD + loc[1], rSin + loc[2]]);
+        verts.push([rCos + loc[0], halfD + loc[1], rSin + loc[2]]);
+      }
+    }
+    const faces = [];
+    for (let i = 0; i < segs; i++) {
+      const next = (i + 1) % segs;
+      faces.push({
+        idx: [i * 2, i * 2 + 1, next * 2 + 1, next * 2],
+        col: color,
+        isGlow
+      });
+    }
+    const cap1 = [], cap2 = [];
+    for (let i = 0; i < segs; i++) {
+      cap1.push(i * 2);
+      cap2.unshift(i * 2 + 1);
+    }
+    faces.push({ idx: cap1, col: color, isGlow });
+    faces.push({ idx: cap2, col: color, isGlow });
+    return { verts, faces };
+  }
+
+  const cbCarModel = [];
+
+  function buildCardboardCar() {
+    cbCarModel.length = 0;
+    const MAT_CB = '#a66735';
+    const MAT_DARK_CB = '#5e381b';
+    const MAT_TIRE = '#1a1816';
+    const MAT_TAPE = '#7b838f';
+    const MAT_RED = '#bf2626';
+    const MAT_LIGHT = '#ffd159';
+    const MAT_GLASS = 'rgba(165, 205, 235, 0.45)';
+
+    // Chassis & Cabin
+    cbCarModel.push(create3DBox([0, -0.75, 0.45], [1.4, 1.1, 0.5], 0, MAT_CB));
+    cbCarModel.push(create3DBox([0, 0.2, 0.25], [1.4, 0.9, 0.1], 0, MAT_DARK_CB));
+    cbCarModel.push(create3DBox([-0.65, 0.2, 0.45], [0.1, 0.9, 0.5], 0, MAT_CB));
+    cbCarModel.push(create3DBox([0.65, 0.2, 0.45], [0.1, 0.9, 0.5], 0, MAT_CB));
+    cbCarModel.push(create3DBox([0, 0.9, 0.5], [1.4, 0.6, 0.6], 0, MAT_CB));
+
+    // Racing Stripe on Hood
+    cbCarModel.push(create3DBox([-0.25, -0.75, 0.705], [0.22, 1.08, 0.02], 0, MAT_RED));
+
+    // Cardboard Bucket Seat
+    cbCarModel.push(create3DBox([0, 0.35, 0.35], [0.85, 0.5, 0.2], 0, MAT_DARK_CB));
+    cbCarModel.push(create3DBox([0, 0.55, 0.65], [0.85, 0.15, 0.65], -10 * Math.PI / 180, MAT_CB));
+
+    // Windshield & Frame
+    cbCarModel.push(create3DBox([0, -0.22, 0.88], [1.28, 0.03, 0.45], -25 * Math.PI / 180, MAT_GLASS, true));
+    cbCarModel.push(create3DBox([-0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, MAT_CB));
+    cbCarModel.push(create3DBox([0.65, -0.22, 0.88], [0.1, 0.12, 0.48], -25 * Math.PI / 180, MAT_CB));
+
+    // Steering Column & Wheel
+    cbCarModel.push(create3DBox([0, -0.15, 0.62], [0.08, 0.08, 0.4], -35 * Math.PI / 180, MAT_DARK_CB));
+    cbCarModel.push(create3DCylinder(10, 0.18, 0.06, [0, -0.05, 0.78], false, MAT_TIRE));
+
+    // Rear Spoiler
+    cbCarModel.push(create3DBox([-0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, MAT_DARK_CB));
+    cbCarModel.push(create3DBox([0.45, 1.0, 0.92], [0.08, 0.12, 0.4], 15 * Math.PI / 180, MAT_DARK_CB));
+    cbCarModel.push(create3DBox([0, 1.05, 1.12], [1.5, 0.4, 0.06], 10 * Math.PI / 180, MAT_CB));
+
+    // Headlights & Accents
+    [-0.45, 0.45].forEach(x => {
+      cbCarModel.push(create3DCylinder(10, 0.15, 0.10, [x, -1.3, 0.42], false, MAT_CB));
+      cbCarModel.push(create3DCylinder(10, 0.11, 0.12, [x, -1.31, 0.42], false, MAT_LIGHT, true));
+      cbCarModel.push(create3DBox([x * 1.45, -0.8, 0.55], [0.25, 0.45, 0.05], 0, MAT_CB));
+      cbCarModel.push(create3DBox([x * 1.48, -1.28, 0.68], [0.16, 0.16, 0.08], 0, MAT_TAPE));
+    });
+
+    // 4 Low-Poly Wheels (FL, FR, RL, RR)
+    const wheelCoords = [
+      [-0.82, -0.8, 0.32],
+      [ 0.82, -0.8, 0.32],
+      [-0.82,  0.8, 0.32],
+      [ 0.82,  0.8, 0.32]
+    ];
+    wheelCoords.forEach(([wx, wy, wz]) => {
+      cbCarModel.push(create3DCylinder(10, 0.32, 0.26, [wx, wy, wz], true, MAT_TIRE));
+      const hOff = wx < 0 ? -0.02 : 0.02;
+      cbCarModel.push(create3DCylinder(10, 0.18, 0.28, [wx + hOff, wy, wz], true, MAT_CB));
+      const nOff = wx < 0 ? -0.05 : 0.05;
+      cbCarModel.push(create3DCylinder(6, 0.06, 0.32, [wx + nOff, wy, wz], true, MAT_TAPE));
+    });
+  }
+
+  function computeCbCameraView(eye, target, up) {
+    let zx = eye[0] - target[0], zy = eye[1] - target[1], zz = eye[2] - target[2];
+    let zl = Math.hypot(zx, zy, zz) || 1;
+    zx /= zl; zy /= zl; zz /= zl;
+
+    let xx = up[1] * zz - up[2] * zy, xy = up[2] * zx - up[0] * zz, xz = up[0] * zy - up[1] * zx;
+    let xl = Math.hypot(xx, xy, xz) || 1;
+    xx /= xl; xy /= xl; xz /= xl;
+
+    let yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
+
+    return {
+      project(px, py, pz) {
+        const dx = px - eye[0], dy = py - eye[1], dz = pz - eye[2];
+        const cx = dx * xx + dy * xy + dz * xz;
+        const cy = dx * yx + dy * yy + dz * yz;
+        const cz = -(dx * zx + dy * zy + dz * zz);
+        return { cx, cy, cz };
+      }
+    };
+  }
+
+  function renderCardboardShowroom() {
+    if (!cbCanvas || !cbCtx) return;
+    const w = cbCanvas.width, h = cbCanvas.height;
+    cbCtx.clearRect(0, 0, w, h);
+
+    if (cbAutoSpin && !cbDragging) {
+      cbYaw += 0.010;
+    }
+
+    const target = [0, 0, 0.45];
+    const curPitch = Math.max(-0.2, Math.min(1.4, cbPitch));
+    const camDist = 3.9;
+    const eye = [
+      camDist * Math.cos(curPitch) * Math.sin(cbYaw),
+      -camDist * Math.cos(curPitch) * Math.cos(cbYaw),
+      target[2] + camDist * Math.sin(curPitch)
+    ];
+    const view = computeCbCameraView(eye, target, [0, 0, 1]);
+    const focal = Math.min(w, h) * 1.65;
+    const lightDir = [0.45, -0.65, 0.85];
+    const lightLen = Math.hypot(...lightDir);
+    const lx = lightDir[0] / lightLen, ly = lightDir[1] / lightLen, lz = lightDir[2] / lightLen;
+
+    function projectPoint(vx, vy, vz) {
+      const p = view.project(vx, vy, vz);
+      const cz = Math.max(0.1, p.cz);
+      const sx = w / 2 + (p.cx / cz) * focal;
+      const sy = h / 2 - (p.cy / cz) * focal;
+      return { cx: p.cx, cy: p.cy, cz, sx, sy };
+    }
+
+    // Turntable Podium Base
+    const pedR = 2.05;
+    cbCtx.save();
+    cbCtx.beginPath();
+    for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.2) {
+      const px = pedR * Math.cos(a), py = pedR * Math.sin(a), pz = 0;
+      const pt = projectPoint(px, py, pz);
+      if (a === 0) cbCtx.moveTo(pt.sx, pt.sy); else cbCtx.lineTo(pt.sx, pt.sy);
+    }
+    cbCtx.closePath();
+    cbCtx.fillStyle = 'rgba(22, 28, 38, 0.75)';
+    cbCtx.fill();
+    cbCtx.strokeStyle = 'rgba(200, 255, 46, 0.4)';
+    cbCtx.lineWidth = 1.8;
+    cbCtx.stroke();
+
+    // Ground Contact Shadow
+    const groundCenter = projectPoint(0, 0, 0.02);
+    cbCtx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    cbCtx.beginPath();
+    cbCtx.ellipse(groundCenter.sx, groundCenter.sy, 85, 28, 0, 0, Math.PI * 2);
+    cbCtx.fill();
+    cbCtx.restore();
+
+    // Transform and collect faces
+    const renderFaces = [];
+
+    cbCarModel.forEach(mesh => {
+      const camVerts = mesh.verts.map(([x, y, z]) => {
+        const pt = projectPoint(x, y, z);
+        return { x: pt.sx, y: pt.sy, cz: pt.cz, wx: x, wy: y, wz: z };
+      });
+
+      mesh.faces.forEach(face => {
+        const poly = face.idx.map(i => camVerts[i]);
+        if (poly.length < 3) return;
+
+        const v0 = mesh.verts[face.idx[0]];
+        const v1 = mesh.verts[face.idx[1]];
+        const v2 = mesh.verts[face.idx[2]];
+        const e1x = v1[0] - v0[0], e1y = v1[1] - v0[1], e1z = v1[2] - v0[2];
+        const e2x = v2[0] - v0[0], e2y = v2[1] - v0[1], e2z = v2[2] - v0[2];
+        let nx = e1y * e2z - e1z * e2y;
+        let ny = e1z * e2x - e1x * e2z;
+        let nz = e1x * e2y - e1y * e2x;
+        const nlen = Math.hypot(nx, ny, nz) || 1;
+        nx /= nlen; ny /= nlen; nz /= nlen;
+
+        // Backface culling: vector from eye to face in world space
+        const dx = v0[0] - eye[0], dy = v0[1] - eye[1], dz = v0[2] - eye[2];
+        const dotView = nx * dx + ny * dy + nz * dz;
+        if (dotView >= 0 && !face.isTrans) return;
+
+        let avgZ = 0;
+        poly.forEach(p => avgZ += p.cz);
+        avgZ /= poly.length;
+
+        const dotLight = Math.max(0, nx * lx + ny * ly + nz * lz);
+        const lightFactor = face.isGlow ? 1.4 : (0.42 + 0.58 * dotLight);
+        const finalColor = face.isGlow ? face.col : (face.isTrans ? face.col : shadeHex(face.col, lightFactor));
+
+        renderFaces.push({
+          poly,
+          col: finalColor,
+          z: avgZ,
+          isGlow: face.isGlow,
+          isTrans: face.isTrans
+        });
+      });
+    });
+
+    renderFaces.sort((a, b) => b.z - a.z);
+
+    renderFaces.forEach(f => {
+      cbCtx.fillStyle = f.col;
+      cbCtx.beginPath();
+      cbCtx.moveTo(f.poly[0].x, f.poly[0].y);
+      for (let i = 1; i < f.poly.length; i++) {
+        cbCtx.lineTo(f.poly[i].x, f.poly[i].y);
+      }
+      cbCtx.closePath();
+      cbCtx.fill();
+
+      if (!f.isTrans) {
+        cbCtx.strokeStyle = 'rgba(20, 14, 10, 0.35)';
+        cbCtx.lineWidth = 1;
+        cbCtx.stroke();
+      }
+
+      if (f.isGlow && f.poly[0].cz < camDist + 0.2) {
+        const cx = (f.poly[0].x + f.poly[2].x) / 2;
+        const cy = (f.poly[0].y + f.poly[2].y) / 2;
+        const flare = cbCtx.createRadialGradient(cx, cy, 1, cx, cy, 18);
+        flare.addColorStop(0, 'rgba(255, 230, 120, 0.85)');
+        flare.addColorStop(0.5, 'rgba(255, 190, 40, 0.35)');
+        flare.addColorStop(1, 'rgba(255, 160, 0, 0)');
+        cbCtx.fillStyle = flare;
+        cbCtx.beginPath();
+        cbCtx.arc(cx, cy, 18, 0, Math.PI * 2);
+        cbCtx.fill();
+      }
+    });
+
+    requestAnimationFrame(renderCardboardShowroom);
+  }
+
+  // Interactive Drag & Touch Orbit Controls
+  if (cbWrap) {
+    const onStart = (x, y) => {
+      cbDragging = true;
+      cbLastX = x;
+      cbLastY = y;
+    };
+    const onMove = (x, y) => {
+      if (!cbDragging) return;
+      const dx = x - cbLastX;
+      const dy = y - cbLastY;
+      cbYaw += dx * 0.012;
+      cbPitch = Math.max(-0.15, Math.min(0.85, cbPitch + dy * 0.008));
+      cbLastX = x;
+      cbLastY = y;
+    };
+    const onEnd = () => { cbDragging = false; };
+
+    cbWrap.addEventListener('mousedown', e => onStart(e.clientX, e.clientY));
+    window.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+    window.addEventListener('mouseup', onEnd);
+
+    cbWrap.addEventListener('touchstart', e => {
+      if (e.touches.length === 1) onStart(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener('touchmove', e => {
+      if (e.touches.length === 1) onMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener('touchend', onEnd);
+  }
+
+  if (btnCbSpin) {
+    btnCbSpin.addEventListener('click', () => {
+      cbAutoSpin = !cbAutoSpin;
+      btnCbSpin.textContent = cbAutoSpin ? 'SPIN: ON' : 'SPIN: OFF';
+      btnCbSpin.classList.toggle('active', cbAutoSpin);
+    });
+  }
+
+  if (btnCbReset) {
+    btnCbReset.addEventListener('click', () => {
+      cbYaw = 0.65;
+      cbPitch = 0.32;
+      cbAutoSpin = true;
+      if (btnCbSpin) {
+        btnCbSpin.textContent = 'SPIN: ON';
+        btnCbSpin.classList.add('active');
+      }
+    });
+  }
+
+  if (btnDriveCb) {
+    btnDriveCb.addEventListener('click', () => {
+      localStorage.setItem('formula_v_car', 'cardboard');
+    });
+  }
+
   // --- Initialize ---
   updateCurrencies();
   initHeroTrack();
+  buildCardboardCar();
+  renderCardboardShowroom();
 
   window.addEventListener('click', () => {
     initAudio();

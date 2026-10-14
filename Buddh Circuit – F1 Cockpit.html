@@ -316,14 +316,25 @@ canvas{display:block;width:100%;height:100%}
 <canvas id="c"></canvas>
 <!-- Lap selector (shown before race starts) -->
 <div id="lap-selector">
-  <label for="lap-count-sel">RACE LAPS</label>
-  <select id="lap-count-sel">
-    <option value="1">1 Lap</option>
-    <option value="3">3 Laps</option>
-    <option value="5" selected>5 Laps</option>
-    <option value="7">7 Laps</option>
-    <option value="10">10 Laps</option>
-  </select>
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <div>
+      <label for="lap-count-sel">RACE LAPS</label>
+      <select id="lap-count-sel">
+        <option value="1">1 Lap</option>
+        <option value="3">3 Laps</option>
+        <option value="5" selected>5 Laps</option>
+        <option value="7">7 Laps</option>
+        <option value="10">10 Laps</option>
+      </select>
+    </div>
+    <div>
+      <label for="car-select">VEHICLE</label>
+      <select id="car-select">
+        <option value="standard">Formula V Standard</option>
+        <option value="cardboard">Cardboard Racer (DIY Edition)</option>
+      </select>
+    </div>
+  </div>
   <button id="start-race-btn">RACE START</button>
 </div>
 
@@ -402,6 +413,14 @@ canvas{display:block;width:100%;height:100%}
 <div id="lights"><span></span><span></span><span></span><span></span><span></span></div>
 <div id="msg"></div>
 <div id="top-tools">
+  <button id="car-toggle-btn" type="button" title="Switch between Standard Formula V & Cardboard Racer">
+    <span style="margin-right:4px">CAR:</span>
+    <span id="car-toggle-text">FORMULA V</span>
+  </button>
+  <a href="garage.html" class="tool-btn-link" id="top-garage-btn" title="Inspect Cardboard Racer in 3D Garage">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+    <span>3D GARAGE</span>
+  </a>
   <button id="menu-toggle" type="button" aria-expanded="false" aria-controls="race-menu" title="Pause Race & Open Settings">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="margin-right:6px"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
     <span>SETTINGS &amp; PAUSE</span>
@@ -455,6 +474,9 @@ canvas{display:block;width:100%;height:100%}
     <a href="multiplayer_race.html" class="btn-menu btn-menu-secondary" style="color:var(--hot-orange)">
       <span>SWITCH TO ONLINE MULTIPLAYER</span>
     </a>
+    <a href="garage.html" class="btn-menu btn-menu-secondary" style="color:var(--neon-lime)">
+      <span>🏎️ INSPECT CAR IN 3D GARAGE</span>
+    </a>
     <a href="index.html" id="exit-home-btn" class="btn-menu btn-menu-exit">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
       <span>EXIT TO HOME MAP</span>
@@ -503,7 +525,17 @@ function tracePath(g){g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.m
 const car={x:0,y:0,a:0,vx:0,vy:0,steer:0,idx:0,ers:1,gear:0};
 let keys={},state='idle',t0=0,lapT=0,lapNo=1,best=null,last=null,halfway=false,lightsT=0,go=false,dist=0;
 let audioCtx=null,engineVoice=null,lastAudioGear=null,audioEnabled=true,volumeLevel=.75;
-let steeringSensitivity=1,cameraMotion=1,menuReturnState=null;
+let steeringSensitivity=1,cameraMotion=1,menuReturnState=null,guardRailSparks=0;
+let activeVehicle = new URLSearchParams(window.location.search).get('car') || localStorage.getItem('formula_v_car') || 'standard';
+
+function setCarModel(model){
+  activeVehicle = model;
+  localStorage.setItem('formula_v_car', model);
+  const btnText = $('car-toggle-text');
+  if(btnText) btnText.textContent = model === 'cardboard' ? 'CARDBOARD' : 'FORMULA V';
+  const sel = $('car-select');
+  if(sel) sel.value = model;
+}
 
 // ---- Race Config ----
 let TOTAL_LAPS = 5;
@@ -902,9 +934,15 @@ $('volume-setting').addEventListener('input',e=>{volumeLevel=Number(e.target.val
 
 function nearest(){
   let bi=car.idx,bd=1e18;
-  for(let k=-25;k<=25;k++){
+  for(let k=-30;k<=30;k++){
     const i=(car.idx+k+N)%N,dx=car.x-pts[i][0],dy=car.y-pts[i][1],d=dx*dx+dy*dy;
     if(d<bd){bd=d;bi=i}
+  }
+  if(bd>140*140){
+    for(let i=0;i<N;i+=4){
+      const dx=car.x-pts[i][0],dy=car.y-pts[i][1],d=dx*dx+dy*dy;
+      if(d<bd){bd=d;bi=i}
+    }
   }
   return [bi,Math.sqrt(bd)];
 }
@@ -971,6 +1009,29 @@ function update(dt){
   const c2=Math.cos(car.a),s2=Math.sin(car.a);
   car.vx=vf*c2-vl*s2;car.vy=vf*s2+vl*c2; // keep world velocity from local comps (slip carries over)
   car.x+=car.vx*dt;car.y+=car.vy*dt;
+
+  // ---- GUARD RAIL COLLISION & BOUNDARY CONTAINMENT ----
+  const [bIdx, bDist] = nearest();
+  const GUARD_RAIL_MAX = TW / 2 + 82;
+  if(bDist > GUARD_RAIL_MAX){
+    const toCenter = [pts[bIdx][0] - car.x, pts[bIdx][1] - car.y];
+    const cLen = Math.hypot(toCenter[0], toCenter[1]) || 1;
+    const pen = bDist - GUARD_RAIL_MAX;
+    // Push car firmly back inside track boundaries
+    car.x += (toCenter[0] / cLen) * pen;
+    car.y += (toCenter[1] / cLen) * pen;
+    // Elastic guard rail rebound & friction
+    const velDot = (car.vx * toCenter[0] + car.vy * toCenter[1]) / cLen;
+    if (velDot < 0) {
+      car.vx -= 1.45 * velDot * (toCenter[0] / cLen);
+      car.vy -= 1.45 * velDot * (toCenter[1] / cLen);
+    }
+    car.vx *= 0.68;
+    car.vy *= 0.68;
+    guardRailSparks = Math.min(1.0, guardRailSparks + 0.4);
+  } else {
+    guardRailSparks = Math.max(0, guardRailSparks - dt * 3.2);
+  }
 
   // lap logic
   const prev=car.idx;car.idx=ni;
@@ -1116,6 +1177,78 @@ function quad(i,w1,w2,col){
   q.forEach((p,k)=>{const x=W/2+p[1]/p[0]*focal,y=hor+CAMH/p[0]*focal;k?ctx.lineTo(x,y):ctx.moveTo(x,y)});
   ctx.fill();
 }
+function renderGuardRail(i,w,railH){
+  const j=(i+1)%N;
+  let f1=cf[i]+nf[i]*w, l1=cl[i]+nl[i]*w;
+  let f2=cf[j]+nf[j]*w, l2=cl[j]+nl[j]*w;
+  if(f1<NEAR && f2<NEAR) return;
+  if(f1>FAR && f2>FAR) return;
+  if(f1<NEAR){
+    const t=(NEAR-f1)/(f2-f1);
+    f1=NEAR; l1=l1+(l2-l1)*t;
+  }else if(f2<NEAR){
+    const t=(NEAR-f2)/(f1-f2);
+    f2=NEAR; l2=l2+(l1-l2)*t;
+  }
+  const x1=W/2+l1/f1*focal, x2=W/2+l2/f2*focal;
+  const yBot1=hor+CAMH/f1*focal, yBot2=hor+CAMH/f2*focal;
+  const yTop1=hor+(CAMH-railH)/f1*focal, yTop2=hor+(CAMH-railH)/f2*focal;
+
+  // 1. Armco Steel Barrier Face
+  const isAlt=((i>>2)&1);
+  ctx.fillStyle=isAlt?'#d0d8e2':'#b0bac6';
+  ctx.beginPath();
+  ctx.moveTo(x1,yTop1);ctx.lineTo(x2,yTop2);ctx.lineTo(x2,yBot2);ctx.lineTo(x1,yBot1);
+  ctx.closePath();
+  ctx.fill();
+
+  // 2. Corrugated horizontal shadow beams
+  const yMid1=hor+(CAMH-railH*0.5)/f1*focal, yMid2=hor+(CAMH-railH*0.5)/f2*focal;
+  ctx.strokeStyle='#526071';
+  ctx.lineWidth=Math.max(1, 1.8*focal/((f1+f2)*0.5));
+  ctx.beginPath();
+  ctx.moveTo(x1,yMid1);ctx.lineTo(x2,yMid2);
+  ctx.stroke();
+
+  // 3. Reflective Top Cap Rail
+  ctx.strokeStyle='#f8fafc';
+  ctx.lineWidth=Math.max(1.2, 2.4*focal/((f1+f2)*0.5));
+  ctx.beginPath();
+  ctx.moveTo(x1,yTop1);ctx.lineTo(x2,yTop2);
+  ctx.stroke();
+
+  // 4. Red & White FIA hazard block sections
+  if((i%12)<4){
+    ctx.fillStyle=(i%2===0)?'#e10600':'#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(x1,yTop1);ctx.lineTo(x2,yTop2);ctx.lineTo(x2,yMid2);ctx.lineTo(x1,yMid1);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // 5. Vertical I-beam upright support posts
+  if(i%3===0){
+    const postW=Math.max(2, 4*focal/f1);
+    ctx.fillStyle='#1e293b';
+    ctx.fillRect(x1-postW*0.5, yTop1-postW*0.3, postW, yBot1-yTop1+postW*0.3);
+  }
+
+  // 6. Transparent safety catch fence above the guard rail
+  const yFence1=hor+(CAMH-railH*2.2)/f1*focal, yFence2=hor+(CAMH-railH*2.2)/f2*focal;
+  ctx.fillStyle='rgba(15, 23, 42, 0.22)';
+  ctx.beginPath();
+  ctx.moveTo(x1,yFence1);ctx.lineTo(x2,yFence2);ctx.lineTo(x2,yTop2);ctx.lineTo(x1,yTop1);
+  ctx.closePath();
+  ctx.fill();
+
+  if(i%6===0){
+    ctx.strokeStyle='#475569';
+    ctx.lineWidth=Math.max(1, 1.8*focal/f1);
+    ctx.beginPath();
+    ctx.moveTo(x1,yFence1);ctx.lineTo(x1,yTop1);
+    ctx.stroke();
+  }
+}
 // ==========================================================================
 // HIGH-FIDELITY FORMULA V COCKPIT MODEL
 // ==========================================================================
@@ -1126,6 +1259,8 @@ function cockpit(){
   const cx=W/2+(car.roll||0)*u;
   const cy=H+(car.pitch||0)*u+roadVibe;
 
+  const isCardboard = (activeVehicle === 'cardboard');
+
   // 1. FRONT WING (Visible ahead of nose tip)
   const fwY=H*0.648+(car.pitch||0)*u*0.35;
   const fwW=W*0.22;
@@ -1135,11 +1270,17 @@ function cockpit(){
   ctx.ellipse(cx,fwY+22*u,fwW*1.05,8*u,0,0,Math.PI*2);
   ctx.fill();
 
-  // Front wing mainplane (carbon fiber)
+  // Front wing mainplane (carbon fiber or kraft cardboard)
   const fwGrad=ctx.createLinearGradient(cx-fwW,fwY,cx+fwW,fwY);
-  fwGrad.addColorStop(0,'#111317');
-  fwGrad.addColorStop(0.5,'#23272f');
-  fwGrad.addColorStop(1,'#111317');
+  if(isCardboard){
+    fwGrad.addColorStop(0,'#6d411e');
+    fwGrad.addColorStop(0.5,'#a66735');
+    fwGrad.addColorStop(1,'#6d411e');
+  }else{
+    fwGrad.addColorStop(0,'#111317');
+    fwGrad.addColorStop(0.5,'#23272f');
+    fwGrad.addColorStop(1,'#111317');
+  }
   ctx.fillStyle=fwGrad;
   ctx.beginPath();
   ctx.moveTo(cx-fwW,fwY+10*u);
@@ -1149,8 +1290,8 @@ function cockpit(){
   ctx.closePath();
   ctx.fill();
 
-  // Front wing upper aerodynamic cascade flaps (Scuderia Red & White edge)
-  ctx.fillStyle='#e10600';
+  // Front wing upper aerodynamic cascade flaps (Scuderia Red & White edge or Cardboard Red Stripe)
+  ctx.fillStyle=isCardboard?'#bf2626':'#e10600';
   ctx.beginPath();
   ctx.moveTo(cx-fwW*0.92,fwY+8*u);
   ctx.lineTo(cx-W*0.045,fwY+11*u);
@@ -1165,6 +1306,17 @@ function cockpit(){
   ctx.lineTo(cx+fwW*0.85,fwY+12*u);
   ctx.closePath();
   ctx.fill();
+
+  // Silver Duct Tape Patches on Wing Joints if Cardboard
+  if(isCardboard){
+    [-1,1].forEach(sd=>{
+      ctx.fillStyle='#7b838f';
+      ctx.fillRect(cx+sd*fwW*0.75-6*u,fwY+9*u,12*u,6*u);
+      ctx.strokeStyle='#4a515c';
+      ctx.lineWidth=1*u;
+      ctx.strokeRect(cx+sd*fwW*0.75-6*u,fwY+9*u,12*u,6*u);
+    });
+  }
   // White aerodynamic pinstripe
   ctx.strokeStyle='#ffffff';
   ctx.lineWidth=1.5*u;
@@ -1459,13 +1611,21 @@ function cockpit(){
   ctx.closePath();
   ctx.fill();
 
-  // Pearl-white nosecone bodywork with shaded carbon edges
+  // Nosecone bodywork (pearl-white carbon or kraft cardboard)
   const noseGrad=ctx.createLinearGradient(cx-baseW,0,cx+baseW,0);
-  noseGrad.addColorStop(0,'#89919c');
-  noseGrad.addColorStop(0.18,'#dce1e7');
-  noseGrad.addColorStop(0.5,'#ffffff');
-  noseGrad.addColorStop(0.82,'#dce1e7');
-  noseGrad.addColorStop(1,'#89919c');
+  if(isCardboard){
+    noseGrad.addColorStop(0,'#663b19');
+    noseGrad.addColorStop(0.18,'#94592e');
+    noseGrad.addColorStop(0.5,'#b87743');
+    noseGrad.addColorStop(0.82,'#94592e');
+    noseGrad.addColorStop(1,'#663b19');
+  }else{
+    noseGrad.addColorStop(0,'#89919c');
+    noseGrad.addColorStop(0.18,'#dce1e7');
+    noseGrad.addColorStop(0.5,'#ffffff');
+    noseGrad.addColorStop(0.82,'#dce1e7');
+    noseGrad.addColorStop(1,'#89919c');
+  }
   ctx.fillStyle=noseGrad;
   ctx.beginPath();
   ctx.moveTo(cx-tipW,noseTipY);
@@ -1474,6 +1634,38 @@ function cockpit(){
   ctx.lineTo(cx-baseW,noseBaseY);
   ctx.closePath();
   ctx.fill();
+
+  if(isCardboard){
+    // Red Racing Stripe (matching Blender Hood_Stripe)
+    ctx.fillStyle='#bf2626';
+    ctx.beginPath();
+    ctx.moveTo(cx-14*u,noseTipY);
+    ctx.lineTo(cx-2*u,noseTipY);
+    ctx.lineTo(cx+4*u,noseBaseY);
+    ctx.lineTo(cx-18*u,noseBaseY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Duct Tape Patches on Nosecone & Corners
+    ctx.fillStyle='#7b838f';
+    ctx.beginPath();
+    ctx.roundRect(cx-tipW*1.2, noseTipY+2*u, tipW*2.4, 7*u, 2*u);
+    ctx.fill();
+    ctx.strokeStyle='#4a515c';
+    ctx.lineWidth=0.8*u;
+    ctx.stroke();
+
+    [-1, 1].forEach(sd => {
+      ctx.fillStyle='#7b838f';
+      ctx.save();
+      ctx.translate(cx + sd * baseW * 0.75, noseBaseY - 18 * u);
+      ctx.rotate(sd * 0.35);
+      ctx.fillRect(-12 * u, -6 * u, 24 * u, 12 * u);
+      ctx.strokeStyle='#4a515c';
+      ctx.strokeRect(-12 * u, -6 * u, 24 * u, 12 * u);
+      ctx.restore();
+    });
+  }
 
   // Center specular gloss spine line
   const spineGrad=ctx.createLinearGradient(cx,noseTipY,cx,noseBaseY);
@@ -1996,6 +2188,10 @@ function draw(){
       // Start/Finish Line & Center Dashes
       if(i>=N-1||i===0)quad(i,-HW,HW,'#f2f2ee');
       if(i%6<3)quad(i,-2,2,isSnow?'#a4b4c7':(isRain?'#5c6370':'#8c8f94'));
+
+      // 3D Continuous Armco Guard Rails (Left & Right boundaries)
+      renderGuardRail(i, -HW - 86, 14);
+      renderGuardRail(i, HW + 86, 14);
     }else if(Math.abs(t)===1){
       const w=t*(HW+70),f=cf[i]+nf[i]*w,l=cl[i]+nl[i]*w;if(f<NEAR)continue;
       const x=W/2+l/f*focal,y=hor+CAMH/f*focal,h=34*focal/f,bw=7*focal/f;
@@ -2080,6 +2276,26 @@ function draw(){
     ctx.restore();
   }
 
+  // ---- GUARD RAIL SCRAPING SPARKS FX ----
+  if (guardRailSparks > 0.04) {
+    ctx.save();
+    const sparkCount = Math.floor(guardRailSparks * 20);
+    const side = (car.steer >= 0 ? 1 : -1);
+    const originX = W / 2 + side * (W * 0.36);
+    const originY = H * 0.72;
+    for (let s = 0; s < sparkCount; s++) {
+      const spLen = (14 + Math.random() * 32) * guardRailSparks;
+      const angle = (Math.random() - 0.5) * 1.0 - (side > 0 ? 0.4 : 2.7);
+      ctx.strokeStyle = Math.random() > 0.3 ? '#ffb703' : '#ffffff';
+      ctx.lineWidth = 1.5 + Math.random() * 1.5;
+      ctx.beginPath();
+      ctx.moveTo(originX + (Math.random() - 0.5) * 24, originY + (Math.random() - 0.5) * 20);
+      ctx.lineTo(originX + Math.cos(angle) * spLen, originY + Math.sin(angle) * spLen);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   car.rev=Math.max(0,Math.min(1,parseFloat($('rev').firstElementChild.style.width)/100||0));
   cockpit();
 
@@ -2128,8 +2344,6 @@ function draw(){
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
-  car.rev=Math.max(0,Math.min(1,parseFloat($('rev').firstElementChild.style.width)/100||0));
-  cockpit();
   // ---- AI Cars are HIDDEN from 3D cockpit view in Solo Mode ----
   // (AI cars still race in background and appear on the minimap only)
   // In solo player mode, the player races alone in their own cockpit
@@ -2284,13 +2498,14 @@ function draw(){
   mx.lineWidth = 1.5;
   mx.stroke();
 
-  // Mini F1 Car Silhouette on Broadcast Map
+  // Mini F1 Car Silhouette on Broadcast Map (riding directly above track line)
   mx.save();
   mx.translate(carX, carY);
-  mx.rotate(car.a);
+  mx.rotate(car.a - Math.PI / 2);
 
+  const isCb = (activeVehicle === 'cardboard');
   // Rear Wing
-  mx.fillStyle = '#ffffff';
+  mx.fillStyle = isCb ? '#a66735' : '#ffffff';
   mx.fillRect(-5.5, -6.5, 11, 1.8);
   // Rear Tires
   mx.fillStyle = '#0a0d14';
@@ -2300,7 +2515,7 @@ function draw(){
   mx.fillRect(-6.8, 3, 2.4, 4.2);
   mx.fillRect(4.4, 3, 2.4, 4.2);
   // Sidepods & Chassis
-  mx.fillStyle = '#e10600';
+  mx.fillStyle = isCb ? '#a66735' : '#e10600';
   mx.beginPath();
   mx.moveTo(0, 9.5); // Nose tip
   mx.lineTo(2.4, 3.8);
@@ -2311,8 +2526,13 @@ function draw(){
   mx.lineTo(-2.4, 3.8);
   mx.closePath();
   mx.fill();
+  if(isCb){
+    // Red racing stripe down center
+    mx.fillStyle = '#bf2626';
+    mx.fillRect(-1.2, -5, 2.4, 13);
+  }
   // Front Wing
-  mx.fillStyle = '#ffffff';
+  mx.fillStyle = isCb ? '#a66735' : '#ffffff';
   mx.fillRect(-6, 7.5, 12, 1.8);
   // Cockpit / Driver Helmet
   mx.fillStyle = '#111317';
@@ -2401,7 +2621,7 @@ function showRaceComplete(){
   const pb=document.getElementById('pos-badge');if(pb)pb.style.display='none';
 }
 
-// ---- Lap selector & start button ----
+// ---- Lap selector, vehicle toggle & start button ----
 (function setupLapSelector(){
   const sel=document.getElementById('lap-count-sel');
   const btn=document.getElementById('start-race-btn');
@@ -2413,6 +2633,20 @@ function showRaceComplete(){
       if(tlEl)tlEl.textContent=TOTAL_LAPS;
     });
   }
+  const carSel=document.getElementById('car-select');
+  if(carSel){
+    carSel.value=activeVehicle;
+    carSel.addEventListener('change',()=>{
+      setCarModel(carSel.value);
+    });
+  }
+  const carBtn=document.getElementById('car-toggle-btn');
+  if(carBtn){
+    carBtn.addEventListener('click',()=>{
+      setCarModel(activeVehicle==='cardboard'?'standard':'cardboard');
+    });
+  }
+  setCarModel(activeVehicle);
   if(btn){
     btn.addEventListener('click',()=>{
       if(lsEl)lsEl.style.display='none';

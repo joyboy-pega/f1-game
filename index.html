@@ -125,87 +125,153 @@
               MADE BY ARIGATOO CLUB FOR FUN
             </div>
 
-            <!-- ─── Centerpiece: Buddh Race Track SVG Map ─── -->
-            <div class="track-hero-stage">
-              <svg id="hero-circuit-svg" class="track-svg-canvas" viewBox="0 0 760 440" preserveAspectRatio="xMidYMid meet">
-                <defs>
-                  <filter id="track-lime-glow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#C8FF2E" flood-opacity="0.85"/>
-                  </filter>
-                  <filter id="car-neon-glow" x="-40%" y="-40%" width="180%" height="180%">
-                    <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#C8FF2E" flood-opacity="1"/>
-                  </filter>
-                  <pattern id="track-sf-checkers" width="8" height="8" patternUnits="userSpaceOnUse">
-                    <rect width="4" height="4" fill="#FFFFFF"/>
-                    <rect x="4" y="4" width="4" height="4" fill="#FFFFFF"/>
-                    <rect x="4" width="4" height="4" fill="#0A0A0A"/>
-                    <rect y="4" width="4" height="4" fill="#0A0A0A"/>
-                  </pattern>
-                </defs>
+            <!-- ─── Centerpiece: Hero Split (Buddh Track SVG + 3D Cardboard Racer Showroom) ─── -->
+            <div class="hero-split-container">
+              <!-- Left: Buddh Race Track SVG Map -->
+              <div class="track-hero-stage">
+                <svg id="hero-circuit-svg" class="track-svg-canvas" viewBox="0 0 760 440" preserveAspectRatio="xMidYMid meet">
+                  <defs>
+                    <filter id="track-lime-glow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#C8FF2E" flood-opacity="0.85"/>
+                    </filter>
+                    <filter id="car-neon-glow" x="-40%" y="-40%" width="180%" height="180%">
+                      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#C8FF2E" flood-opacity="1"/>
+                    </filter>
+                    <pattern id="track-sf-checkers" width="8" height="8" patternUnits="userSpaceOnUse">
+                      <rect width="4" height="4" fill="#FFFFFF"/>
+                      <rect x="4" y="4" width="4" height="4" fill="#FFFFFF"/>
+                      <rect x="4" width="4" height="4" fill="#0A0A0A"/>
+                      <rect y="4" width="4" height="4" fill="#0A0A0A"/>
+                    </pattern>
+                  </defs>
 
-                <!-- Grid backdrop lines for technical F1 radar look -->
-                <g opacity="0.12" stroke="#C8FF2E" stroke-width="1" stroke-dasharray="3 6">
-                  <line x1="0" y1="110" x2="760" y2="110"/>
-                  <line x1="0" y1="220" x2="760" y2="220"/>
-                  <line x1="0" y1="330" x2="760" y2="330"/>
-                  <line x1="190" y1="0" x2="190" y2="440"/>
-                  <line x1="380" y1="0" x2="380" y2="440"/>
-                  <line x1="570" y1="0" x2="570" y2="440"/>
-                </g>
-
-                <!-- Rotated Track System (fills landscape hero box) -->
-                <g id="track-rot-group" transform="translate(760, 10) rotate(90)">
-                  <!-- Outer Glow Layer -->
-                  <path id="track-glow-path" d="" fill="none" stroke="#C8FF2E" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" filter="url(#track-lime-glow)"/>
-                  <!-- Base Asphalt Road -->
-                  <path id="track-asphalt-path" d="" fill="none" stroke="#0A0A0A" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
-                  <!-- Inner Curb Border -->
-                  <path id="track-curb-path" d="" fill="none" stroke="#1E1E1E" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
-                  <!-- Racing Line (dashed neon white/lime) -->
-                  <path id="track-racing-line" d="" fill="none" stroke="#C8FF2E" stroke-width="2.5" stroke-dasharray="10 8"/>
-
-                  <!-- DRS Zone 1 Highlight (Back Straight) -->
-                  <path d="M280,180 L370,480" fill="none" stroke="#FF6B1A" stroke-width="6" opacity="0.8"/>
-                  <!-- DRS Zone 2 Highlight (Pit Straight) -->
-                  <path d="M240,360 L180,200" fill="none" stroke="#FF6B1A" stroke-width="6" opacity="0.8"/>
-
-                  <!-- Start/Finish Line Indicator -->
-                  <g transform="translate(208, 315) rotate(-20)">
-                    <rect x="-4" y="-12" width="12" height="24" fill="url(#track-sf-checkers)" stroke="#FFFFFF" stroke-width="1.5"/>
+                  <!-- Grid backdrop lines for technical F1 radar look -->
+                  <g opacity="0.12" stroke="#C8FF2E" stroke-width="1" stroke-dasharray="3 6">
+                    <line x1="0" y1="110" x2="760" y2="110"/>
+                    <line x1="0" y1="220" x2="760" y2="220"/>
+                    <line x1="0" y1="330" x2="760" y2="330"/>
+                    <line x1="190" y1="0" x2="190" y2="440"/>
+                    <line x1="380" y1="0" x2="380" y2="440"/>
+                    <line x1="570" y1="0" x2="570" y2="440"/>
                   </g>
 
-                  <!-- Turn Apex Markers -->
-                  <g class="track-apex-tags" font-family="'Anton', sans-serif" font-size="11" text-anchor="middle">
-                    <!-- T1 -->
-                    <g transform="translate(144.5, 143.9)"><circle r="8" fill="#0A0A0A" stroke="#C8FF2E" stroke-width="2"/><text y="4" fill="#C8FF2E">1</text></g>
-                    <!-- T3 Hairpin -->
-                    <g transform="translate(278.3, 14.7)"><circle r="8" fill="#FF6B1A" stroke="#0A0A0A" stroke-width="2"/><text y="4" fill="#0A0A0A">3</text></g>
-                    <!-- T4 End of Straight -->
-                    <g transform="translate(417.7, 582.3)"><circle r="8" fill="#0A0A0A" stroke="#FF6B1A" stroke-width="2"/><text y="4" fill="#FF6B1A">4</text></g>
-                    <!-- T10 Parabolica -->
-                    <g transform="translate(130.7, 751.5)"><circle r="8" fill="#C8FF2E" stroke="#0A0A0A" stroke-width="2"/><text y="4" fill="#0A0A0A">10</text></g>
-                    <!-- T16 Final Corner -->
-                    <g transform="translate(284.7, 473.3)"><circle r="8" fill="#0A0A0A" stroke="#FFFFFF" stroke-width="2"/><text y="4" fill="#FFFFFF">16</text></g>
-                  </g>
+                  <!-- Rotated Track System (fills landscape hero box) -->
+                  <g id="track-rot-group" transform="translate(760, 10) rotate(90)">
+                    <!-- Steel Armco Guard Rail Perimeter Barrier -->
+                    <path id="track-guardrail-path" d="" fill="none" stroke="#252D3D" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path id="track-guardrail-steel" d="" fill="none" stroke="#64748B" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="16 10"/>
+                    <!-- Outer Glow Layer -->
+                    <path id="track-glow-path" d="" fill="none" stroke="#C8FF2E" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" filter="url(#track-lime-glow)"/>
+                    <!-- Base Asphalt Road -->
+                    <path id="track-asphalt-path" d="" fill="none" stroke="#0A0A0A" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+                    <!-- Inner Curb Border -->
+                    <path id="track-curb-path" d="" fill="none" stroke="#1E1E1E" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+                    <!-- Racing Line (dashed neon white/lime) -->
+                    <path id="track-racing-line" d="" fill="none" stroke="#C8FF2E" stroke-width="2.5" stroke-dasharray="10 8"/>
 
-                  <!-- Animated Neon F1 Car Beacon -->
-                  <g id="animated-car-beacon" transform="translate(263, 432)">
-                    <circle r="12" fill="none" stroke="#C8FF2E" stroke-width="2" opacity="0.6">
-                      <animate attributeName="r" values="8;18;8" dur="1.2s" repeatCount="indefinite"/>
-                      <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" repeatCount="indefinite"/>
-                    </circle>
-                    <circle r="5.5" fill="#C8FF2E" stroke="#0A0A0A" stroke-width="1.5" filter="url(#car-neon-glow)"></circle>
-                  </g>
-                </g>
-              </svg>
-            </div>
+                    <!-- DRS Zone 1 Highlight (Back Straight) -->
+                    <path d="M280,180 L370,480" fill="none" stroke="#FF6B1A" stroke-width="6" opacity="0.8"/>
+                    <!-- DRS Zone 2 Highlight (Pit Straight) -->
+                    <path d="M240,360 L180,200" fill="none" stroke="#FF6B1A" stroke-width="6" opacity="0.8"/>
 
-            <!-- Live Telemetry Floating Chip over Track -->
-            <div class="track-live-hud" id="track-live-hud">
-              <span class="hud-speed-chip" id="hud-live-speed">324 KM/H</span>
-              <span>GEAR <b id="hud-live-gear" style="color:var(--neon-lime)">7</b></span>
-              <span class="hud-drs-chip" id="hud-live-drs">DRS ACTIVE</span>
-              <span style="opacity:0.6">| T4 APEX</span>
+                    <!-- Start/Finish Line Indicator -->
+                    <g transform="translate(208, 315) rotate(-20)">
+                      <rect x="-4" y="-12" width="12" height="24" fill="url(#track-sf-checkers)" stroke="#FFFFFF" stroke-width="1.5"/>
+                    </g>
+
+                    <!-- Turn Apex Markers -->
+                    <g class="track-apex-tags" font-family="'Anton', sans-serif" font-size="11" text-anchor="middle">
+                      <!-- T1 -->
+                      <g transform="translate(144.5, 143.9)"><circle r="8" fill="#0A0A0A" stroke="#C8FF2E" stroke-width="2"/><text y="4" fill="#C8FF2E">1</text></g>
+                      <!-- T3 Hairpin -->
+                      <g transform="translate(278.3, 14.7)"><circle r="8" fill="#FF6B1A" stroke="#0A0A0A" stroke-width="2"/><text y="4" fill="#0A0A0A">3</text></g>
+                      <!-- T4 End of Straight -->
+                      <g transform="translate(417.7, 582.3)"><circle r="8" fill="#0A0A0A" stroke="#FF6B1A" stroke-width="2"/><text y="4" fill="#FF6B1A">4</text></g>
+                      <!-- T10 Parabolica -->
+                      <g transform="translate(130.7, 751.5)"><circle r="8" fill="#C8FF2E" stroke="#0A0A0A" stroke-width="2"/><text y="4" fill="#0A0A0A">10</text></g>
+                      <!-- T16 Final Corner -->
+                      <g transform="translate(284.7, 473.3)"><circle r="8" fill="#0A0A0A" stroke="#FFFFFF" stroke-width="2"/><text y="4" fill="#FFFFFF">16</text></g>
+                    </g>
+
+                    <!-- Animated Formula V Race Car Model (Resting Directly Above Track Surface) -->
+                    <g id="animated-car-beacon" transform="translate(263, 432)">
+                      <!-- Dynamic Radar Pulse -->
+                      <circle r="14" fill="none" stroke="#C8FF2E" stroke-width="1.5" opacity="0.6">
+                        <animate attributeName="r" values="10;22;10" dur="1.2s" repeatCount="indefinite"/>
+                        <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" repeatCount="indefinite"/>
+                      </circle>
+                      <!-- Drop Shadow on Asphalt -->
+                      <ellipse cx="0" cy="0" rx="13" ry="6" fill="rgba(0,0,0,0.7)"/>
+                      <!-- 4 Open Wheels with Rims -->
+                      <rect x="-10" y="-8" width="5" height="2.6" rx="0.8" fill="#0A0A0A" stroke="#C8FF2E" stroke-width="0.5"/>
+                      <rect x="-10" y="5.4" width="5" height="2.6" rx="0.8" fill="#0A0A0A" stroke="#C8FF2E" stroke-width="0.5"/>
+                      <rect x="5.5" y="-7.6" width="4.8" height="2.5" rx="0.8" fill="#0A0A0A" stroke="#C8FF2E" stroke-width="0.5"/>
+                      <rect x="5.5" y="5.1" width="4.8" height="2.5" rx="0.8" fill="#0A0A0A" stroke="#C8FF2E" stroke-width="0.5"/>
+                      <!-- Front Wing -->
+                      <rect x="9.5" y="-6.5" width="2.6" height="13" rx="0.8" fill="#FFFFFF"/>
+                      <!-- Rear Wing -->
+                      <rect x="-11" y="-7.5" width="2.6" height="15" rx="0.8" fill="#FFFFFF"/>
+                      <!-- Main Aerodynamic Body & Sidepods -->
+                      <path d="M-9,-3.5 L-2,-5 L4,-2.5 L11,0 L4,2.5 L-2,5 L-9,3.5 Z" fill="#C8FF2E" stroke="#0A0A0A" stroke-width="0.8"/>
+                      <!-- Cockpit & Driver Helmet -->
+                      <rect x="-1.8" y="-1.2" width="3.6" height="2.4" rx="0.8" fill="#0A0A0A"/>
+                      <circle cx="0" cy="0" r="1.1" fill="#FF6B1A"/>
+                    </g>
+                  </g>
+                </svg>
+
+                <!-- Live Telemetry Floating Chip over Track -->
+                <div class="track-live-hud" id="track-live-hud">
+                  <span class="hud-speed-chip" id="hud-live-speed">324 KM/H</span>
+                  <span>GEAR <b id="hud-live-gear" style="color:var(--neon-lime)">7</b></span>
+                  <span class="hud-drs-chip" id="hud-live-drs">DRS ACTIVE</span>
+                  <span style="opacity:0.6">| T4 APEX</span>
+                </div>
+              </div>
+
+              <!-- Right: 3D Interactive Cardboard Racer Showroom Turntable -->
+              <div class="cardboard-car-stage" id="cardboard-showroom">
+                <div class="cardboard-header">
+                  <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+                    <div class="cardboard-badge-pill">SPECIAL DIY BUILD</div>
+                    <a href="garage.html" class="cardboard-scale-tag" style="text-decoration:none;background:var(--neon-lime);color:var(--ink-black);font-weight:800;border:1px solid #000;cursor:pointer" title="Open Dedicated 3D Garage">
+                      DEDICATED 3D GARAGE ⛶
+                    </a>
+                  </div>
+                  <div class="cardboard-title-row">
+                    <span class="cardboard-title">CARDBOARD RACER</span>
+                    <span class="cardboard-scale-tag">3D TURNTABLE</span>
+                  </div>
+                </div>
+
+                <div class="cardboard-canvas-wrap" id="cardboard-canvas-wrap" title="Drag to rotate 3D Cardboard Racer">
+                  <canvas id="cardboard-canvas" width="480" height="340"></canvas>
+                  <div class="cardboard-rotate-overlay-hint">
+                    <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                    <span>DRAG TO ROTATE 360°</span>
+                  </div>
+                </div>
+
+                <div class="cardboard-specs-strip">
+                  <span>KRAFT CHASSIS</span>
+                  <span>•</span>
+                  <span>DUCT TAPE AERO</span>
+                  <span>•</span>
+                  <span>10-POLY WHEELS</span>
+                </div>
+
+                <div class="cardboard-actions-row">
+                  <button type="button" class="btn-cardboard-ctrl active" id="btn-toggle-cardboard-spin" title="Toggle Auto-Rotation">
+                    SPIN: ON
+                  </button>
+                  <a href="garage.html" class="btn-cardboard-ctrl active" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;" title="Open Dedicated 3D Inspection Garage">
+                    INSPECT 🔍
+                  </a>
+                  <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html?car=cardboard" class="btn-drive-cardboard" id="btn-drive-cardboard" title="Drive Cardboard Racer">
+                    DRIVE THIS CAR →
+                  </a>
+                </div>
+              </div>
             </div>
           </section>
         </div>
@@ -458,6 +524,12 @@
             <div><b>LAP RECORD:</b> 1:27.249 — Sebastian Vettel (Red Bull Racing)</div>
             <div style="margin-top:4px; color:var(--neon-lime)"><b>CREATORS:</b> Made by Arigatoo Club for fun</div>
           </div>
+
+          <!-- Dedicated 3D Garage Button -->
+          <a href="garage.html" class="mode-option-btn" style="text-align:center; background:var(--hot-orange); color:var(--ink-black); font-family:var(--font-display); font-size:18px; letter-spacing:1px; margin-bottom:10px; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <span>DEDICATED 3D CAR GARAGE & INSPECTOR →</span>
+          </a>
 
           <!-- Launch cockpit button -->
           <a href="Buddh%20Circuit%20%E2%80%93%20F1%20Cockpit.html" class="mode-option-btn" style="text-align:center; background:var(--neon-lime); color:var(--ink-black); font-family:var(--font-display); font-size:20px; letter-spacing:1px">
