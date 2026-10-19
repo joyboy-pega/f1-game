@@ -1231,10 +1231,10 @@ const gantryLights = [];
 
 // 4.6 Trackside Grandstands, Pit Buildings & Trees
 (function buildScenery(){
-  // Main Straight Grandstand
-  const grandstandGeo = new THREE.BoxGeometry(260, 48, 42);
+  // Main Straight Grandstand (positioned safely on the side of the track, running parallel to the straight)
+  const grandstandGeo = new THREE.BoxGeometry(42, 48, 260);
   const grandstandMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
-  const gsRoofGeo = new THREE.BoxGeometry(280, 4, 56);
+  const gsRoofGeo = new THREE.BoxGeometry(56, 4, 280);
   const gsRoofMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.4 });
 
   const pStand = pts[N - 60];
@@ -1242,7 +1242,7 @@ const gantryLights = [];
   const tx = tangents[N - 60][0], ty = tangents[N - 60][1];
 
   const grandstand = new THREE.Group();
-  grandstand.position.set(pStand[0] + nx * 145, 0, pStand[1] + ny * 145);
+  grandstand.position.set(pStand[0] + nx * 215, 0, pStand[1] + ny * 215);
   grandstand.rotation.y = Math.PI / 2 - Math.atan2(ty, tx);
 
   const baseMesh = new THREE.Mesh(grandstandGeo, grandstandMat);
@@ -1251,17 +1251,17 @@ const gantryLights = [];
   grandstand.add(baseMesh);
 
   const roofMesh = new THREE.Mesh(gsRoofGeo, gsRoofMat);
-  roofMesh.position.set(0, 52, 6);
-  roofMesh.rotation.x = 0.12;
+  roofMesh.position.set(-6, 52, 0);
+  roofMesh.rotation.z = -0.12;
   roofMesh.castShadow = true;
   grandstand.add(roofMesh);
   trackGroup.add(grandstand);
 
-  // Pit Building on Opposite Side
-  const pitGeo = new THREE.BoxGeometry(320, 26, 48);
+  // Pit Building on Opposite Side (positioned safely on the side of the track, running parallel)
+  const pitGeo = new THREE.BoxGeometry(48, 26, 320);
   const pitMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.6 });
   const pit = new THREE.Mesh(pitGeo, pitMat);
-  pit.position.set(pStand[0] - nx * 155, 13, pStand[1] - ny * 155);
+  pit.position.set(pStand[0] - nx * 215, 13, pStand[1] - ny * 215);
   pit.rotation.y = grandstand.rotation.y;
   pit.castShadow = true;
   trackGroup.add(pit);
@@ -1280,7 +1280,7 @@ const gantryLights = [];
     });
   });
 
-  // Instanced Trees in Outfield
+  // Instanced Trees in Outfield (spaced safely outside the track and clear of the pit/grandstand area)
   const trunkGeo = new THREE.CylinderGeometry(1.2, 1.8, 16, 6);
   const foliageGeo = new THREE.ConeGeometry(9.5, 28, 7);
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 0.9 });
@@ -1288,7 +1288,8 @@ const gantryLights = [];
 
   const treeIndices = [];
   for (let i = 0; i < N; i += 18) {
-    treeIndices.push({ idx: i, side: (i % 36 === 0 ? 1 : -1), dist: 130 + (i % 5) * 28 });
+    if (i > N - 85 && i < N - 25) continue; // Clear trees near pit & grandstand
+    treeIndices.push({ idx: i, side: (i % 36 === 0 ? 1 : -1), dist: 175 + (i % 5) * 28 });
   }
 
   const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, treeIndices.length);
