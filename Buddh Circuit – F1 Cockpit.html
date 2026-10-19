@@ -69,6 +69,8 @@ canvas{display:block;width:100%;height:100%}
 #ersb i{background:var(--neon-lime)}
 #drs{font-family:var(--font-display);font-size:13px;letter-spacing:1px;color:var(--dim)}
 #drs.on{color:var(--ink-black);background:var(--neon-lime);padding:2px 8px;border:1.5px solid var(--ink-black);box-shadow:2px 2px 0 var(--pure-white)}
+#drift-tag{font-family:var(--font-display);font-size:12px;letter-spacing:1px;color:var(--dim);transition:all 0.12s ease;padding:2px 6px;border:1.5px solid #2a2a2a;background:rgba(255,255,255,0.05);display:inline-block}
+#drift-tag.on{color:var(--ink-black);background:var(--hot-orange);border-color:var(--ink-black);box-shadow:2px 2px 0 var(--neon-lime);font-weight:800;transform:scale(1.04)}
 
 #mini{
   top:calc(12px + env(safe-area-inset-top,0px));
@@ -464,7 +466,7 @@ canvas{display:block;width:100%;height:100%}
       <div class="control-row"><span>Throttle</span><span class="keycaps"><span class="keycap">W</span><span class="keycap">↑</span></span></div>
       <div class="control-row"><span>Brake / reverse</span><span class="keycaps"><span class="keycap">S</span><span class="keycap">↓</span></span></div>
       <div class="control-row"><span>Steer</span><span class="keycaps"><span class="keycap">A</span><span class="keycap">D</span></span></div>
-      <div class="control-row"><span>DRS (Straights)</span><span class="keycaps"><span class="keycap">SPACE</span></span></div>
+      <div class="control-row"><span>Drift (Turns) / DRS (Straights)</span><span class="keycaps"><span class="keycap">SPACE</span></span></div>
       <div class="control-row"><span>ERS Boost</span><span class="keycaps"><span class="keycap">SHIFT</span></span></div>
       <div class="control-row"><span>Camera Angle (Chase / Cockpit / Nose)</span><span class="keycaps"><span class="keycap">C</span></span></div>
       <div class="control-row"><span>Vehicle Switch (Cardboard / F1)</span><span class="keycaps"><span class="keycap">V</span></span></div>
@@ -477,6 +479,7 @@ canvas{display:block;width:100%;height:100%}
   <div class="menu-section">
     <h3>Vehicle &amp; Audio Calibration</h3>
     <label class="setting-row" for="steer-setting"><span>Steering response</span><output id="steer-value">100%</output><input id="steer-setting" type="range" min="60" max="150" value="100"></label>
+    <label class="setting-row" for="drift-setting"><span>Drift response &amp; grip</span><output id="drift-value">100%</output><input id="drift-setting" type="range" min="50" max="150" value="100"></label>
     <label class="setting-row" for="camera-setting"><span>Camera vibration</span><output id="camera-value">100%</output><input id="camera-setting" type="range" min="0" max="150" value="100"></label>
     <label class="setting-row" for="volume-setting"><span>Audio volume</span><output id="volume-value">75%</output><input id="volume-setting" type="range" min="0" max="100" value="75"></label>
   </div>
@@ -506,10 +509,13 @@ canvas{display:block;width:100%;height:100%}
   <div class="bars">
     <div id="rev" class="bar"><i></i></div>
     <div id="ersb" class="bar"><i style="background:var(--purple)"></i></div>
-    <div id="drs">DRS off</div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <div id="drs">DRS off</div>
+      <div id="drift-tag">DRIFT OFF</div>
+    </div>
   </div>
 </div>
-<div id="help"><b>Buddh International Circuit</b> · 5.13 km<br>↑ W throttle · ↓ S brake · ← → A D steer<br>Space: DRS · Shift: ERS · C: camera view · R: restart · M: map · V: audio · Esc: menu</div>
+<div id="help"><b>Buddh International Circuit</b> · 5.13 km<br>↑ W throttle · ↓ S brake · ← → A D steer<br>Space: Drift (Corners) / DRS (Straights) · Shift: ERS · C: camera · R: restart · Esc: menu</div>
 
 
 <script>
@@ -586,9 +592,36 @@ const MM = (() => {
 })();
 
 // ==========================================================================
-// 2. CAR & GAME STATE
+// 2. CAR & GAME STATE + DRIFT DYNAMICS CONFIG
 // ==========================================================================
-const car = { x: 0, y: 0, a: 0, vx: 0, vy: 0, steer: 0, idx: 0, ers: 1, gear: 0, rpm: 4000 };
+// Tunable arcade-style vehicle drifting parameters
+const DRIFT_CONFIG = {
+  normalGrip: 6.2,            // Lateral grip rate during normal driving (quick damping)
+  driftGrip: 1.85,            // Reduced lateral grip during drift (sustained smooth slide)
+  driftThresholdSpeed: 175,   // Min forward speed (~65 km/h) required to initiate drift
+  highSpeedThreshold: 340,    // Speed (~126 km/h) where hard steering initiates slide naturally
+  driftAngleLimit: 0.62,      // Max slip angle in radians (~35.5 deg) to prevent spinouts
+  driftRecoveryRate: 5.6,     // How rapidly traction is regained when straightening / releasing
+  counterSteerBonus: 4.5,     // Traction restoration multiplier when counter-steering into slide
+  steeringSensitivity: 1.0,   // Base multiplier (linked to in-game slider)
+  lateralDamping: 0.988,      // Lateral velocity air resistance damping
+  handbrakeImpulse: 95,       // Lateral kick impulse from Spacebar drift entry
+  naturalSlideImpulse: 55,    // Lateral kick impulse from sharp high-speed turn
+  oversteerYawRate: 0.95,     // Visual oversteer body rotation rate during drift
+  smokeThreshold: 0.14        // Drift intensity threshold to emit tire smoke
+};
+
+const car = {
+  x: 0, y: 0, a: 0, vx: 0, vy: 0, steer: 0, idx: 0, ers: 1, gear: 0, rpm: 4000,
+  // Dynamic Drift States
+  isDrifting: false,
+  driftIntensity: 0,
+  driftAngle: 0,
+  driftDir: 0,
+  driftDuration: 0,
+  driftScore: 0
+};
+let driftHandlingMultiplier = 1.0;
 let keys = {}, state = 'idle', t0 = 0, lapT = 0, lapNo = 1, best = null, last = null, halfway = false, lightsT = 0, go = false;
 let audioCtx = null, engineVoice = null, lastAudioGear = null, audioEnabled = true, volumeLevel = 0.75;
 let steeringSensitivity = 1, cameraMotion = 1, menuReturnState = null, guardRailSparks = 0;
@@ -1544,6 +1577,85 @@ const sparkMat = new THREE.PointsMaterial({ color: 0xffaa00, size: 3.5, transpar
 const sparksMesh = new THREE.Points(sparkGeo, sparkMat);
 scene.add(sparksMesh);
 
+// --------------------------------------------------------------------------
+// 4.6 Dynamic Tire Smoke Particle System (Lightweight Preallocated Buffer Pool)
+// --------------------------------------------------------------------------
+const SMOKE_MAX = 180;
+const smokeGeo = new THREE.BufferGeometry();
+const smokePos = new Float32Array(SMOKE_MAX * 3);
+const smokeData = [];
+for (let i = 0; i < SMOKE_MAX; i++) {
+  smokePos[i * 3] = 0;
+  smokePos[i * 3 + 1] = -100;
+  smokePos[i * 3 + 2] = 0;
+  smokeData.push({ vx: 0, vy: 0, vz: 0, life: 0, maxLife: 1 });
+}
+smokeGeo.setAttribute('position', new THREE.BufferAttribute(smokePos, 3));
+
+// Procedural Radial Alpha Smoke Canvas Texture (No external image assets needed)
+const smokeCanvas = document.createElement('canvas');
+smokeCanvas.width = 64; smokeCanvas.height = 64;
+const sctx = smokeCanvas.getContext('2d');
+const sgrad = sctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+sgrad.addColorStop(0, 'rgba(240, 244, 252, 0.85)');
+sgrad.addColorStop(0.25, 'rgba(215, 225, 238, 0.50)');
+sgrad.addColorStop(0.65, 'rgba(185, 198, 212, 0.16)');
+sgrad.addColorStop(1, 'rgba(160, 175, 190, 0)');
+sctx.fillStyle = sgrad;
+sctx.fillRect(0, 0, 64, 64);
+const smokeTex = new THREE.CanvasTexture(smokeCanvas);
+
+const smokeMat = new THREE.PointsMaterial({
+  map: smokeTex,
+  size: 15,
+  transparent: true,
+  opacity: 0.65,
+  depthWrite: false,
+  blending: THREE.NormalBlending
+});
+const smokeMesh = new THREE.Points(smokeGeo, smokeMat);
+scene.add(smokeMesh);
+
+// --------------------------------------------------------------------------
+// 4.7 Skid Marks (Instanced Rubber Tracks on Asphalt Surface)
+// --------------------------------------------------------------------------
+const SKID_MAX = 180;
+const skidGeo = new THREE.PlaneGeometry(3.4, 6.2);
+skidGeo.rotateX(-Math.PI / 2);
+const skidMat = new THREE.MeshBasicMaterial({
+  color: 0x111115,
+  transparent: true,
+  opacity: 0.42,
+  depthWrite: false
+});
+const skidMesh = new THREE.InstancedMesh(skidGeo, skidMat, SKID_MAX);
+const skidDummy = new THREE.Object3D();
+let skidHead = 0;
+let lastSkidDist = 0;
+
+for (let i = 0; i < SKID_MAX; i++) {
+  skidDummy.position.set(0, -100, 0);
+  skidDummy.updateMatrix();
+  skidMesh.setMatrixAt(i, skidDummy.matrix);
+}
+skidMesh.instanceMatrix.needsUpdate = true;
+scene.add(skidMesh);
+
+function clearDriftFX() {
+  for (let i = 0; i < SKID_MAX; i++) {
+    skidDummy.position.set(0, -100, 0);
+    skidDummy.updateMatrix();
+    skidMesh.setMatrixAt(i, skidDummy.matrix);
+  }
+  skidMesh.instanceMatrix.needsUpdate = true;
+  skidHead = 0;
+  for (let i = 0; i < SMOKE_MAX; i++) {
+    smokePos[i * 3 + 1] = -100;
+    smokeData[i].life = 0;
+  }
+  smokeGeo.attributes.position.needsUpdate = true;
+}
+
 function setGameWeather(w) {
   weather = w;
   localStorage.setItem('f1_weather', w);
@@ -1735,6 +1847,8 @@ function fullRaceReset() {
   const n = pts[(i + 1) % N];
   car.a = Math.atan2(n[1] - pts[i][1], n[0] - pts[i][0]);
   car.vx = car.vy = 0; car.steer = 0; car.idx = i; car.ers = 1;
+  car.isDrifting = false; car.driftIntensity = 0; car.driftAngle = 0; car.driftDir = 0; car.driftDuration = 0;
+  clearDriftFX();
   lapNo = 1; lapT = 0; halfway = false; go = false; state = 'lights'; lightsT = 0;
   lapTimes = []; best = null; last = null; raceFinished = false; totalRaceTime = 0;
   topSpeed = 0; overtakeCount = 0; drsUseCount = 0; ersUseCount = 0;
@@ -1769,6 +1883,8 @@ function reset() {
   const n = pts[(i + 1) % N];
   car.a = Math.atan2(n[1] - pts[i][1], n[0] - pts[i][0]);
   car.vx = car.vy = 0; car.steer = 0; car.idx = i; car.ers = 1;
+  car.isDrifting = false; car.driftIntensity = 0; car.driftAngle = 0; car.driftDir = 0; car.driftDuration = 0;
+  clearDriftFX();
   lapT = 0; halfway = false;
   $('msg').textContent = '';
   $('lap').textContent = lapNo;
@@ -1883,6 +1999,13 @@ $('steer-setting').addEventListener('input', e => {
   steeringSensitivity = Number(e.target.value) / 100;
   $('steer-value').value = e.target.value + '%';
 });
+const driftSlider = $('drift-setting');
+if (driftSlider) {
+  driftSlider.addEventListener('input', e => {
+    driftHandlingMultiplier = Number(e.target.value) / 100;
+    $('drift-value').value = e.target.value + '%';
+  });
+}
 $('camera-setting').addEventListener('input', e => {
   cameraMotion = Number(e.target.value) / 100;
   $('camera-value').value = e.target.value + '%';
@@ -1991,60 +2114,161 @@ function update(dt) {
   const thr = go && (keys.ArrowUp || keys.KeyW);
   const brk = go && (keys.ArrowDown || keys.KeyS);
   const tgt = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
-  car.steer += (tgt - car.steer) * Math.min(1, 7 * dt);
+  const driftKey = go && keys.Space;
 
+  // Steering dynamics
+  car.steer += (tgt - car.steer) * Math.min(1, 8.5 * dt);
+
+  // Local velocity projection
   const c = Math.cos(car.a), s = Math.sin(car.a);
   let vf = car.vx * c + car.vy * s;
   let vl = -car.vx * s + car.vy * c;
 
   const [ni, d] = nearest();
   const onTrack = d < HW + 6, gravel = d > HW + 40;
-  const drsOn = go && keys.Space && Math.abs(car.steer) < 0.15 && vf > 300;
+  const absSteer = Math.abs(car.steer);
+
+  // Dual role for Space: DRS on straights, Drift in turns
+  const drsOn = go && driftKey && absSteer < 0.15 && vf > 300 && !car.isDrifting;
   const ersOn = go && (keys.ShiftLeft || keys.ShiftRight) && car.ers > 0 && thr;
 
   if (ersOn) car.ers = Math.max(0, car.ers - dt * 0.22);
   else       car.ers = Math.min(1, car.ers + dt * 0.04 + (brk ? dt * 0.1 : 0));
 
+  // Acceleration
   const maxV = 900 + (drsOn ? 90 : 0) + (ersOn ? 50 : 0);
   if (thr) vf += (760 + (ersOn ? 350 : 0)) * (1 - Math.max(0, vf) / maxV) * dt;
 
-  let lateralGripRate = onTrack ? 5.5 : 3.0;
+  // Braking
   let brakePower = 1900;
-  let steerCoeff = 2.6;
-
-  if (weather === 'cloudy') {
-    lateralGripRate = onTrack ? 5.2 : 2.8;
-  } else if (weather === 'rain') {
-    lateralGripRate = onTrack ? 3.2 : 1.6;
-    brakePower = 1300;
-    if (thr && Math.abs(car.steer) > 0.15 && vf > 30) {
-      vl += (car.steer > 0 ? 1 : -1) * 45 * dt;
-    }
-  } else if (weather === 'snow') {
-    lateralGripRate = onTrack ? 1.35 : 0.75;
-    brakePower = 850;
-    steerCoeff = 3.2;
-    if (thr && Math.abs(car.steer) > 0.05) {
-      vl += (car.steer > 0 ? 1 : -1) * Math.min(vf * 0.45, 120) * dt;
-    }
-  }
+  if (weather === 'rain') brakePower = 1300;
+  else if (weather === 'snow') brakePower = 850;
 
   if (brk) {
     vf -= (vf > 0 ? brakePower : 500) * dt;
     if (vf < -120) vf = -120;
+    if (car.isDrifting) vl *= Math.exp(-3.2 * dt);
   }
-  vf -= vf * (drsOn ? 0.05 : 0.13) * dt;
+
+  // Drift Triggering Logic
+  // 1. Handbrake drift: Spacebar held while steering at speed > driftThresholdSpeed
+  const handbrakeDrift = driftKey && absSteer > 0.12 && vf > DRIFT_CONFIG.driftThresholdSpeed;
+  // 2. High-speed oversteer: Entering sharp turn at high speed (> 340 / ~126 km/h)
+  const highSpeedSlide = vf > DRIFT_CONFIG.highSpeedThreshold && absSteer > 0.60;
+  const wantsDrift = handbrakeDrift || highSpeedSlide;
+
+  // Counter-steering and Straightening Detection
+  const isCounterSteer = (vl > 15 && car.steer < -0.05) || (vl < -15 && car.steer > 0.05);
+  const isStraightening = absSteer < 0.08 && !driftKey;
+
+  // Drift Initiation
+  if (wantsDrift && !car.isDrifting && vf > DRIFT_CONFIG.driftThresholdSpeed) {
+    car.isDrifting = true;
+    car.driftDir = car.steer !== 0 ? Math.sign(car.steer) : (vl !== 0 ? Math.sign(vl) : 1);
+    const kick = (handbrakeDrift ? DRIFT_CONFIG.handbrakeImpulse : DRIFT_CONFIG.naturalSlideImpulse) * Math.min(1.4, vf / 320);
+    vl += Math.sign(car.steer) * kick;
+  }
+
+  // Active Drift Handling
+  if (car.isDrifting) {
+    // Throttle power-slide sustains lateral slip when turning or holding drift key
+    if (thr && vf > 100 && (absSteer > 0.08 || driftKey)) {
+      const slideDir = vl !== 0 ? Math.sign(vl) : (car.steer !== 0 ? Math.sign(car.steer) : 1);
+      vl += slideDir * 180 * Math.min(1.3, vf / 300) * dt;
+    }
+
+    // Counter-steering stabilization: rapidly pulls lateral velocity back toward zero
+    if (isCounterSteer) {
+      vl -= Math.sign(vl) * 450 * Math.abs(car.steer) * dt;
+    }
+  }
+
+  // Grip Calculation with Weather & Drift Modifiers
+  let baseNormalGrip = (onTrack ? DRIFT_CONFIG.normalGrip : 3.2);
+  let baseDriftGrip = (onTrack ? DRIFT_CONFIG.driftGrip : 1.1) / Math.max(0.2, driftHandlingMultiplier);
+
+  if (weather === 'cloudy') {
+    baseNormalGrip *= 0.95; baseDriftGrip *= 0.95;
+  } else if (weather === 'rain') {
+    baseNormalGrip *= 0.65; baseDriftGrip *= 0.55;
+  } else if (weather === 'snow') {
+    baseNormalGrip *= 0.35; baseDriftGrip *= 0.30;
+  }
+
+  let effectiveGrip = baseNormalGrip;
+  if (car.isDrifting) {
+    if (isCounterSteer) {
+      // Smoothly blend grip back up to normal as counter-steer straightens the car
+      effectiveGrip = baseDriftGrip + (baseNormalGrip - baseDriftGrip) * Math.min(1, Math.abs(car.steer) * DRIFT_CONFIG.counterSteerBonus);
+    } else if (isStraightening) {
+      effectiveGrip = baseNormalGrip * 1.4; // Quick traction bite upon releasing steering
+    } else {
+      effectiveGrip = baseDriftGrip;
+    }
+  }
+
+  // Apply lateral grip damping
+  vl *= Math.exp(-effectiveGrip * dt);
+  vl *= DRIFT_CONFIG.lateralDamping;
+
+  // Drift State Recovery & Duration Tracking
+  if (Math.abs(vl) < 25 && (!wantsDrift || vf < DRIFT_CONFIG.driftThresholdSpeed)) {
+    car.isDrifting = false;
+    car.driftDuration = 0;
+  } else if (car.isDrifting) {
+    car.driftDuration += dt;
+  }
+
+  // Drift Intensity (0 to 1) & Slip Angle
+  const targetIntensity = car.isDrifting ? Math.min(1.0, Math.abs(vl) / 140) : 0;
+  car.driftIntensity += (targetIntensity - car.driftIntensity) * Math.min(1, 10 * dt);
+  car.driftAngle = Math.atan2(vl, Math.max(20, Math.abs(vf)));
+
+  // Forward Drag (Aerodynamic + Drift Tire Scrub)
+  const driftScrubDrag = car.driftIntensity * 0.16;
+  const baseDrag = drsOn ? 0.05 : 0.13;
+  vf -= vf * (baseDrag + driftScrubDrag) * dt;
   if (!onTrack) vf -= vf * (gravel ? 4 : 1.6) * dt;
-  vl *= Math.exp(-lateralGripRate * dt);
+
+  // Vehicle Yaw / Heading Rotation
+  let steerCoeff = 2.6;
+  if (weather === 'snow') steerCoeff = 3.2;
 
   const ar = Math.abs(vf);
-  car.a += car.steer * steerCoeff * steeringSensitivity * Math.min(ar / 220, 1) / (1 + ar / 620) * (vf >= 0 ? 1 : -1) * dt;
+  const baseTurnRate = car.steer * steerCoeff * steeringSensitivity * Math.min(ar / 220, 1) / (1 + ar / 620) * (vf >= 0 ? 1 : -1);
+  let finalYawRate = baseTurnRate;
 
+  if (car.isDrifting) {
+    // Oversteer yaw rotation: tail swings outward into slide
+    const oversteerYaw = (vl !== 0 ? Math.sign(vl) : car.driftDir) * Math.min(1.2, Math.abs(vl) / 120) * DRIFT_CONFIG.oversteerYawRate;
+    finalYawRate += oversteerYaw;
+
+    // Counter-steering fights the yaw rate directly
+    if (isCounterSteer) {
+      finalYawRate += car.steer * 2.2 * steeringSensitivity;
+    }
+  }
+
+  car.a += finalYawRate * dt;
+
+  // Spinout Prevention: enforce maximum slip angle limit
+  if (Math.hypot(car.vx, car.vy) > 100) {
+    const velAngle = Math.atan2(car.vy, car.vx);
+    let angleDiff = car.a - velAngle;
+    angleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff)); // Normalize to [-PI, PI]
+    if (Math.abs(angleDiff) > DRIFT_CONFIG.driftAngleLimit) {
+      const excess = angleDiff - Math.sign(angleDiff) * DRIFT_CONFIG.driftAngleLimit;
+      car.a -= excess * Math.min(1, 14 * dt);
+    }
+  }
+
+  // World Velocity & Position Update
   const c2 = Math.cos(car.a), s2 = Math.sin(car.a);
   car.vx = vf * c2 - vl * s2;
   car.vy = vf * s2 + vl * c2;
   car.x += car.vx * dt;
   car.y += car.vy * dt;
+  car.vl = vl;
 
   // Guard Rail Collision & Bouncing
   const [bIdx, bDist] = nearest();
@@ -2132,13 +2356,26 @@ function update(dt) {
   const rpm = typeof g === 'number' ? 5200 + Math.max(0, Math.min(1, inG)) * 5800 : 3900;
   car.rpm = rpm;
 
-  const tireSlip = Math.min(1, Math.abs(vl) / Math.max(140, Math.abs(vf)) * 2.5 + Math.max(0, Math.abs(car.steer) - 0.55) * 0.8);
+  const lateralSlipRatio = Math.abs(vl) / Math.max(70, Math.abs(vf));
+  const tireSlip = Math.min(1, lateralSlipRatio * 2.6 + car.driftIntensity * 0.72 + (Math.abs(car.steer) > 0.5 ? 0.2 : 0));
   updateEngineAudio(rpm, !!thr, g, state === 'run' || state === 'lights', kmh / 330, tireSlip);
 
   $('rev').firstElementChild.style.width = Math.round(Math.max(0, Math.min(1, inG)) * 100) + '%';
   $('ersb').firstElementChild.style.width = Math.round(car.ers * 100) + '%';
   $('drs').textContent = drsOn ? 'DRS open' : 'DRS off';
   $('drs').classList.toggle('on', drsOn);
+
+  const driftTag = $('drift-tag');
+  if (driftTag) {
+    const isDriftingNow = car.driftIntensity > 0.15 && kmh > 60;
+    driftTag.classList.toggle('on', isDriftingNow);
+    if (isDriftingNow) {
+      const driftDeg = Math.round(Math.abs(car.driftAngle) * (180 / Math.PI));
+      driftTag.textContent = `DRIFT ${driftDeg}°`;
+    } else {
+      driftTag.textContent = 'DRIFT OFF';
+    }
+  }
   $('cur').textContent = fmt(lapT);
 
   car.kmh = kmh; car.vf = vf; car.gear = g; car.inG = inG; car.thr = thr; car.brk = brk;
@@ -2146,7 +2383,8 @@ function update(dt) {
   // Car Body Roll & Pitch
   const targetPitch = (brk ? 0.06 : 0) - (thr ? 0.04 : 0);
   car.pitch = (car.pitch || 0) + (targetPitch - (car.pitch || 0)) * Math.min(1, 8 * dt);
-  const targetRoll = -car.steer * Math.min(1, kmh / 160) * 0.065;
+  const latG = ((car.vl || 0) / 280) * 0.045;
+  const targetRoll = (-car.steer * 0.065 + latG) * Math.min(1, kmh / 140);
   car.roll = (car.roll || 0) + (targetRoll - (car.roll || 0)) * Math.min(1, 8 * dt);
 
   // Update AI Rivals
@@ -2214,31 +2452,36 @@ function updateThreeScene(dt) {
 
   const cosA = Math.cos(car.a), sinA = Math.sin(car.a);
   if (cameraView === 'chase') {
-    // 3rd Person Smooth Lag Chase Camera
+    // 3rd Person Smooth Lag Chase Camera with Drift Yaw Blending
     const chaseDist = 88;
     const chaseH = 26;
-    const targetCamX = car.x - cosA * chaseDist;
-    const targetCamZ = car.y - sinA * chaseDist;
+    // Blend camera trailing angle slightly with slip angle for dramatic drift framing
+    const driftCamOffset = -car.driftAngle * 0.38;
+    const camAngle = car.a + driftCamOffset;
+
+    const targetCamX = car.x - Math.cos(camAngle) * chaseDist;
+    const targetCamZ = car.y - Math.sin(camAngle) * chaseDist;
     const targetCamY = chaseH + Math.sin(performance.now() * 0.01) * 0.4 * cameraMotion;
 
-    smoothedCamPos.x += (targetCamX - smoothedCamPos.x) * Math.min(1, 14 * dt);
-    smoothedCamPos.z += (targetCamZ - smoothedCamPos.z) * Math.min(1, 14 * dt);
+    smoothedCamPos.x += (targetCamX - smoothedCamPos.x) * Math.min(1, 11 * dt);
+    smoothedCamPos.z += (targetCamZ - smoothedCamPos.z) * Math.min(1, 11 * dt);
     smoothedCamPos.y += (targetCamY - smoothedCamPos.y) * Math.min(1, 14 * dt);
 
     camera.position.copy(smoothedCamPos);
     camera.lookAt(car.x + cosA * 45, 6, car.y + sinA * 45);
 
   } else if (cameraView === 'tcam') {
-    // F1 TV Pod Airbox Camera
+    // F1 TV Pod Airbox Camera with subtle G-force lateral lean
     const tcamX = car.x - cosA * 4.5;
     const tcamZ = car.y - sinA * 4.5;
     const tcamY = 16.5;
 
     camera.position.set(tcamX, tcamY, tcamZ);
     camera.lookAt(car.x + cosA * 95, 7.5, car.y + sinA * 95);
+    camera.rotation.z += -car.driftAngle * 0.12 * cameraMotion;
 
   } else if (cameraView === 'cockpit') {
-    // Real Driver Cockpit Visor View
+    // Real Driver Cockpit Visor View with visceral G-force banking
     const cockX = car.x + cosA * 2.5;
     const cockZ = car.y + sinA * 2.5;
     const vib = Math.sin(performance.now() * 0.05) * (car.kmh / 330) * 0.3 * cameraMotion;
@@ -2246,6 +2489,7 @@ function updateThreeScene(dt) {
 
     camera.position.set(cockX, cockY, cockZ);
     camera.lookAt(car.x + cosA * 105, 8.2, car.y + sinA * 105);
+    camera.rotation.z += -car.driftAngle * 0.15 * cameraMotion;
 
   } else if (cameraView === 'hood') {
     // Low Apex Nose Cam
@@ -2314,6 +2558,81 @@ function updateThreeScene(dt) {
     }
   }
   sparksMesh.geometry.attributes.position.needsUpdate = true;
+
+  // ------------------------------------------------------------------------
+  // Dynamic Tire Smoke & Skid Marks Simulation
+  // ------------------------------------------------------------------------
+  const smPos = smokeMesh.geometry.attributes.position.array;
+  const isSliding = car.driftIntensity > DRIFT_CONFIG.smokeThreshold && car.kmh > 65;
+
+  if (isSliding) {
+    // World coordinates of left & right rear wheels
+    const rearAxleX = car.x - cosA * 11.2;
+    const rearAxleZ = car.y - sinA * 11.2;
+    const rlX = rearAxleX - sinA * 9.8, rlZ = rearAxleZ + cosA * 9.8;
+    const rrX = rearAxleX + sinA * 9.8, rrZ = rearAxleZ - cosA * 9.8;
+
+    // Emit smoke particles based on drift intensity and vehicle speed
+    const emitCount = Math.floor(1 + car.driftIntensity * 2.6);
+    for (let e = 0; e < emitCount; e++) {
+      let sIdx = -1;
+      for (let i = 0; i < SMOKE_MAX; i++) {
+        if (smokeData[i].life <= 0) { sIdx = i; break; }
+      }
+      if (sIdx === -1) sIdx = Math.floor(Math.random() * SMOKE_MAX);
+
+      const isLeft = (e % 2 === 0);
+      const originX = isLeft ? rlX : rrX;
+      const originZ = isLeft ? rlZ : rrZ;
+
+      smokeData[sIdx].vx = (Math.random() - 0.5) * 14 - cosA * (car.vf * 0.14) - sinA * ((car.vl || 0) * 0.22);
+      smokeData[sIdx].vy = 2.4 + Math.random() * 4.2;
+      smokeData[sIdx].vz = (Math.random() - 0.5) * 14 - sinA * (car.vf * 0.14) + cosA * ((car.vl || 0) * 0.22);
+      smokeData[sIdx].life = 0.55 + Math.random() * 0.35;
+      smokeData[sIdx].maxLife = smokeData[sIdx].life;
+
+      smPos[sIdx * 3]     = originX + (Math.random() - 0.5) * 2.4;
+      smPos[sIdx * 3 + 1] = 0.45;
+      smPos[sIdx * 3 + 2] = originZ + (Math.random() - 0.5) * 2.4;
+    }
+
+    // Lay down rubber skid marks on track asphalt
+    lastSkidDist += Math.hypot(car.vx, car.vy) * dt;
+    const [, curDistToCenter] = nearest();
+    const onTrackSurface = curDistToCenter < HW + 6;
+    if (onTrackSurface && lastSkidDist > 4.2) {
+      lastSkidDist = 0;
+      // Left tire mark
+      skidDummy.position.set(rlX, 0.075, rlZ);
+      skidDummy.rotation.set(0, Math.PI / 2 - car.a, 0);
+      skidDummy.updateMatrix();
+      skidMesh.setMatrixAt(skidHead % SKID_MAX, skidDummy.matrix);
+      skidHead++;
+
+      // Right tire mark
+      skidDummy.position.set(rrX, 0.075, rrZ);
+      skidDummy.rotation.set(0, Math.PI / 2 - car.a, 0);
+      skidDummy.updateMatrix();
+      skidMesh.setMatrixAt(skidHead % SKID_MAX, skidDummy.matrix);
+      skidHead++;
+
+      skidMesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  // Update active smoke particles
+  for (let i = 0; i < SMOKE_MAX; i++) {
+    if (smokeData[i].life > 0) {
+      smokeData[i].life -= dt;
+      smokeData[i].vy += 1.8 * dt; // smoke rises
+      smPos[i * 3]     += smokeData[i].vx * dt;
+      smPos[i * 3 + 1] += smokeData[i].vy * dt;
+      smPos[i * 3 + 2] += smokeData[i].vz * dt;
+    } else {
+      smPos[i * 3 + 1] = -100;
+    }
+  }
+  smokeMesh.geometry.attributes.position.needsUpdate = true;
 
   // Render 3D Scene
   renderer.render(scene, camera);
