@@ -2576,7 +2576,8 @@ function playDrsTone(open) {
 }
 
 function toggleDRS() {
-  if (!go || raceFinished || state !== 'run') return;
+  if (raceFinished || state === 'paused' || state === 'lights') return;
+  if (state === 'idle') { state = 'run'; go = true; }
   if (car.drsOpen) {
     closeDRS('MANUAL');
   } else {
@@ -2595,17 +2596,40 @@ function closeDRS(reason) {
   }
 }
 
+function setPlayerKeyState(e, val) {
+  if (!keys) keys = {};
+  keys[e.code] = val;
+  const k = e.key ? e.key.toLowerCase() : '';
+  if (k === 'w' || e.code === 'KeyW' || e.code === 'ArrowUp') { keys.KeyW = val; keys.ArrowUp = val; }
+  if (k === 's' || e.code === 'KeyS' || e.code === 'ArrowDown') { keys.KeyS = val; keys.ArrowDown = val; }
+  if (k === 'a' || e.code === 'KeyA' || e.code === 'ArrowLeft') { keys.KeyA = val; keys.ArrowLeft = val; }
+  if (k === 'd' || e.code === 'KeyD' || e.code === 'ArrowRight') { keys.KeyD = val; keys.ArrowRight = val; }
+  if (k === ' ' || e.code === 'Space') { keys.Space = val; }
+  if (e.key === 'Shift' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { keys.ShiftLeft = val; keys.ShiftRight = val; }
+
+  // Auto-start drive if player touches any drive key while waiting in idle
+  if (val && state === 'idle' && (keys.KeyW || keys.ArrowUp || keys.KeyS || keys.ArrowDown || keys.KeyA || keys.KeyD || keys.Space || keys.ShiftLeft)) {
+    state = 'run';
+    go = true;
+    const lsEl = document.getElementById('lap-selector');
+    if (lsEl) lsEl.style.display = 'none';
+    const lb = document.getElementById('leaderboard'); if (lb) lb.style.display = 'block';
+    const pb = document.getElementById('pos-badge'); if (pb) pb.style.display = 'block';
+  }
+}
+
 addEventListener('keydown', e => {
   if (e.code !== 'KeyV' && e.code !== 'KeyC' && e.code !== 'KeyU') startEngineAudio();
-  keys[e.code] = 1;
-  if (e.code === 'KeyR') reset();
-  if (e.code === 'KeyC') cycleCameraView();
-  if (e.code === 'KeyV') setCarModel(activeVehicle === 'street' ? 'f1' : 'street');
-  if (e.code === 'KeyU') toggleAudio();
-  if (e.code === 'KeyE') toggleDRS();
-  if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+  setPlayerKeyState(e, 1);
+  const k = e.key ? e.key.toLowerCase() : '';
+  if (e.code === 'KeyR' || k === 'r') reset();
+  if (e.code === 'KeyC' || k === 'c') cycleCameraView();
+  if (e.code === 'KeyV' || k === 'v') setCarModel(activeVehicle === 'street' ? 'f1' : 'street');
+  if (e.code === 'KeyU' || k === 'u') toggleAudio();
+  if (e.code === 'KeyE' || k === 'e') toggleDRS();
+  if (e.code.startsWith('Arrow') || e.code === 'Space' || k === ' ') e.preventDefault();
 });
-addEventListener('keyup', e => { keys[e.code] = 0; });
+addEventListener('keyup', e => { setPlayerKeyState(e, 0); });
 
 const soundToggle = $('sound-toggle');
 function toggleAudio() {
@@ -2776,10 +2800,15 @@ function update(dt) {
     }
   }
 
-  const thr = go && (keys.ArrowUp || keys.KeyW);
-  const brk = go && (keys.ArrowDown || keys.KeyS);
+  const canDrive = (state !== 'paused' && state !== 'lights');
+  const thr = canDrive && !!(keys.ArrowUp || keys.KeyW);
+  const brk = canDrive && !!(keys.ArrowDown || keys.KeyS);
   const tgt = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
-  const driftKey = go && keys.Space;
+  const driftKey = canDrive && !!keys.Space;
+  if ((thr || brk || driftKey) && canDrive && !go) {
+    go = true;
+    state = 'run';
+  }
 
   // Steering dynamics
   car.steer += (tgt - car.steer) * Math.min(1, 8.5 * dt);
@@ -2813,7 +2842,7 @@ function update(dt) {
   // FUNCTIONAL ERS & OVERTAKE BOOST CALCULATION
   // =========================================================================
   const wantsBoost = !!(keys.ShiftLeft || keys.ShiftRight);
-  const canBoost = go && !raceFinished && state === 'run' && thr && ((car.ersCharge || 0) > 0);
+  const canBoost = (state !== 'paused' && state !== 'lights') && !raceFinished && thr && ((car.ersCharge || 0) > 0);
 
   if (wantsBoost && canBoost && (car.isBoosting || (car.ersCharge || 0) >= ERS_CONFIG.ersMinActivationCharge)) {
     car.isBoosting = true;
@@ -3058,8 +3087,6 @@ function update(dt) {
         showLapCompleteToast(completedLap, last, best);
       }
     }
-    if (ersOn && !prevErsOn) ersUseCount++;
-    prevErsOn = ersOn;
   }
 
   // Decay Toasts
@@ -3770,7 +3797,8 @@ function gameLoop(now) {
     ai.halfway = false; ai.lapT = 0; ai.finished = false;
   });
 
-  state = 'idle';
+  state = 'run';
+  go = true;
   requestAnimationFrame(gameLoop);
 })();
 
