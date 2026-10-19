@@ -594,6 +594,97 @@ canvas{display:block;width:100%;height:100%}
   margin: 1px 0;
 }
 
+
+/* ERS Telemetry Pod Section & Battery Cells */
+#side-telemetry.ers-glowing {
+  border-color: #00e5ff;
+  box-shadow: 4px 4px 0 #00e5ff, 0 0 25px rgba(0, 229, 255, 0.45);
+}
+
+.side-ers-battery-wrap {
+  background: #111;
+  border: 1px solid #262626;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.side-ers-cells-row {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+  height: 9px;
+}
+.ers-cell {
+  background: #1c1c1c;
+  border-radius: 1px;
+  transition: background 0.08s ease, box-shadow 0.08s ease;
+}
+.ers-cell.active {
+  background: var(--purple);
+  box-shadow: 0 0 4px rgba(176, 38, 255, 0.5);
+}
+.ers-cell.boosting {
+  background: #00e5ff;
+  box-shadow: 0 0 6px #00e5ff;
+}
+.ers-cell.regen {
+  background: var(--neon-lime);
+  box-shadow: 0 0 6px var(--neon-lime);
+}
+.side-ers-charge-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--dim);
+}
+.ers-charge-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--dim);
+}
+.ers-charge-val {
+  font-family: var(--font-mono);
+  color: var(--pure-white);
+  font-size: 11px;
+}
+
+/* ERS Status Box States */
+.side-status-box.ers-active {
+  color: #000;
+  background: #00e5ff;
+  border-color: #00e5ff;
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.8), 2px 2px 0 var(--pure-white);
+  font-weight: 900;
+  animation: ersPulse 0.35s infinite alternate;
+}
+@keyframes ersPulse {
+  0% { box-shadow: 0 0 10px rgba(0, 229, 255, 0.6); }
+  100% { box-shadow: 0 0 22px rgba(0, 229, 255, 0.95), 2px 2px 0 var(--pure-white); }
+}
+.side-status-box.ers-regen {
+  color: #000;
+  background: var(--neon-lime);
+  border-color: var(--neon-lime);
+  box-shadow: 0 0 12px rgba(200, 255, 46, 0.6);
+  font-weight: 800;
+}
+.side-status-box.ers-depleted {
+  color: var(--hot-orange);
+  border-color: var(--hot-orange);
+  background: rgba(255, 107, 26, 0.1);
+}
+
+@media (max-height: 820px) {
+  #side-telemetry {
+    transform: translateY(-50%) skewX(-3deg) scale(0.88);
+    transform-origin: left center;
+  }
+}
+
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -880,6 +971,49 @@ canvas{display:block;width:100%;height:100%}
     </div>
     <div class="drift-rating-badge" id="side-drift-rating">GRIP OPTIMAL</div>
   </div>
+
+  <div class="side-divider"></div>
+
+  <!-- ERS OVERTAKE BOOST TELEMETRY SECTION -->
+  <div class="side-section" id="side-ers-section">
+    <div class="side-sec-title">
+      <span>MGU-K &middot; ERS BOOST</span>
+      <span class="key-hint">HOLD [SHIFT]</span>
+    </div>
+    <div class="side-status-box" id="side-ers-status">ERS READY</div>
+
+    <!-- Battery / Capacitor Charge Cells Meter -->
+    <div class="side-ers-battery-wrap">
+      <div class="side-ers-cells-row">
+        <div class="ers-cell active" id="ers-cell-1"></div>
+        <div class="ers-cell active" id="ers-cell-2"></div>
+        <div class="ers-cell active" id="ers-cell-3"></div>
+        <div class="ers-cell active" id="ers-cell-4"></div>
+        <div class="ers-cell active" id="ers-cell-5"></div>
+        <div class="ers-cell active" id="ers-cell-6"></div>
+        <div class="ers-cell active" id="ers-cell-7"></div>
+        <div class="ers-cell active" id="ers-cell-8"></div>
+        <div class="ers-cell active" id="ers-cell-9"></div>
+        <div class="ers-cell active" id="ers-cell-10"></div>
+      </div>
+      <div class="side-ers-charge-row">
+        <span class="ers-charge-label" id="side-ers-flow">MGU-H HARVEST</span>
+        <span class="ers-charge-val" id="side-ers-pct">100%</span>
+      </div>
+    </div>
+
+    <!-- ERS Power Telemetry Readouts -->
+    <div class="side-metrics">
+      <div class="side-metric-cell">
+        <span class="label">BOOST POWER</span>
+        <span class="value" id="side-ers-kw">+0 kW</span>
+      </div>
+      <div class="side-metric-cell">
+        <span class="label">BOOST SPEED</span>
+        <span class="value" id="side-ers-top">+0 <small>km/h</small></span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="hud" id="dash">
@@ -991,6 +1125,23 @@ const DRIFT_CONFIG = {
 };
 
 // ==========================================================================
+// ==========================================================================
+// TUNABLE ENERGY RECOVERY & OVERTAKE BOOST (ERS) CONFIGURATION
+// ==========================================================================
+const ERS_CONFIG = {
+  maxERSCharge: 100,               // Maximum energy capacity (100% / 100 MJ)
+  initialERSCharge: 100,           // Initial starting energy capacity
+  ersDrainRate: 20.0,              // Energy consumption while boosting (% per second) -> ~5s continuous boost
+  ersRechargeRate: 4.5,            // Natural MGU-H recovery when cruising off-boost (% per second)
+  ersBrakeRecovery: 16.0,          // MGU-K regenerative braking recovery rate (% per second)
+  ersCoastRecovery: 7.5,           // MGU-H recovery while coasting off-throttle (% per second)
+  ersMinActivationCharge: 5.0,     // Minimum energy reserve required to initiate boost
+  boostAccelerationMultiplier: 1.48,// Electric torque acceleration multiplier
+  boostAccelerationBonus: 360,     // Additional straight-line electric motor thrust (units/s²)
+  boostTopSpeedBonus: 60,          // Increased top speed ceiling with boost (~22 km/h increase)
+  boostTransitionRate: 14.0        // Rate of smooth electric torque ramp-up and ramp-down (lerp speed)
+};
+
 // TUNABLE DRAG REDUCTION SYSTEM (DRS) CONFIGURATION
 // ==========================================================================
 const DRS_CONFIG = {
@@ -1028,7 +1179,13 @@ const car = {
   drsFlapAngle: 25 * (Math.PI / 180), // Animated rear wing flap angle
   currentDrag: 0.13,            // Smoothly interpolated aerodynamic drag
   drsAccelBonus: 0,             // Smoothly interpolated acceleration bonus
-  currentMaxV: 900              // Smoothly interpolated top speed limit
+  currentMaxV: 900,             // Smoothly interpolated top speed limit
+  // Functional ERS States
+  ersCharge: 100,               // Current energy reserve (0 to 100)
+  isBoosting: false,            // True when Overtake Boost is actively firing
+  boostBlend: 0,                // Smooth 0.0 to 1.0 power transition factor
+  boostAccelBonus: 0,           // Interpolated electric acceleration boost
+  boostSpeedBonus: 0            // Interpolated top speed boost
 };
 let driftHandlingMultiplier = 1.0;
 let keys = {}, state = 'idle', t0 = 0, lapT = 0, lapNo = 1, best = null, last = null, halfway = false, lightsT = 0, go = false;
@@ -2256,7 +2413,7 @@ function fullRaceReset() {
   car.x = pts[i][0]; car.y = pts[i][1];
   const n = pts[(i + 1) % N];
   car.a = Math.atan2(n[1] - pts[i][1], n[0] - pts[i][0]);
-  car.vx = car.vy = 0; car.steer = 0; car.idx = i; car.ers = 1;
+  car.vx = car.vy = 0; car.steer = 0; car.idx = i; car.ers = 1; car.ersCharge = 100; car.isBoosting = false; car.boostBlend = 0; car.boostAccelBonus = 0; car.boostSpeedBonus = 0;
   car.isDrifting = false; car.driftIntensity = 0; car.driftAngle = 0; car.driftDir = 0; car.driftDuration = 0;
   car.drsOpen = false; car.currentDrag = DRS_CONFIG.dragNormal; car.drsAccelBonus = 0; car.currentMaxV = DRS_CONFIG.maxSpeedNormal;
   clearDriftFX();
@@ -2293,7 +2450,7 @@ function reset() {
   car.x = pts[i][0]; car.y = pts[i][1];
   const n = pts[(i + 1) % N];
   car.a = Math.atan2(n[1] - pts[i][1], n[0] - pts[i][0]);
-  car.vx = car.vy = 0; car.steer = 0; car.idx = i; car.ers = 1;
+  car.vx = car.vy = 0; car.steer = 0; car.idx = i; car.ers = 1; car.ersCharge = 100; car.isBoosting = false; car.boostBlend = 0; car.boostAccelBonus = 0; car.boostSpeedBonus = 0;
   car.isDrifting = false; car.driftIntensity = 0; car.driftAngle = 0; car.driftDir = 0; car.driftDuration = 0;
   car.drsOpen = false; car.currentDrag = DRS_CONFIG.dragNormal; car.drsAccelBonus = 0; car.currentMaxV = DRS_CONFIG.maxSpeedNormal;
   clearDriftFX();
@@ -2368,6 +2525,36 @@ function checkDrsEligibility() {
   if (car.isDrifting || Math.abs(car.steer) > 0.22) return false;
   if (DRS_CONFIG.requireDrsZones && !isCarInDrsZone()) return false;
   return true;
+}
+
+let ersAudioOsc = null, ersAudioGain = null;
+function updateErsAudio(isBoosting) {
+  if (!audioCtx || !audioEnabled) return;
+  try {
+    if (isBoosting) {
+      if (!ersAudioOsc) {
+        ersAudioOsc = audioCtx.createOscillator();
+        ersAudioGain = audioCtx.createGain();
+        ersAudioOsc.type = 'sawtooth';
+        ersAudioOsc.frequency.setValueAtTime(480, audioCtx.currentTime);
+        ersAudioGain.gain.setValueAtTime(0.015 * volumeLevel, audioCtx.currentTime);
+        ersAudioOsc.connect(ersAudioGain).connect(audioCtx.destination);
+        ersAudioOsc.start();
+      }
+      const freq = 480 + Math.min(600, (car.kmh / 330) * 450);
+      ersAudioOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
+      ersAudioGain.gain.setTargetAtTime(0.022 * volumeLevel, audioCtx.currentTime, 0.05);
+    } else {
+      if (ersAudioOsc) {
+        ersAudioGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.05);
+        setTimeout(() => {
+          try {
+            if (ersAudioOsc) { ersAudioOsc.stop(); ersAudioOsc.disconnect(); ersAudioOsc = null; }
+          } catch(e) {}
+        }, 80);
+      }
+    }
+  } catch(e) {}
 }
 
 function playDrsTone(open) {
@@ -2622,10 +2809,46 @@ function update(dt) {
     }
   }
 
-  const ersOn = go && (keys.ShiftLeft || keys.ShiftRight) && car.ers > 0 && thr;
+  // =========================================================================
+  // FUNCTIONAL ERS & OVERTAKE BOOST CALCULATION
+  // =========================================================================
+  const wantsBoost = !!(keys.ShiftLeft || keys.ShiftRight);
+  const canBoost = go && !raceFinished && state === 'run' && thr && ((car.ersCharge || 0) > 0);
 
-  if (ersOn) car.ers = Math.max(0, car.ers - dt * 0.22);
-  else       car.ers = Math.min(1, car.ers + dt * 0.04 + (brk ? dt * 0.1 : 0));
+  if (wantsBoost && canBoost && (car.isBoosting || (car.ersCharge || 0) >= ERS_CONFIG.ersMinActivationCharge)) {
+    car.isBoosting = true;
+    car.ersCharge = Math.max(0, (car.ersCharge || 0) - ERS_CONFIG.ersDrainRate * dt);
+    if (car.ersCharge <= 0) {
+      car.isBoosting = false;
+    }
+  } else {
+    car.isBoosting = false;
+    // Energy Recovery / Harvesting
+    let recoveryRate = ERS_CONFIG.ersRechargeRate;
+    if (brk) {
+      // MGU-K Regenerative Braking Recovery
+      recoveryRate = ERS_CONFIG.ersBrakeRecovery;
+    } else if (!thr && vf > 20) {
+      // MGU-H Coasting Recovery
+      recoveryRate = ERS_CONFIG.ersCoastRecovery;
+    }
+    car.ersCharge = Math.min(ERS_CONFIG.maxERSCharge, (car.ersCharge !== undefined ? car.ersCharge : 100) + recoveryRate * dt);
+  }
+
+  // Normalized 0.0 to 1.0 for UI and backward compatibility
+  car.ersPct = car.ersCharge / ERS_CONFIG.maxERSCharge;
+  car.ers = car.ersPct;
+
+  // Track boost usage count for post-race statistics
+  if (car.isBoosting && !prevErsOn) ersUseCount++;
+  prevErsOn = car.isBoosting;
+  updateErsAudio(car.isBoosting);
+
+  // Smooth electric power transition (prevents instant velocity teleportation)
+  const targetBoostBlend = car.isBoosting ? 1.0 : 0.0;
+  car.boostBlend = (car.boostBlend || 0) + (targetBoostBlend - (car.boostBlend || 0)) * Math.min(1, ERS_CONFIG.boostTransitionRate * dt);
+  car.boostAccelBonus = car.boostBlend * ERS_CONFIG.boostAccelerationBonus;
+  car.boostSpeedBonus = car.boostBlend * ERS_CONFIG.boostTopSpeedBonus;
 
   // Smooth aerodynamic drag & top speed interpolation
   const targetDrag = car.drsOpen ? DRS_CONFIG.dragDRS : DRS_CONFIG.dragNormal;
@@ -2635,12 +2858,12 @@ function update(dt) {
   const targetBonus = car.drsOpen ? DRS_CONFIG.drsAccelerationBonus : 0;
   car.drsAccelBonus = (car.drsAccelBonus || 0) + (targetBonus - (car.drsAccelBonus || 0)) * Math.min(1, 10 * dt);
 
-  const targetMaxV = car.drsOpen ? DRS_CONFIG.maxSpeedDRS : DRS_CONFIG.maxSpeedNormal;
+  const targetMaxV = (car.drsOpen ? DRS_CONFIG.maxSpeedDRS : DRS_CONFIG.maxSpeedNormal) + car.boostSpeedBonus;
   car.currentMaxV = (car.currentMaxV || DRS_CONFIG.maxSpeedNormal) + (targetMaxV - (car.currentMaxV || DRS_CONFIG.maxSpeedNormal)) * Math.min(1, 8 * dt);
 
-  const maxV = car.currentMaxV + (ersOn ? 50 : 0);
+  const maxV = car.currentMaxV;
   if (thr) {
-    const totalAccel = 760 + (ersOn ? 350 : 0) + car.drsAccelBonus;
+    const totalAccel = 760 + car.boostAccelBonus + car.drsAccelBonus;
     vf += totalAccel * (1 - Math.max(0, vf) / maxV) * dt;
   }
 
@@ -3032,6 +3255,93 @@ function update(dt) {
         sideDriftRating.textContent = 'SLIGHT SLIP';
         sideDriftRating.style.color = 'var(--pure-white)';
       }
+    }
+
+    // 3. Update ERS Overtake Boost Telemetry Indicators
+    sideTelemetry.classList.toggle('ers-glowing', !!car.isBoosting);
+    const sideErsStatus = $('side-ers-status');
+    const sideErsFlow = $('side-ers-flow');
+    const sideErsPct = $('side-ers-pct');
+    const sideErsKw = $('side-ers-kw');
+    const sideErsTop = $('side-ers-top');
+
+    const curCharge = (car.ersCharge !== undefined) ? car.ersCharge : 100;
+    const chargePct = Math.round(curCharge);
+
+    if (sideErsPct) sideErsPct.textContent = `${chargePct}%`;
+
+    // 10 Segmented Battery Cells
+    for (let c = 1; c <= 10; c++) {
+      const cellEl = $(`ers-cell-${c}`);
+      if (cellEl) {
+        const threshold = c * 10;
+        const isCellFilled = curCharge >= (threshold - 5);
+        cellEl.className = 'ers-cell';
+        if (isCellFilled) {
+          if (car.isBoosting) cellEl.classList.add('boosting');
+          else if (brk) cellEl.classList.add('regen');
+          else cellEl.classList.add('active');
+        }
+      }
+    }
+
+    if (sideErsStatus) {
+      if (car.isBoosting) {
+        sideErsStatus.textContent = 'BOOST ACTIVE ⚡';
+        sideErsStatus.className = 'side-status-box ers-active';
+      } else if (brk && curCharge < 99.5) {
+        sideErsStatus.textContent = 'MGU-K REGEN ♻';
+        sideErsStatus.className = 'side-status-box ers-regen';
+      } else if (curCharge < ERS_CONFIG.ersMinActivationCharge) {
+        sideErsStatus.textContent = 'DEPLETED (RECHARGE)';
+        sideErsStatus.className = 'side-status-box ers-depleted';
+      } else {
+        sideErsStatus.textContent = 'ERS READY [SHIFT]';
+        sideErsStatus.className = 'side-status-box';
+      }
+    }
+
+    if (sideErsFlow) {
+      if (car.isBoosting) {
+        sideErsFlow.textContent = 'DEPLOY: 120 kW ▲▲▲';
+        sideErsFlow.style.color = '#00e5ff';
+      } else if (brk && curCharge < 99.5) {
+        sideErsFlow.textContent = 'REGEN: +16%/s ▼▼';
+        sideErsFlow.style.color = 'var(--neon-lime)';
+      } else if (!thr && vf > 20 && curCharge < 99.5) {
+        sideErsFlow.textContent = 'MGU-H COAST ▼';
+        sideErsFlow.style.color = 'var(--neon-lime)';
+      } else {
+        sideErsFlow.textContent = 'MGU-H HARVEST';
+        sideErsFlow.style.color = 'var(--dim)';
+      }
+    }
+
+    if (sideErsKw) {
+      const liveKw = Math.round((car.boostBlend || 0) * 120);
+      sideErsKw.textContent = `+${liveKw} kW`;
+      sideErsKw.style.color = car.isBoosting ? '#00e5ff' : 'var(--pure-white)';
+    }
+
+    if (sideErsTop) {
+      const liveTopBonus = Math.round((car.boostSpeedBonus || 0) * 0.37);
+      sideErsTop.innerHTML = `+${liveTopBonus} <small>km/h</small>`;
+      sideErsTop.style.color = car.isBoosting ? '#00e5ff' : 'var(--pure-white)';
+    }
+  }
+
+  // Update Bottom Dashboard ERS Bar Color Dynamically
+  const ersBarFill = $('ersb') ? $('ersb').firstElementChild : null;
+  if (ersBarFill) {
+    if (car.isBoosting) {
+      ersBarFill.style.background = '#00e5ff';
+      ersBarFill.style.boxShadow = '0 0 10px #00e5ff';
+    } else if (brk && (car.ersCharge || 0) < 99.5) {
+      ersBarFill.style.background = 'var(--neon-lime)';
+      ersBarFill.style.boxShadow = '0 0 8px var(--neon-lime)';
+    } else {
+      ersBarFill.style.background = 'var(--purple)';
+      ersBarFill.style.boxShadow = 'none';
     }
   }
   $('cur').textContent = fmt(lapT);
@@ -3448,7 +3758,7 @@ function gameLoop(now) {
   car.x = pts[i][0]; car.y = pts[i][1];
   const n2 = pts[(i + 1) % N];
   car.a = Math.atan2(n2[1] - pts[i][1], n2[0] - pts[i][0]);
-  car.vx = car.vy = 0; car.steer = 0; car.idx = i; car.ers = 1;
+  car.vx = car.vy = 0; car.steer = 0; car.idx = i; car.ers = 1; car.ersCharge = 100; car.isBoosting = false; car.boostBlend = 0; car.boostAccelBonus = 0; car.boostSpeedBonus = 0;
 
   AI_CONFIGS.forEach((cfg, k) => {
     const startIdx = (N - 10 - k * 28 + N) % N;
