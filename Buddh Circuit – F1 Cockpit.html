@@ -2152,29 +2152,31 @@ function update(dt) {
   }
 
   // Drift Triggering Logic
-  // 1. Handbrake drift: Spacebar held while steering at speed > driftThresholdSpeed
+  // Dedicated drift button: Spacebar held while steering at speed > driftThresholdSpeed
   const handbrakeDrift = driftKey && absSteer > 0.12 && vf > DRIFT_CONFIG.driftThresholdSpeed;
-  // 2. High-speed oversteer: Entering sharp turn at high speed (> 340 / ~126 km/h)
   const highSpeedSlide = vf > DRIFT_CONFIG.highSpeedThreshold && absSteer > 0.60;
   const wantsDrift = handbrakeDrift || highSpeedSlide;
 
   // Counter-steering and Straightening Detection
-  const isCounterSteer = (vl > 15 && car.steer < -0.05) || (vl < -15 && car.steer > 0.05);
+  // In right-hand drifts (vl < 0), counter-steering is steering left (steer < 0)
+  // In left-hand drifts (vl > 0), counter-steering is steering right (steer > 0)
+  const isCounterSteer = (vl < -15 && car.steer < -0.05) || (vl > 15 && car.steer > 0.05);
   const isStraightening = absSteer < 0.08 && !driftKey;
 
   // Drift Initiation
   if (wantsDrift && !car.isDrifting && vf > DRIFT_CONFIG.driftThresholdSpeed) {
     car.isDrifting = true;
-    car.driftDir = car.steer !== 0 ? Math.sign(car.steer) : (vl !== 0 ? Math.sign(vl) : 1);
+    car.driftDir = car.steer !== 0 ? Math.sign(car.steer) : (vl !== 0 ? -Math.sign(vl) : 1);
     const kick = (handbrakeDrift ? DRIFT_CONFIG.handbrakeImpulse : DRIFT_CONFIG.naturalSlideImpulse) * Math.min(1.4, vf / 320);
-    vl += Math.sign(car.steer) * kick;
+    // Steering right (steer > 0) produces outward slip to the left (negative vl)
+    vl -= Math.sign(car.steer) * kick;
   }
 
   // Active Drift Handling
   if (car.isDrifting) {
     // Throttle power-slide sustains lateral slip when turning or holding drift key
     if (thr && vf > 100 && (absSteer > 0.08 || driftKey)) {
-      const slideDir = vl !== 0 ? Math.sign(vl) : (car.steer !== 0 ? Math.sign(car.steer) : 1);
+      const slideDir = vl !== 0 ? Math.sign(vl) : (car.steer !== 0 ? -Math.sign(car.steer) : -1);
       vl += slideDir * 180 * Math.min(1.3, vf / 300) * dt;
     }
 
@@ -2201,8 +2203,8 @@ function update(dt) {
     if (isCounterSteer) {
       // Smoothly blend grip back up to normal as counter-steer straightens the car
       effectiveGrip = baseDriftGrip + (baseNormalGrip - baseDriftGrip) * Math.min(1, Math.abs(car.steer) * DRIFT_CONFIG.counterSteerBonus);
-    } else if (isStraightening) {
-      effectiveGrip = baseNormalGrip * 1.4; // Quick traction bite upon releasing steering
+    } else if (isStraightening || !driftKey) {
+      effectiveGrip = baseNormalGrip * 1.35; // Quick, smooth traction recovery when Space is released or wheels straight
     } else {
       effectiveGrip = baseDriftGrip;
     }
@@ -2220,8 +2222,11 @@ function update(dt) {
     car.driftDuration += dt;
   }
 
-  // Drift Intensity (0 to 1) & Slip Angle (only active during forward motion)
-  const targetIntensity = (car.isDrifting && vf > 60) ? Math.min(1.0, Math.abs(vl) / 140) : 0;
+  // Drift Intensity (0 to 1) depends on speed, steering input, and amount of lateral slip
+  const speedFactor = Math.min(1.2, vf / 300);
+  const slipFactor = Math.min(1.0, Math.abs(vl) / 130);
+  const steerFactor = 0.4 + absSteer * 0.6;
+  const targetIntensity = (car.isDrifting && vf > 60) ? Math.min(1.0, slipFactor * speedFactor * steerFactor) : 0;
   car.driftIntensity += (targetIntensity - car.driftIntensity) * Math.min(1, 10 * dt);
   car.driftAngle = (car.isDrifting && vf > 60) ? Math.atan2(vl, Math.max(20, vf)) : 0;
 
@@ -2241,7 +2246,7 @@ function update(dt) {
 
   if (car.isDrifting) {
     // Oversteer yaw rotation: tail swings outward into slide
-    const oversteerYaw = (vl !== 0 ? Math.sign(vl) : car.driftDir) * Math.min(1.2, Math.abs(vl) / 120) * DRIFT_CONFIG.oversteerYawRate;
+    const oversteerYaw = (vl !== 0 ? -Math.sign(vl) : -car.driftDir) * Math.min(1.2, Math.abs(vl) / 120) * DRIFT_CONFIG.oversteerYawRate;
     finalYawRate += oversteerYaw;
 
     // Counter-steering fights the yaw rate directly
