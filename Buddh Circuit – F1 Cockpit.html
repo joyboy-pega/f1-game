@@ -2211,18 +2211,18 @@ function update(dt) {
   vl *= Math.exp(-effectiveGrip * dt);
   vl *= DRIFT_CONFIG.lateralDamping;
 
-  // Drift State Recovery & Duration Tracking
-  if (Math.abs(vl) < 25 && (!wantsDrift || vf < DRIFT_CONFIG.driftThresholdSpeed)) {
+  // Drift State Recovery & Duration Tracking (disabled when braking/reversing)
+  if (vf <= 0 || (Math.abs(vl) < 25 && (!wantsDrift || vf < DRIFT_CONFIG.driftThresholdSpeed))) {
     car.isDrifting = false;
     car.driftDuration = 0;
   } else if (car.isDrifting) {
     car.driftDuration += dt;
   }
 
-  // Drift Intensity (0 to 1) & Slip Angle
-  const targetIntensity = car.isDrifting ? Math.min(1.0, Math.abs(vl) / 140) : 0;
+  // Drift Intensity (0 to 1) & Slip Angle (only active during forward motion)
+  const targetIntensity = (car.isDrifting && vf > 60) ? Math.min(1.0, Math.abs(vl) / 140) : 0;
   car.driftIntensity += (targetIntensity - car.driftIntensity) * Math.min(1, 10 * dt);
-  car.driftAngle = Math.atan2(vl, Math.max(20, Math.abs(vf)));
+  car.driftAngle = (car.isDrifting && vf > 60) ? Math.atan2(vl, Math.max(20, vf)) : 0;
 
   // Forward Drag (Aerodynamic + Drift Tire Scrub)
   const driftScrubDrag = car.driftIntensity * 0.16;
@@ -2251,8 +2251,8 @@ function update(dt) {
 
   car.a += finalYawRate * dt;
 
-  // Spinout Prevention: enforce maximum slip angle limit
-  if (Math.hypot(car.vx, car.vy) > 100) {
+  // Spinout Prevention: enforce maximum slip angle limit (FORWARD DRIVING ONLY - prevents camera flip in reverse)
+  if (vf > 80 && Math.hypot(car.vx, car.vy) > 100) {
     const velAngle = Math.atan2(car.vy, car.vx);
     let angleDiff = car.a - velAngle;
     angleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff)); // Normalize to [-PI, PI]
@@ -2455,8 +2455,8 @@ function updateThreeScene(dt) {
     // 3rd Person Smooth Lag Chase Camera with Drift Yaw Blending
     const chaseDist = 88;
     const chaseH = 26;
-    // Blend camera trailing angle slightly with slip angle for dramatic drift framing
-    const driftCamOffset = -car.driftAngle * 0.38;
+    // Blend camera trailing angle slightly with slip angle during forward drifts
+    const driftCamOffset = (car.isDrifting && (car.vf || 0) > 60) ? -car.driftAngle * 0.38 : 0;
     const camAngle = car.a + driftCamOffset;
 
     const targetCamX = car.x - Math.cos(camAngle) * chaseDist;
@@ -2478,7 +2478,9 @@ function updateThreeScene(dt) {
 
     camera.position.set(tcamX, tcamY, tcamZ);
     camera.lookAt(car.x + cosA * 95, 7.5, car.y + sinA * 95);
-    camera.rotation.z += -car.driftAngle * 0.12 * cameraMotion;
+    if (car.isDrifting && (car.vf || 0) > 60) {
+      camera.rotation.z += -car.driftAngle * 0.12 * cameraMotion;
+    }
 
   } else if (cameraView === 'cockpit') {
     // Real Driver Cockpit Visor View with visceral G-force banking
@@ -2489,7 +2491,9 @@ function updateThreeScene(dt) {
 
     camera.position.set(cockX, cockY, cockZ);
     camera.lookAt(car.x + cosA * 105, 8.2, car.y + sinA * 105);
-    camera.rotation.z += -car.driftAngle * 0.15 * cameraMotion;
+    if (car.isDrifting && (car.vf || 0) > 60) {
+      camera.rotation.z += -car.driftAngle * 0.15 * cameraMotion;
+    }
 
   } else if (cameraView === 'hood') {
     // Low Apex Nose Cam
@@ -2563,7 +2567,7 @@ function updateThreeScene(dt) {
   // Dynamic Tire Smoke & Skid Marks Simulation
   // ------------------------------------------------------------------------
   const smPos = smokeMesh.geometry.attributes.position.array;
-  const isSliding = car.driftIntensity > DRIFT_CONFIG.smokeThreshold && car.kmh > 65;
+  const isSliding = car.isDrifting && (car.vf || 0) > 60 && car.driftIntensity > DRIFT_CONFIG.smokeThreshold && car.kmh > 65;
 
   if (isSliding) {
     // World coordinates of left & right rear wheels
