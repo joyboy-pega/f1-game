@@ -67,8 +67,10 @@ canvas{display:block;width:100%;height:100%}
 .bar i{display:block;height:100%;width:0;background:var(--neon-lime)}
 #rev i{background:var(--hot-orange)}
 #ersb i{background:var(--neon-lime)}
-#drs{font-family:var(--font-display);font-size:13px;letter-spacing:1px;color:var(--dim)}
-#drs.on{color:var(--ink-black);background:var(--neon-lime);padding:2px 8px;border:1.5px solid var(--ink-black);box-shadow:2px 2px 0 var(--pure-white)}
+#drs{font-family:var(--font-display);font-size:13px;letter-spacing:1px;color:var(--dim);transition:all 0.12s ease;padding:2px 8px;border:1.5px solid #2a2a2a;background:rgba(255,255,255,0.05);display:inline-block}
+#drs.avail{color:var(--neon-lime);border-color:var(--neon-lime);background:rgba(200,255,46,0.14);box-shadow:0 0 10px rgba(200,255,46,0.4);animation:drsBlink 1.0s infinite ease-in-out}
+#drs.on{color:var(--ink-black);background:var(--neon-lime);border-color:var(--neon-lime);box-shadow:2px 2px 0 var(--pure-white),0 0 12px var(--neon-lime);font-weight:800}
+@keyframes drsBlink{0%,100%{opacity:1}50%{opacity:0.65}}
 #drift-tag{font-family:var(--font-display);font-size:12px;letter-spacing:1px;color:var(--dim);transition:all 0.12s ease;padding:2px 6px;border:1.5px solid #2a2a2a;background:rgba(255,255,255,0.05);display:inline-block}
 #drift-tag.on{color:var(--ink-black);background:var(--hot-orange);border-color:var(--ink-black);box-shadow:2px 2px 0 var(--neon-lime);font-weight:800;transform:scale(1.04)}
 
@@ -466,7 +468,8 @@ canvas{display:block;width:100%;height:100%}
       <div class="control-row"><span>Throttle</span><span class="keycaps"><span class="keycap">W</span><span class="keycap">↑</span></span></div>
       <div class="control-row"><span>Brake / reverse</span><span class="keycaps"><span class="keycap">S</span><span class="keycap">↓</span></span></div>
       <div class="control-row"><span>Steer</span><span class="keycaps"><span class="keycap">A</span><span class="keycap">D</span></span></div>
-      <div class="control-row"><span>Drift (Turns) / DRS (Straights)</span><span class="keycaps"><span class="keycap">SPACE</span></span></div>
+      <div class="control-row"><span>DRS (Deploy / Close)</span><span class="keycaps"><span class="keycap">E</span></span></div>
+      <div class="control-row"><span>Power Drift</span><span class="keycaps"><span class="keycap">SPACE</span></span></div>
       <div class="control-row"><span>ERS Boost</span><span class="keycaps"><span class="keycap">SHIFT</span></span></div>
       <div class="control-row"><span>Camera Angle (Chase / Cockpit / Nose)</span><span class="keycaps"><span class="keycap">C</span></span></div>
       <div class="control-row"><span>Vehicle Switch (Cardboard / F1)</span><span class="keycaps"><span class="keycap">V</span></span></div>
@@ -480,6 +483,13 @@ canvas{display:block;width:100%;height:100%}
     <h3>Vehicle &amp; Audio Calibration</h3>
     <label class="setting-row" for="steer-setting"><span>Steering response</span><output id="steer-value">100%</output><input id="steer-setting" type="range" min="60" max="150" value="100"></label>
     <label class="setting-row" for="drift-setting"><span>Drift response &amp; grip</span><output id="drift-value">100%</output><input id="drift-setting" type="range" min="50" max="150" value="100"></label>
+    <label class="setting-row" for="drs-mode-sel">
+      <span>DRS Activation Rules</span>
+      <select id="drs-mode-sel" style="background:#111;color:#fff;border:1.5px solid #444;font-family:var(--font-display);padding:4px 8px;font-size:12px;border-radius:2px">
+        <option value="zone" selected>FIA DRS Zones Only</option>
+        <option value="arcade">Arcade (Any Straight)</option>
+      </select>
+    </label>
     <label class="setting-row" for="camera-setting"><span>Camera vibration</span><output id="camera-value">100%</output><input id="camera-setting" type="range" min="0" max="150" value="100"></label>
     <label class="setting-row" for="volume-setting"><span>Audio volume</span><output id="volume-value">75%</output><input id="volume-setting" type="range" min="0" max="100" value="75"></label>
   </div>
@@ -515,7 +525,7 @@ canvas{display:block;width:100%;height:100%}
     </div>
   </div>
 </div>
-<div id="help"><b>Buddh International Circuit</b> · 5.13 km<br>↑ W throttle · ↓ S brake · ← → A D steer<br>Space: Drift (Corners) / DRS (Straights) · Shift: ERS · C: camera · R: restart · Esc: menu</div>
+<div id="help"><b>Buddh International Circuit</b> · 5.13 km<br>↑ W throttle · ↓ S brake · ← → A D steer<br>E: DRS (Deploy in Zones) · Space: Drift · Shift: ERS · C: camera · R: restart · Esc: menu</div>
 
 
 <script>
@@ -611,6 +621,30 @@ const DRIFT_CONFIG = {
   smokeThreshold: 0.14        // Drift intensity threshold to emit tire smoke
 };
 
+// ==========================================================================
+// TUNABLE DRAG REDUCTION SYSTEM (DRS) CONFIGURATION
+// ==========================================================================
+const DRS_CONFIG = {
+  drsEnabled: true,             // Master enable toggle
+  requireDrsZones: true,        // True: only inside official FIA DRS zones. False: arcade anywhere on straights
+  dragNormal: 0.13,             // Standard aerodynamic drag coefficient with closed wing
+  dragDRS: 0.042,               // Sliced aerodynamic drag coefficient with open wing
+  drsAccelerationBonus: 200,    // Extra straight-line acceleration thrust
+  maxSpeedNormal: 900,          // Base top speed (~333 km/h)
+  maxSpeedDRS: 995,             // Maximum reachable straight-line speed with DRS (~368 km/h)
+  minActivationSpeed: 175,      // Minimum speed (~65 km/h) required to open DRS
+  flapClosedAngle: 25 * (Math.PI / 180), // Normal high-downforce closed wing flap angle
+  flapOpenAngle: -3 * (Math.PI / 180),   // Flat open flap angle
+  flapTransitionSpeed: 16.0,    // Wing flap rotation transition speed
+  // Official FIA Buddh Circuit DRS Zones
+  zones: [
+    // DRS Zone 1: Main Start/Finish Straight (idx 1760 wrap to 80)
+    { id: 1, name: 'ZONE 1 · MAIN STRAIGHT', start: 1760, end: 80, wraps: true },
+    // DRS Zone 2: 1.1km Long Back Straight between Turn 3 and Turn 4 (idx 330 to 710)
+    { id: 2, name: 'ZONE 2 · BACK STRAIGHT', start: 330, end: 710, wraps: false }
+  ]
+};
+
 const car = {
   x: 0, y: 0, a: 0, vx: 0, vy: 0, steer: 0, idx: 0, ers: 1, gear: 0, rpm: 4000,
   // Dynamic Drift States
@@ -619,7 +653,13 @@ const car = {
   driftAngle: 0,
   driftDir: 0,
   driftDuration: 0,
-  driftScore: 0
+  driftScore: 0,
+  // Functional DRS States
+  drsOpen: false,               // True when DRS wing flap is open
+  drsFlapAngle: 25 * (Math.PI / 180), // Animated rear wing flap angle
+  currentDrag: 0.13,            // Smoothly interpolated aerodynamic drag
+  drsAccelBonus: 0,             // Smoothly interpolated acceleration bonus
+  currentMaxV: 900              // Smoothly interpolated top speed limit
 };
 let driftHandlingMultiplier = 1.0;
 let keys = {}, state = 'idle', t0 = 0, lapT = 0, lapNo = 1, best = null, last = null, halfway = false, lightsT = 0, go = false;
@@ -1421,7 +1461,7 @@ function buildF1Mesh(bodyHex, accentHex, rimHex) {
   addBox(bodyGroup, 0.05, 0.16, 0.48, -0.12, 1.32, 0.72, -12, 0, 0, matDark);
   addBox(bodyGroup, 0.05, 0.16, 0.48,  0.12, 1.32, 0.72, -12, 0, 0, matDark);
   addBox(bodyGroup, 1.35, 0.32, 0.04, 0, 1.38, 0.92, 0, 0, 0, matBody);
-  addBox(bodyGroup, 1.35, 0.22, 0.04, 0, 1.48, 1.04, 25, 0, 0, matAccent);
+  const drsFlap = addBox(bodyGroup, 1.35, 0.22, 0.04, 0, 1.48, 1.04, 25, 0, 0, matAccent);
   addBox(bodyGroup, 0.04, 0.48, 0.52, -0.68, 1.40, 0.86, 0, 0, 0, matBody);
   addBox(bodyGroup, 0.04, 0.48, 0.52,  0.68, 1.40, 0.86, 0, 0, 0, matBody);
 
@@ -1441,7 +1481,7 @@ function buildF1Mesh(bodyHex, accentHex, rimHex) {
   });
 
   root.scale.setScalar(CAR_SCALE);
-  return { root, bodyGroup, wheels, steeringWheel };
+  return { root, bodyGroup, wheels, steeringWheel, drsFlap };
 }
 
 function buildStreetRacerMesh(bodyHex, accentHex, rimHex) {
@@ -1473,9 +1513,9 @@ function buildStreetRacerMesh(bodyHex, accentHex, rimHex) {
   addBox(bodyGroup, 1.4, 0.6, 0.6, 0, 0.9, 0.5, 0, 0, 0, matBody);
   addBox(bodyGroup, 0.22, 1.08, 0.02, -0.25, -0.75, 0.705, 0, 0, 0, matAccent);
 
-  // Windshield & Roof
+  // Windshield & Roof / Rear Spoiler
   addBox(bodyGroup, 1.28, 0.04, 0.45, 0, -0.22, 0.88, -25, 0, 0, new THREE.MeshStandardMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.4 }));
-  addBox(bodyGroup, 1.5, 0.4, 0.06, 0, 1.05, 1.12, 10, 0, 0, matAccent);
+  const drsFlap = addBox(bodyGroup, 1.5, 0.4, 0.06, 0, 1.05, 1.12, 10, 0, 0, matAccent);
 
   // Steering Wheel
   const swGeo = new THREE.TorusGeometry(0.18, 0.035, 6, 12);
@@ -1499,7 +1539,7 @@ function buildStreetRacerMesh(bodyHex, accentHex, rimHex) {
   });
 
   root.scale.setScalar(CAR_SCALE);
-  return { root, bodyGroup, wheels, steeringWheel };
+  return { root, bodyGroup, wheels, steeringWheel, drsFlap };
 }
 
 // Build Player Car
@@ -1849,6 +1889,7 @@ function fullRaceReset() {
   car.a = Math.atan2(n[1] - pts[i][1], n[0] - pts[i][0]);
   car.vx = car.vy = 0; car.steer = 0; car.idx = i; car.ers = 1;
   car.isDrifting = false; car.driftIntensity = 0; car.driftAngle = 0; car.driftDir = 0; car.driftDuration = 0;
+  car.drsOpen = false; car.currentDrag = DRS_CONFIG.dragNormal; car.drsAccelBonus = 0; car.currentMaxV = DRS_CONFIG.maxSpeedNormal;
   clearDriftFX();
   lapNo = 1; lapT = 0; halfway = false; go = false; state = 'lights'; lightsT = 0;
   lapTimes = []; best = null; last = null; raceFinished = false; totalRaceTime = 0;
@@ -1885,6 +1926,7 @@ function reset() {
   car.a = Math.atan2(n[1] - pts[i][1], n[0] - pts[i][0]);
   car.vx = car.vy = 0; car.steer = 0; car.idx = i; car.ers = 1;
   car.isDrifting = false; car.driftIntensity = 0; car.driftAngle = 0; car.driftDir = 0; car.driftDuration = 0;
+  car.drsOpen = false; car.currentDrag = DRS_CONFIG.dragNormal; car.drsAccelBonus = 0; car.currentMaxV = DRS_CONFIG.maxSpeedNormal;
   clearDriftFX();
   lapT = 0; halfway = false;
   $('msg').textContent = '';
@@ -1938,6 +1980,65 @@ function showRaceComplete() {
 }
 
 // User Input Listeners
+// DRS Activation & Control Functions
+function isCarInDrsZone() {
+  const curIdx = car.idx;
+  for (const z of DRS_CONFIG.zones) {
+    if (z.wraps) {
+      if (curIdx >= z.start || curIdx <= z.end) return true;
+    } else {
+      if (curIdx >= z.start && curIdx <= z.end) return true;
+    }
+  }
+  return false;
+}
+
+function checkDrsEligibility() {
+  if (!DRS_CONFIG.drsEnabled) return false;
+  if (car.vf < DRS_CONFIG.minActivationSpeed) return false;
+  if (car.isDrifting || Math.abs(car.steer) > 0.22) return false;
+  if (DRS_CONFIG.requireDrsZones && !isCarInDrsZone()) return false;
+  return true;
+}
+
+function playDrsTone(open) {
+  if (!audioCtx || !audioEnabled) return;
+  try {
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(open ? 1200 : 640, now);
+    if (open) osc.frequency.exponentialRampToValueAtTime(1600, now + 0.08);
+    else osc.frequency.exponentialRampToValueAtTime(420, now + 0.08);
+    gain.gain.setValueAtTime(0.04 * volumeLevel, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.11);
+  } catch (e) {}
+}
+
+function toggleDRS() {
+  if (!go || raceFinished || state !== 'run') return;
+  if (car.drsOpen) {
+    closeDRS('MANUAL');
+  } else {
+    if (checkDrsEligibility()) {
+      car.drsOpen = true;
+      drsUseCount++;
+      playDrsTone(true);
+    }
+  }
+}
+
+function closeDRS(reason) {
+  if (car.drsOpen) {
+    car.drsOpen = false;
+    playDrsTone(false);
+  }
+}
+
 addEventListener('keydown', e => {
   if (e.code !== 'KeyV' && e.code !== 'KeyC' && e.code !== 'KeyU') startEngineAudio();
   keys[e.code] = 1;
@@ -1945,6 +2046,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyC') cycleCameraView();
   if (e.code === 'KeyV') setCarModel(activeVehicle === 'street' ? 'f1' : 'street');
   if (e.code === 'KeyU') toggleAudio();
+  if (e.code === 'KeyE') toggleDRS();
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = 0; });
@@ -2005,6 +2107,12 @@ if (driftSlider) {
   driftSlider.addEventListener('input', e => {
     driftHandlingMultiplier = Number(e.target.value) / 100;
     $('drift-value').value = e.target.value + '%';
+  });
+}
+const drsModeSel = $('drs-mode-sel');
+if (drsModeSel) {
+  drsModeSel.addEventListener('change', e => {
+    DRS_CONFIG.requireDrsZones = (e.target.value === 'zone');
   });
 }
 $('camera-setting').addEventListener('input', e => {
@@ -2129,16 +2237,43 @@ function update(dt) {
   const onTrack = d < HW + 6, gravel = d > HW + 40;
   const absSteer = Math.abs(car.steer);
 
-  // Dual role for Space: DRS on straights, Drift in turns
-  const drsOn = go && driftKey && absSteer < 0.15 && vf > 300 && !car.isDrifting;
+  // Automatic DRS deactivation conditions
+  if (car.drsOpen) {
+    // 1. Hard braking shuts DRS immediately (Standard F1 regulation)
+    if (brk) {
+      closeDRS('BRAKE');
+    }
+    // 2. Leaving the DRS zone closes DRS automatically
+    else if (DRS_CONFIG.requireDrsZones && !isCarInDrsZone()) {
+      closeDRS('ZONE_EXIT');
+    }
+    // 3. Sharp steering or oversteer slide cancels DRS for safety
+    else if (absSteer > 0.32 || car.isDrifting) {
+      closeDRS('STEER');
+    }
+  }
+
   const ersOn = go && (keys.ShiftLeft || keys.ShiftRight) && car.ers > 0 && thr;
 
   if (ersOn) car.ers = Math.max(0, car.ers - dt * 0.22);
   else       car.ers = Math.min(1, car.ers + dt * 0.04 + (brk ? dt * 0.1 : 0));
 
-  // Acceleration
-  const maxV = 900 + (drsOn ? 90 : 0) + (ersOn ? 50 : 0);
-  if (thr) vf += (760 + (ersOn ? 350 : 0)) * (1 - Math.max(0, vf) / maxV) * dt;
+  // Smooth aerodynamic drag & top speed interpolation
+  const targetDrag = car.drsOpen ? DRS_CONFIG.dragDRS : DRS_CONFIG.dragNormal;
+  car.currentDrag = (car.currentDrag !== undefined) ? car.currentDrag : DRS_CONFIG.dragNormal;
+  car.currentDrag += (targetDrag - car.currentDrag) * Math.min(1, 12 * dt);
+
+  const targetBonus = car.drsOpen ? DRS_CONFIG.drsAccelerationBonus : 0;
+  car.drsAccelBonus = (car.drsAccelBonus || 0) + (targetBonus - (car.drsAccelBonus || 0)) * Math.min(1, 10 * dt);
+
+  const targetMaxV = car.drsOpen ? DRS_CONFIG.maxSpeedDRS : DRS_CONFIG.maxSpeedNormal;
+  car.currentMaxV = (car.currentMaxV || DRS_CONFIG.maxSpeedNormal) + (targetMaxV - (car.currentMaxV || DRS_CONFIG.maxSpeedNormal)) * Math.min(1, 8 * dt);
+
+  const maxV = car.currentMaxV + (ersOn ? 50 : 0);
+  if (thr) {
+    const totalAccel = 760 + (ersOn ? 350 : 0) + car.drsAccelBonus;
+    vf += totalAccel * (1 - Math.max(0, vf) / maxV) * dt;
+  }
 
   // Braking
   let brakePower = 1900;
@@ -2232,7 +2367,7 @@ function update(dt) {
 
   // Forward Drag (Aerodynamic + Drift Tire Scrub)
   const driftScrubDrag = car.driftIntensity * 0.16;
-  const baseDrag = drsOn ? 0.05 : 0.13;
+  const baseDrag = car.currentDrag;
   vf -= vf * (baseDrag + driftScrubDrag) * dt;
   if (!onTrack) vf -= vf * (gravel ? 4 : 1.6) * dt;
 
@@ -2331,9 +2466,7 @@ function update(dt) {
         showLapCompleteToast(completedLap, last, best);
       }
     }
-    if (drsOn && !prevDrsOn) drsUseCount++;
     if (ersOn && !prevErsOn) ersUseCount++;
-    prevDrsOn = drsOn;
     prevErsOn = ersOn;
   }
 
@@ -2368,8 +2501,29 @@ function update(dt) {
 
   $('rev').firstElementChild.style.width = Math.round(Math.max(0, Math.min(1, inG)) * 100) + '%';
   $('ersb').firstElementChild.style.width = Math.round(car.ers * 100) + '%';
-  $('drs').textContent = drsOn ? 'DRS open' : 'DRS off';
-  $('drs').classList.toggle('on', drsOn);
+  const drsEl = $('drs');
+  if (drsEl) {
+    if (car.drsOpen) {
+      drsEl.textContent = 'DRS OPEN';
+      drsEl.className = 'on';
+    } else if (checkDrsEligibility()) {
+      drsEl.textContent = 'DRS AVAIL [E]';
+      drsEl.className = 'avail';
+    } else if (isCarInDrsZone()) {
+      drsEl.textContent = 'DRS ZONE';
+      drsEl.className = '';
+    } else {
+      drsEl.textContent = 'DRS OFF';
+      drsEl.className = '';
+    }
+  }
+
+  const miniDrs = $('mini-drs');
+  if (miniDrs) {
+    const inZone = isCarInDrsZone();
+    miniDrs.classList.toggle('active', inZone);
+    miniDrs.textContent = inZone ? 'DRS ZONE' : 'NO DRS';
+  }
 
   const driftTag = $('drift-tag');
   if (driftTag) {
@@ -2432,6 +2586,17 @@ function updateThreeScene(dt) {
     // Cockpit Steering Wheel
     if (playerCarObj.steeringWheel) {
       playerCarObj.steeringWheel.rotation.z = -car.steer * 1.8;
+    }
+
+    // Animate Rear Wing DRS Flap in Real-Time
+    if (playerCarObj.drsFlap) {
+      const closedAngle = (activeVehicle === 'f1') ? DRS_CONFIG.flapClosedAngle : THREE.MathUtils.degToRad(10);
+      const openAngle = (activeVehicle === 'f1') ? DRS_CONFIG.flapOpenAngle : THREE.MathUtils.degToRad(-8);
+      const targetFlap = car.drsOpen ? openAngle : closedAngle;
+
+      car.drsFlapAngle = (car.drsFlapAngle !== undefined) ? car.drsFlapAngle : closedAngle;
+      car.drsFlapAngle += (targetFlap - car.drsFlapAngle) * Math.min(1, DRS_CONFIG.flapTransitionSpeed * dt);
+      playerCarObj.drsFlap.rotation.x = car.drsFlapAngle;
     }
   }
 
