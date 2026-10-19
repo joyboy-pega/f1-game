@@ -314,6 +314,286 @@ canvas{display:block;width:100%;height:100%}
 
 @media(max-width:700px){#help{display:none}#dash{gap:12px;padding:8px 14px}#speed,#gear{font-size:40px}}
 @media(max-width:600px){.rc-stats-grid{grid-template-columns:repeat(2,1fr)}.rc-buttons{flex-direction:column}}
+
+/* ========================================================================== */
+/* SIDE TELEMETRY HUD: REAL-TIME DRIFT & DRS STATUS POD                       */
+/* ========================================================================== */
+#side-telemetry {
+  position: fixed;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%) skewX(-3deg);
+  width: 220px;
+  background: rgba(10, 10, 10, 0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 2.5px solid var(--ink-black);
+  box-shadow: 4px 4px 0 var(--pure-white), 0 10px 30px rgba(0, 0, 0, 0.7);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  gap: 10px;
+  user-select: none;
+  pointer-events: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+#side-telemetry.drs-glowing {
+  border-color: var(--neon-lime);
+  box-shadow: 4px 4px 0 var(--neon-lime), 0 0 25px rgba(200, 255, 46, 0.4);
+}
+#side-telemetry.drift-glowing {
+  border-color: var(--hot-orange);
+  box-shadow: 4px 4px 0 var(--hot-orange), 0 0 25px rgba(255, 107, 26, 0.45);
+}
+
+.side-pod-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 6px;
+}
+.side-pod-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--pure-white);
+  text-transform: uppercase;
+}
+.side-pod-badge {
+  font-family: var(--font-display);
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--hot-orange);
+  color: var(--ink-black);
+  letter-spacing: 0.5px;
+}
+
+.side-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.side-sec-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--dim);
+  letter-spacing: 0.5px;
+}
+.side-sec-title span.key-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  background: #222;
+  border: 1px solid #444;
+  color: var(--pure-white);
+  border-radius: 2px;
+}
+
+.side-status-box {
+  padding: 6px 8px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-align: center;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid #2a2a2a;
+  color: var(--dim);
+  transition: all 0.15s ease;
+}
+.side-status-box.drs-zone {
+  color: var(--hot-orange);
+  border-color: var(--hot-orange);
+  background: rgba(255, 107, 26, 0.1);
+}
+.side-status-box.drs-ready {
+  color: var(--neon-lime);
+  border-color: var(--neon-lime);
+  background: rgba(200, 255, 46, 0.15);
+  box-shadow: 0 0 12px rgba(200, 255, 46, 0.4);
+  animation: drsBlink 0.9s infinite ease-in-out;
+}
+.side-status-box.drs-active {
+  color: var(--ink-black);
+  background: var(--neon-lime);
+  border-color: var(--neon-lime);
+  box-shadow: 0 0 16px var(--neon-lime), 2px 2px 0 var(--pure-white);
+  font-weight: 900;
+}
+
+.side-wing-viz {
+  position: relative;
+  background: #111;
+  border: 1px solid #262626;
+  padding: 6px 6px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.side-wing-viz svg {
+  width: 100%;
+  height: 38px;
+  overflow: visible;
+}
+.side-wing-flap-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--dim);
+  margin-top: 2px;
+}
+.side-wing-flap-tag.active {
+  color: var(--neon-lime);
+  font-weight: 800;
+}
+
+.side-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.side-metric-cell {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid #222;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+}
+.side-metric-cell .label {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--dim);
+  letter-spacing: 0.5px;
+}
+.side-metric-cell .value {
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--pure-white);
+  letter-spacing: 0.5px;
+}
+
+.side-status-box.drift-active {
+  color: var(--ink-black);
+  background: var(--hot-orange);
+  border-color: var(--hot-orange);
+  box-shadow: 0 0 16px var(--hot-orange), 2px 2px 0 var(--neon-lime);
+  font-weight: 900;
+  animation: driftFlamePulse 0.4s infinite alternate;
+}
+@keyframes driftFlamePulse {
+  0% { box-shadow: 0 0 10px rgba(255,107,26,0.6); }
+  100% { box-shadow: 0 0 20px rgba(255,107,26,0.95), 2px 2px 0 var(--neon-lime); }
+}
+
+.drift-meter-box {
+  background: #111;
+  border: 1px solid #262626;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.drift-meter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--dim);
+}
+.drift-meter-header span.angle-val {
+  font-family: var(--font-mono);
+  color: var(--neon-lime);
+  font-size: 11px;
+}
+.drift-track-bar {
+  position: relative;
+  height: 8px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  overflow: hidden;
+}
+.drift-track-center {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #555;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+.drift-track-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0%;
+  left: 50%;
+  background: var(--hot-orange);
+  transition: all 0.05s linear;
+  z-index: 1;
+}
+.drift-track-needle {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--neon-lime);
+  box-shadow: 0 0 6px var(--neon-lime);
+  transition: left 0.05s linear;
+  z-index: 3;
+}
+.drift-meter-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  font-weight: 700;
+  color: #666;
+}
+
+.drift-score-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 107, 26, 0.06);
+  border: 1px dashed rgba(255, 107, 26, 0.3);
+  padding: 4px 8px;
+}
+.drift-score-box .score-title {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--dim);
+}
+.drift-score-box .score-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--hot-orange);
+}
+.drift-rating-badge {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--neon-lime);
+  letter-spacing: 0.5px;
+  text-align: right;
+}
+
+.side-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  margin: 1px 0;
+}
+
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -513,6 +793,95 @@ canvas{display:block;width:100%;height:100%}
     </a>
   </div>
 </section>
+<!-- SIDE TELEMETRY HUD: DRIFT & DRS STATUS INDICATOR -->
+<div id="side-telemetry">
+  <div class="side-pod-header">
+    <div class="side-pod-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
+      <span>TELEMETRY</span>
+    </div>
+    <span class="side-pod-badge" id="side-lap-sector">SEC 1</span>
+  </div>
+
+  <!-- DRS TELEMETRY SECTION -->
+  <div class="side-section" id="side-drs-section">
+    <div class="side-sec-title">
+      <span>AERO &middot; DRS</span>
+      <span class="key-hint">KEY [E]</span>
+    </div>
+    <div class="side-status-box" id="side-drs-status">DRS CLOSED</div>
+    
+    <!-- Real-time Rear Wing Flap Visualizer SVG -->
+    <div class="side-wing-viz">
+      <svg viewBox="0 0 100 36">
+        <!-- Rear Wing Side Endplates -->
+        <rect x="8" y="4" width="5" height="26" rx="1" fill="#444" />
+        <rect x="87" y="4" width="5" height="26" rx="1" fill="#444" />
+        <!-- Wing Center Support Pillar -->
+        <rect x="48" y="16" width="4" height="14" fill="#333" />
+        <!-- Bottom Fixed Main Plane -->
+        <path d="M13 20 Q50 23 87 20 L87 24 Q50 27 13 24 Z" fill="#666" />
+        <!-- Dynamic Movable Upper Flap Element -->
+        <g id="side-svg-flap" style="transform-origin: 50px 10px; transition: transform 0.12s ease-out;">
+          <rect id="side-svg-flap-rect" x="14" y="8" width="72" height="5" rx="1.5" fill="var(--hot-orange)" />
+          <path d="M16 10 Q50 12 84 10" stroke="var(--neon-lime)" stroke-width="1.2" fill="none" opacity="0.8" />
+        </g>
+      </svg>
+      <div class="side-wing-flap-tag" id="side-flap-label">CLOSED &middot; 25&deg; DOWNFORCE</div>
+    </div>
+
+    <!-- Telemetry Readouts -->
+    <div class="side-metrics">
+      <div class="side-metric-cell">
+        <span class="label">DRAG SLICE</span>
+        <span class="value" id="side-drag-val">0%</span>
+      </div>
+      <div class="side-metric-cell">
+        <span class="label">TOP CEILING</span>
+        <span class="value" id="side-top-val">333 <small>km/h</small></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="side-divider"></div>
+
+  <!-- POWER DRIFT TELEMETRY SECTION -->
+  <div class="side-section" id="side-drift-section">
+    <div class="side-sec-title">
+      <span>CHASSIS &middot; DRIFT</span>
+      <span class="key-hint">HOLD [SPACE]</span>
+    </div>
+    <div class="side-status-box" id="side-drift-status">GRIP STABLE</div>
+
+    <!-- Slip Angle Dynamic Gauge -->
+    <div class="drift-meter-box">
+      <div class="drift-meter-header">
+        <span>SLIP ANGLE</span>
+        <span class="angle-val" id="side-drift-angle">0.0&deg;</span>
+      </div>
+      <div class="drift-track-bar">
+        <div class="drift-track-center"></div>
+        <div class="drift-track-fill" id="side-drift-fill"></div>
+        <div class="drift-track-needle" id="side-drift-needle"></div>
+      </div>
+      <div class="drift-meter-legend">
+        <span>&larr; LEFT</span>
+        <span>0&deg;</span>
+        <span>RIGHT &rarr;</span>
+      </div>
+    </div>
+
+    <!-- Drift Score / Combo Rating -->
+    <div class="drift-score-box">
+      <div class="score-title">POINTS</div>
+      <div class="score-num" id="side-drift-pts">0 PTS</div>
+    </div>
+    <div class="drift-rating-badge" id="side-drift-rating">GRIP OPTIMAL</div>
+  </div>
+</div>
+
 <div class="hud" id="dash">
   <div id="gear">N</div>
   <div id="speed">0<small>km/h</small></div>
@@ -2525,15 +2894,144 @@ function update(dt) {
     miniDrs.textContent = inZone ? 'DRS ZONE' : 'NO DRS';
   }
 
-  const driftTag = $('drift-tag');
+    const driftTag = $('drift-tag');
+  const isDriftingNow = car.driftIntensity > 0.15 && kmh > 60;
   if (driftTag) {
-    const isDriftingNow = car.driftIntensity > 0.15 && kmh > 60;
     driftTag.classList.toggle('on', isDriftingNow);
     if (isDriftingNow) {
       const driftDeg = Math.round(Math.abs(car.driftAngle) * (180 / Math.PI));
       driftTag.textContent = `DRIFT ${driftDeg}°`;
     } else {
       driftTag.textContent = 'DRIFT OFF';
+    }
+  }
+
+  // =========================================================================
+  // UPDATE SIDE TELEMETRY POD (DRIFT & DRS STATUS INDICATOR)
+  // =========================================================================
+  const sideTelemetry = $('side-telemetry');
+  if (sideTelemetry) {
+    sideTelemetry.classList.toggle('drs-glowing', !!car.drsOpen);
+    sideTelemetry.classList.toggle('drift-glowing', isDriftingNow);
+
+    // 1. Update DRS Telemetry Indicators
+    const sideDrsStatus = $('side-drs-status');
+    const sideSvgFlap = $('side-svg-flap');
+    const sideFlapLabel = $('side-flap-label');
+    const sideDragVal = $('side-drag-val');
+    const sideTopVal = $('side-top-val');
+    const sideFlapRect = $('side-svg-flap-rect');
+
+    if (sideDrsStatus) {
+      const inDrsZone = isCarInDrsZone();
+      const drsEligible = checkDrsEligibility();
+
+      if (car.drsOpen) {
+        sideDrsStatus.textContent = 'DRS ACTIVE (OPEN)';
+        sideDrsStatus.className = 'side-status-box drs-active';
+      } else if (drsEligible) {
+        sideDrsStatus.textContent = 'DRS READY · PRESS [E]';
+        sideDrsStatus.className = 'side-status-box drs-ready';
+      } else if (inDrsZone) {
+        sideDrsStatus.textContent = 'DRS ZONE (ACCEL)';
+        sideDrsStatus.className = 'side-status-box drs-zone';
+      } else {
+        sideDrsStatus.textContent = 'DRS CLOSED';
+        sideDrsStatus.className = 'side-status-box';
+      }
+    }
+
+    // Dynamic Flap SVG Graphic & Metrics
+    if (sideSvgFlap) {
+      if (car.drsOpen) {
+        sideSvgFlap.style.transform = 'translateY(-4px) rotate(-18deg)';
+        if (sideFlapRect) sideFlapRect.setAttribute('fill', 'var(--neon-lime)');
+        if (sideFlapLabel) {
+          sideFlapLabel.textContent = 'OPEN · FLAT -3° LOW DRAG';
+          sideFlapLabel.className = 'side-wing-flap-tag active';
+        }
+        if (sideDragVal) sideDragVal.textContent = '-68%';
+        if (sideTopVal) sideTopVal.innerHTML = '368 <small>km/h</small>';
+      } else {
+        sideSvgFlap.style.transform = 'translateY(0px) rotate(0deg)';
+        if (sideFlapRect) sideFlapRect.setAttribute('fill', 'var(--hot-orange)');
+        if (sideFlapLabel) {
+          sideFlapLabel.textContent = 'CLOSED · 25° DOWNFORCE';
+          sideFlapLabel.className = 'side-wing-flap-tag';
+        }
+        if (sideDragVal) sideDragVal.textContent = '0%';
+        if (sideTopVal) sideTopVal.innerHTML = '333 <small>km/h</small>';
+      }
+    }
+
+    // 2. Update Drift Telemetry Indicators
+    const sideDriftStatus = $('side-drift-status');
+    const sideDriftAngle = $('side-drift-angle');
+    const sideDriftFill = $('side-drift-fill');
+    const sideDriftNeedle = $('side-drift-needle');
+    const sideDriftPts = $('side-drift-pts');
+    const sideDriftRating = $('side-drift-rating');
+
+    const driftDeg = (car.driftAngle || 0) * (180 / Math.PI);
+    const absDeg = Math.abs(driftDeg);
+
+    if (sideDriftStatus) {
+      if (isDriftingNow) {
+        sideDriftStatus.textContent = `POWER DRIFT! ${Math.round(absDeg)}°`;
+        sideDriftStatus.className = 'side-status-box drift-active';
+      } else if (absDeg > 4 && kmh > 50) {
+        sideDriftStatus.textContent = 'TIRE SLIP DETECTED';
+        sideDriftStatus.className = 'side-status-box';
+      } else {
+        sideDriftStatus.textContent = 'GRIP STABLE';
+        sideDriftStatus.className = 'side-status-box';
+      }
+    }
+
+    if (sideDriftAngle) {
+      sideDriftAngle.textContent = `${driftDeg >= 0 ? '+' : ''}${driftDeg.toFixed(1)}°`;
+      sideDriftAngle.style.color = isDriftingNow ? 'var(--hot-orange)' : (absDeg > 4 ? 'var(--neon-lime)' : 'var(--dim)');
+    }
+
+    // Needle and Fill Bar (-45deg to +45deg mapped to 0% to 100%)
+    const clampedDeg = Math.max(-45, Math.min(45, driftDeg));
+    const needlePct = 50 + (clampedDeg / 45) * 50;
+    if (sideDriftNeedle) {
+      sideDriftNeedle.style.left = needlePct + '%';
+      sideDriftNeedle.style.background = isDriftingNow ? 'var(--hot-orange)' : 'var(--neon-lime)';
+    }
+    if (sideDriftFill) {
+      if (clampedDeg >= 0) {
+        sideDriftFill.style.left = '50%';
+        sideDriftFill.style.width = ((clampedDeg / 45) * 50) + '%';
+      } else {
+        sideDriftFill.style.left = (50 + (clampedDeg / 45) * 50) + '%';
+        sideDriftFill.style.width = ((-clampedDeg / 45) * 50) + '%';
+      }
+      sideDriftFill.style.background = isDriftingNow ? 'var(--hot-orange)' : 'var(--neon-lime)';
+    }
+
+    // Live Drift Points & Dynamic Rating
+    if (sideDriftPts) {
+      sideDriftPts.textContent = `${Math.round(car.driftScore || 0).toLocaleString()} PTS`;
+    }
+    if (sideDriftRating) {
+      if (!isDriftingNow) {
+        sideDriftRating.textContent = 'GRIP OPTIMAL';
+        sideDriftRating.style.color = 'var(--dim)';
+      } else if (absDeg > 35) {
+        sideDriftRating.textContent = 'DRIFT KING! ★★★';
+        sideDriftRating.style.color = 'var(--neon-lime)';
+      } else if (absDeg > 25) {
+        sideDriftRating.textContent = 'MEGA DRIFT! ⚡';
+        sideDriftRating.style.color = 'var(--hot-orange)';
+      } else if (absDeg > 15) {
+        sideDriftRating.textContent = 'NICE SLIDE! ★';
+        sideDriftRating.style.color = 'var(--hot-orange)';
+      } else {
+        sideDriftRating.textContent = 'SLIGHT SLIP';
+        sideDriftRating.style.color = 'var(--pure-white)';
+      }
     }
   }
   $('cur').textContent = fmt(lapT);
