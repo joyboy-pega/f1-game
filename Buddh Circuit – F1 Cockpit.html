@@ -77,6 +77,12 @@ canvas{display:block;width:100%;height:100%}
 #bb-tag:hover{border-color:var(--neon-lime);background:rgba(200,255,46,0.12)}
 #bb-tag.braking{color:var(--pure-white);background:#e10600;border-color:#ff3b30;box-shadow:0 0 10px rgba(225,6,0,0.8);font-weight:800;transform:scale(1.05)}
 #bb-tag.rear-bias{color:var(--hot-orange);border-color:rgba(255,107,26,0.5)}
+#tire-dash-tag{font-family:var(--font-display);font-size:12px;letter-spacing:1px;color:var(--neon-lime);transition:all 0.12s ease;padding:2px 7px;border:1.5px solid #2a2a2a;background:rgba(255,255,255,0.05);display:inline-block;cursor:pointer;user-select:none}
+#tire-dash-tag:hover{border-color:var(--neon-lime);background:rgba(200,255,46,0.12)}
+#tire-dash-tag.cold{color:#00b0ff;border-color:rgba(0,176,255,0.45)}
+#tire-dash-tag.optimal{color:var(--neon-lime);border-color:rgba(200,255,46,0.45)}
+#tire-dash-tag.warm{color:var(--hot-orange);border-color:rgba(255,107,26,0.55)}
+#tire-dash-tag.hot{color:#ff1744;border-color:#ff1744;box-shadow:0 0 10px rgba(255,23,68,0.7);font-weight:800}
 
 #mini{
   top:calc(12px + env(safe-area-inset-top,0px));
@@ -357,6 +363,114 @@ canvas{display:block;width:100%;height:100%}
 #side-telemetry.brake-glowing {
   border-color: #ff3b30;
   box-shadow: 4px 4px 0 #ff3b30, 0 0 22px rgba(255, 59, 48, 0.55);
+}
+#side-telemetry.tire-overheating {
+  border-color: #ff1744;
+  box-shadow: 4px 4px 0 #ff1744, 0 0 25px rgba(255, 23, 68, 0.65);
+}
+
+/* TIRE TELEMETRY 4-TIRE SCHEMATIC & GAUGES */
+.tire-grid-wrap {
+  display: flex;
+  justify-content: center;
+  background: #111;
+  border: 1px solid #222;
+  padding: 6px;
+}
+.tire-chassis-outline {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  width: 100%;
+}
+.tire-card {
+  background: #18181b;
+  border: 1.5px solid #333;
+  border-radius: 2px;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.tire-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tire-pos {
+  font-family: var(--font-display);
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 0.5px;
+}
+.tire-temp {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--pure-white);
+}
+.tire-life-bar {
+  height: 4px;
+  background: #27272a;
+  border-radius: 1px;
+  overflow: hidden;
+}
+.tire-life-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--neon-lime);
+  transition: width 0.15s ease, background-color 0.15s ease;
+}
+.tire-card.cold {
+  border-color: #00b0ff;
+  background: rgba(0, 176, 255, 0.08);
+}
+.tire-card.cold .tire-temp { color: #00b0ff; }
+.tire-card.cold .tire-life-fill { background: #00b0ff; }
+.tire-card.optimal {
+  border-color: var(--neon-lime);
+  background: rgba(200, 255, 46, 0.08);
+}
+.tire-card.optimal .tire-temp { color: var(--neon-lime); }
+.tire-card.optimal .tire-life-fill { background: var(--neon-lime); }
+.tire-card.warm {
+  border-color: var(--hot-orange);
+  background: rgba(255, 107, 26, 0.1);
+}
+.tire-card.warm .tire-temp { color: var(--hot-orange); }
+.tire-card.warm .tire-life-fill { background: var(--hot-orange); }
+.tire-card.hot {
+  border-color: #ff1744;
+  background: rgba(255, 23, 68, 0.16);
+  box-shadow: 0 0 10px rgba(255, 23, 68, 0.55);
+}
+.tire-card.hot .tire-temp { color: #ff1744; }
+.tire-card.hot .tire-life-fill { background: #ff1744; }
+
+/* Interactive Tire Pit Stop Toast */
+#tire-toast {
+  position: fixed;
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%) skewX(-4deg);
+  background: var(--ink-black);
+  border: 2.5px solid var(--neon-lime);
+  box-shadow: 4px 4px 0 #000, 0 0 20px rgba(200, 255, 46, 0.45);
+  padding: 7px 20px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: var(--pure-white);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 52;
+  white-space: nowrap;
+}
+#tire-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) skewX(-4deg) translateY(-8px);
 }
 
 /* BRAKE BIAS TELEMETRY SECTION STYLES */
@@ -944,6 +1058,7 @@ canvas{display:block;width:100%;height:100%}
       <div class="control-row"><span>Brake / reverse</span><span class="keycaps"><span class="keycap">S</span><span class="keycap">↓</span></span></div>
       <div class="control-row"><span>Steer</span><span class="keycaps"><span class="keycap">A</span><span class="keycap">D</span></span></div>
       <div class="control-row"><span>Brake Balance [Rear / Front]</span><span class="keycaps"><span class="keycap">[</span><span class="keycap">]</span></span></div>
+      <div class="control-row"><span>Fit Fresh Tires (Pit Stop)</span><span class="keycaps"><span class="keycap">T</span></span></div>
       <div class="control-row"><span>DRS (Deploy / Close)</span><span class="keycaps"><span class="keycap">E</span></span></div>
       <div class="control-row"><span>Power Drift</span><span class="keycaps"><span class="keycap">SPACE</span></span></div>
       <div class="control-row"><span>ERS Boost</span><span class="keycaps"><span class="keycap">SHIFT</span></span></div>
@@ -961,6 +1076,10 @@ canvas{display:block;width:100%;height:100%}
     <label class="setting-row" for="drift-setting"><span>Drift response &amp; grip</span><output id="drift-value">100%</output><input id="drift-setting" type="range" min="50" max="150" value="100"></label>
     <label class="setting-row" for="brake-bias-setting"><span>Front Brake Balance</span><output id="brake-bias-value">56% F</output><input id="brake-bias-setting" type="range" min="45" max="70" value="56"></label>
     <label class="setting-row" for="brake-force-setting"><span>Max Braking Power</span><output id="brake-force-value">100%</output><input id="brake-force-setting" type="range" min="70" max="150" value="100"></label>
+    <label class="setting-row" for="tire-wear-setting"><span>Tire Wear Degradation</span><output id="tire-wear-value">100%</output><input id="tire-wear-setting" type="range" min="30" max="250" value="100"></label>
+    <button id="btn-fresh-tires" type="button" class="btn-menu btn-menu-secondary" style="color:var(--neon-lime);margin-top:6px">
+      <span>🔄 FIT FRESH TIRES (PIT STOP) [T]</span>
+    </button>
     <label class="setting-row" for="drs-mode-sel">
       <span>DRS Activation Rules</span>
       <select id="drs-mode-sel" style="background:#111;color:#fff;border:1.5px solid #444;font-family:var(--font-display);padding:4px 8px;font-size:12px;border-radius:2px">
@@ -1117,6 +1236,63 @@ canvas{display:block;width:100%;height:100%}
 
   <div class="side-divider"></div>
 
+  <!-- TIRE TEMPERATURE, GRIP & WEAR TELEMETRY SECTION -->
+  <div class="side-section" id="side-tire-section">
+    <div class="side-sec-title">
+      <span>TIRES &middot; COMPOUND</span>
+      <span class="key-hint">KEY [T] PIT</span>
+    </div>
+    <div class="side-status-box" id="side-tire-status">OPTIMAL 95&deg;C &middot; 100% GRIP</div>
+
+    <!-- 4-Tire Schematic Display -->
+    <div class="tire-grid-wrap">
+      <div class="tire-chassis-outline">
+        <div class="tire-card optimal" id="tire-fl">
+          <div class="tire-card-header">
+            <span class="tire-pos">FL</span>
+            <span class="tire-temp" id="tire-fl-temp">95&deg;C</span>
+          </div>
+          <div class="tire-life-bar"><div class="tire-life-fill" id="tire-fl-life" style="width:100%"></div></div>
+        </div>
+        <div class="tire-card optimal" id="tire-fr">
+          <div class="tire-card-header">
+            <span class="tire-pos">FR</span>
+            <span class="tire-temp" id="tire-fr-temp">95&deg;C</span>
+          </div>
+          <div class="tire-life-bar"><div class="tire-life-fill" id="tire-fr-life" style="width:100%"></div></div>
+        </div>
+        <div class="tire-card optimal" id="tire-rl">
+          <div class="tire-card-header">
+            <span class="tire-pos">RL</span>
+            <span class="tire-temp" id="tire-rl-temp">95&deg;C</span>
+          </div>
+          <div class="tire-life-bar"><div class="tire-life-fill" id="tire-rl-life" style="width:100%"></div></div>
+        </div>
+        <div class="tire-card optimal" id="tire-rr">
+          <div class="tire-card-header">
+            <span class="tire-pos">RR</span>
+            <span class="tire-temp" id="tire-rr-temp">95&deg;C</span>
+          </div>
+          <div class="tire-life-bar"><div class="tire-life-fill" id="tire-rr-life" style="width:100%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Readouts: Overall Grip & Tire Health -->
+    <div class="side-metrics">
+      <div class="side-metric-cell">
+        <span class="label">OVERALL GRIP</span>
+        <span class="value" id="side-tire-grip-val">100%</span>
+      </div>
+      <div class="side-metric-cell">
+        <span class="label">TIRE LIFE</span>
+        <span class="value" id="side-tire-life-val">100%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="side-divider"></div>
+
   <!-- ERS OVERTAKE BOOST TELEMETRY SECTION -->
   <div class="side-section" id="side-ers-section">
     <div class="side-sec-title">
@@ -1169,11 +1345,13 @@ canvas{display:block;width:100%;height:100%}
       <div id="drs">DRS off</div>
       <div id="drift-tag">DRIFT OFF</div>
       <div id="bb-tag" title="Brake Balance (Adjust with [ and ])">BB 56%</div>
+      <div id="tire-dash-tag" title="Tire Condition (Click or press T for Fresh Tires)">TIRES 95°C</div>
     </div>
   </div>
 </div>
-<div id="help"><b>Buddh International Circuit</b> · 5.13 km<br>↑ W throttle · ↓ S brake · ← → A D steer · [ ] Brake bias<br>E: DRS (Deploy in Zones) · Space: Drift · Shift: ERS · C: camera · R: restart · Esc: menu</div>
+<div id="help"><b>Buddh International Circuit</b> · 5.13 km<br>↑ W throttle · ↓ S brake · ← → A D steer · [ ] Brake bias · T: Fresh Tires<br>E: DRS (Deploy in Zones) · Space: Drift · Shift: ERS · C: camera · R: restart · Esc: menu</div>
 <div id="bias-toast" aria-live="polite">BRAKE BIAS: 56% F / 44% R</div>
+<div id="tire-toast" aria-live="polite">PIT STOP: FRESH SOFT TIRES FITTED (100% LIFE)</div>
 
 
 <script>
@@ -1332,6 +1510,46 @@ const BRAKE_CONFIG = {
   })()
 };
 
+// ==========================================================================
+// TUNABLE TIRE GRIP, TEMPERATURE & WEAR CONFIGURATION
+// ==========================================================================
+const TIRE_CONFIG = {
+  // Temperature Ranges (Celsius)
+  ambientTemperature: 28.0,          // Base ambient track surface temperature (°C)
+  optimalTireTemperature: 95.0,      // Ideal peak grip tire operating temperature (°C)
+  coldThresholdTemperature: 78.0,    // Below this, tires enter cold grip penalty (°C)
+  overheatThresholdTemperature: 112.0, // Above this, tires enter thermal degradation (°C)
+  maxTireTemperature: 145.0,         // Hard thermal ceiling (°C)
+  minTireTemperature: 20.0,          // Ambient floor temperature (°C)
+
+  // Grip Multipliers
+  coldGripMultiplier: 0.78,          // Minimum grip factor when tires are cold
+  overheatGripMultiplier: 0.72,      // Minimum grip factor when tires are overheated
+  minimumGripMultiplier: 0.60,       // Absolute lowest grip floor when completely worn out (0% life)
+
+  // Simulation Rates
+  temperatureGainRate: 1.35,         // Master heating rate scalar
+  temperatureCoolingRate: 0.15,      // Natural airflow convective cooling rate scalar
+  tireWearRate: 0.00060,             // Base wear consumption per unit of friction work
+  userWearRateMultiplier: (function(){
+    const s = localStorage.getItem('formula_v_tire_wear_rate');
+    return s ? Math.max(0.3, Math.min(2.5, parseFloat(s) || 1.0)) : 1.0;
+  })(),
+
+  // Heat Generation Scalars
+  brakeHeatingScalar: 30.0,          // Heat generation per unit brake deceleration
+  corneringHeatingScalar: 25.0,      // Heat generation from lateral slip & steering scrub
+  driftHeatingScalar: 38.0,          // Heat generation during sustained drift
+  wheelspinHeatingScalar: 26.0,      // Heat generation from longitudinal drive slip
+  offTrackHeatingBonus: 1.40,        // Extra abrasive friction heat when driving on gravel/grass
+  rainCoolingMultiplier: 2.2,        // Wet track surface spray extra cooling factor
+  snowCoolingMultiplier: 2.8,        // Snow track freezing cooling factor
+
+  // Wear Severity Multipliers
+  driftWearMultiplier: 2.6,          // High tire degradation during power slides
+  lockupWearMultiplier: 2.2          // Flat-spotting / heavy braking wear
+};
+
 const car = {
   x: 0, y: 0, a: 0, vx: 0, vy: 0, steer: 0, idx: 0, ers: 1, gear: 0, rpm: 4000,
   // Dynamic Drift States
@@ -1366,7 +1584,19 @@ const car = {
   isReversing: false,           // True when actively reversing
   stoppedDuration: 0,           // Timer held stopped while braking before reverse engages
   wheelSlipFront: 0,            // Front axle slip factor under heavy braking (0 to 1)
-  wheelSlipRear: 0              // Rear axle slip factor under heavy braking (0 to 1)
+  wheelSlipRear: 0,             // Rear axle slip factor under heavy braking (0 to 1)
+  // Lightweight Tire Simulation States (pre-allocated 4 tires for zero garbage collection)
+  tires: {
+    fl: { temp: 85.0, wear: 0.0, grip: 1.0, slip: 0.0, load: 1.0 },
+    fr: { temp: 85.0, wear: 0.0, grip: 1.0, slip: 0.0, load: 1.0 },
+    rl: { temp: 85.0, wear: 0.0, grip: 1.0, slip: 0.0, load: 1.0 },
+    rr: { temp: 85.0, wear: 0.0, grip: 1.0, slip: 0.0, load: 1.0 },
+    avgTemp: 85.0,
+    avgWear: 0.0,
+    frontGrip: 1.0,
+    rearGrip: 1.0,
+    overallGrip: 1.0
+  }
 };
 let driftHandlingMultiplier = 1.0;
 let keys = {}, state = 'idle', t0 = 0, lapT = 0, lapNo = 1, best = null, last = null, halfway = false, lightsT = 0, go = false;
@@ -2616,6 +2846,7 @@ function fullRaceReset() {
   car.isDrifting = false; car.driftIntensity = 0; car.driftAngle = 0; car.driftDir = 0; car.driftDuration = 0;
   car.drsOpen = false; car.currentDrag = DRS_CONFIG.dragNormal; car.drsAccelBonus = 0; car.currentMaxV = DRS_CONFIG.maxSpeedNormal;
     car.brakeInput = 0; car.actualBrakeForce = 0; car.isReversing = false; car.stoppedDuration = 0; car.wheelSlipFront = 0; car.wheelSlipRear = 0;
+    fitFreshTires(false);
   clearDriftFX();
   lapNo = 1; lapT = 0; halfway = false; go = false; state = 'lights'; lightsT = 0;
   lapTimes = []; best = null; last = null; raceFinished = false; totalRaceTime = 0;
@@ -2829,6 +3060,76 @@ function playBiasTickAudio() {
   } catch(e) {}
 }
 
+// Tire Grip & Thermodynamics Calculation Helpers
+function calculateTireTempGrip(temp) {
+  if (temp < TIRE_CONFIG.optimalTireTemperature) {
+    if (temp >= TIRE_CONFIG.coldThresholdTemperature) return 1.0;
+    const coldFraction = Math.min(1.0, (TIRE_CONFIG.coldThresholdTemperature - temp) / Math.max(1, TIRE_CONFIG.coldThresholdTemperature - TIRE_CONFIG.minTireTemperature));
+    return 1.0 - (1.0 - TIRE_CONFIG.coldGripMultiplier) * (coldFraction * coldFraction);
+  } else {
+    if (temp <= TIRE_CONFIG.overheatThresholdTemperature) return 1.0;
+    const hotFraction = Math.min(1.0, (temp - TIRE_CONFIG.overheatThresholdTemperature) / Math.max(1, TIRE_CONFIG.maxTireTemperature - TIRE_CONFIG.overheatThresholdTemperature));
+    return 1.0 - (1.0 - TIRE_CONFIG.overheatGripMultiplier) * Math.sqrt(hotFraction);
+  }
+}
+
+function calculateTireWearGrip(wear) {
+  const w = Math.min(1.0, Math.max(0.0, wear));
+  return 1.0 - (1.0 - TIRE_CONFIG.minimumGripMultiplier) * Math.pow(w, 1.6);
+}
+
+let tireToastTimeout = null;
+function showTireToast(msg) {
+  const toast = $('tire-toast');
+  if (!toast) return;
+  toast.innerHTML = msg;
+  toast.classList.add('show');
+  if (tireToastTimeout) clearTimeout(tireToastTimeout);
+  tireToastTimeout = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 1600);
+}
+
+function playPitSound() {
+  if (!audioCtx || !audioEnabled) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.08);
+    g.gain.setValueAtTime(0.06 * volumeLevel, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.09);
+    osc.connect(g);
+    g.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+  } catch(e) {}
+}
+
+function fitFreshTires(showToast = true) {
+  if (!car.tires) return;
+  const startingTemp = 85.0; // Warm soft compound out of tire warmers
+  const positions = ['fl', 'fr', 'rl', 'rr'];
+  for (let p = 0; p < positions.length; p++) {
+    const t = car.tires[positions[p]];
+    t.temp = startingTemp;
+    t.wear = 0.0;
+    t.grip = 1.0;
+    t.slip = 0.0;
+  }
+  car.tires.avgTemp = startingTemp;
+  car.tires.avgWear = 0.0;
+  car.tires.frontGrip = 1.0;
+  car.tires.rearGrip = 1.0;
+  car.tires.overallGrip = 1.0;
+
+  if (showToast) {
+    showTireToast(`PIT STOP: <b style="color:var(--neon-lime)">FRESH SOFT TIRES FITTED</b> &middot; <span style="font-size:12px;color:var(--dim)">100% HEALTH &middot; 85&deg;C OPTIMAL</span>`);
+    playPitSound();
+  }
+}
+
 function setBrakeBias(newBias, showFeedback = true) {
   const clamped = Math.max(BRAKE_CONFIG.minBias, Math.min(BRAKE_CONFIG.maxBias, Math.round(newBias * 100) / 100));
   car.brakeBias = clamped;
@@ -2887,6 +3188,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyV' || k === 'v') setCarModel(activeVehicle === 'street' ? 'f1' : 'street');
   if (e.code === 'KeyU' || k === 'u') toggleAudio();
   if (e.code === 'KeyE' || k === 'e') toggleDRS();
+  if (e.code === 'KeyT' || k === 't') fitFreshTires(true);
   if (e.code === 'BracketLeft' || k === '[' || e.key === '[') {
     e.preventDefault();
     adjustBrakeBias(-BRAKE_CONFIG.biasStep);
@@ -2984,6 +3286,29 @@ if (bbTagEl) {
     let nextBias = car.brakeBias + 0.02;
     if (nextBias > BRAKE_CONFIG.maxBias + 0.001) nextBias = BRAKE_CONFIG.minBias;
     setBrakeBias(nextBias, true);
+  });
+}
+const tireDashTagEl = $('tire-dash-tag');
+if (tireDashTagEl) {
+  tireDashTagEl.addEventListener('click', () => {
+    fitFreshTires(true);
+  });
+}
+const btnFreshTires = $('btn-fresh-tires');
+if (btnFreshTires) {
+  btnFreshTires.addEventListener('click', () => {
+    fitFreshTires(true);
+  });
+}
+const tireWearSlider = $('tire-wear-setting');
+if (tireWearSlider) {
+  const curWearPct = Math.round(TIRE_CONFIG.userWearRateMultiplier * 100);
+  tireWearSlider.value = curWearPct;
+  $('tire-wear-value').value = `${curWearPct}%`;
+  tireWearSlider.addEventListener('input', e => {
+    TIRE_CONFIG.userWearRateMultiplier = Number(e.target.value) / 100;
+    $('tire-wear-value').value = e.target.value + '%';
+    localStorage.setItem('formula_v_tire_wear_rate', TIRE_CONFIG.userWearRateMultiplier.toString());
   });
 }
 const drsModeSel = $('drs-mode-sel');
@@ -3211,10 +3536,66 @@ function update(dt) {
   // 3. Speed-dependent aerodynamic downforce assistance (realistic F1 aero braking curve)
   const aeroBrakeMult = 1.0 + BRAKE_CONFIG.highSpeedAeroFactor * Math.min(1.2, Math.max(0, vf) / 600);
 
-  // 4. Deceleration calculation with grip traction cap (prevents infinite braking)
+  // =========================================================================
+  // TIRE SIMULATION: THERMODYNAMICS, DEGRADATION & GRIP SYNTHESIS
+  // =========================================================================
+  const ambientTemp = (weather === 'snow') ? 4.0 : ((weather === 'rain') ? 17.0 : ((weather === 'cloudy') ? 22.0 : TIRE_CONFIG.ambientTemperature));
+  const coolingRate = TIRE_CONFIG.temperatureCoolingRate * (1.0 + Math.min(1.5, Math.abs(vf) / 220)) * ((weather === 'rain') ? TIRE_CONFIG.rainCoolingMultiplier : ((weather === 'snow') ? TIRE_CONFIG.snowCoolingMultiplier : 1.0));
+  const offTrackHeatMult = !onTrack ? (gravel ? 1.6 : 1.3) : 1.0;
+  const wearMult = TIRE_CONFIG.userWearRateMultiplier || 1.0;
+
+  // Lateral load transfer during turning & longitudinal load transfer during brake/throttle
+  const latLoadTransfer = Math.max(-0.35, Math.min(0.35, car.steer * 0.35));
+  const longLoadTransfer = (car.brakeInput * 0.25) - (thr ? 0.15 : 0);
+
+  // Normal loads per tire
+  const flLoad = Math.max(0.4, Math.min(1.6, 1.0 + latLoadTransfer + longLoadTransfer));
+  const frLoad = Math.max(0.4, Math.min(1.6, 1.0 - latLoadTransfer + longLoadTransfer));
+  const rlLoad = Math.max(0.4, Math.min(1.6, 1.0 + latLoadTransfer - longLoadTransfer));
+  const rrLoad = Math.max(0.4, Math.min(1.6, 1.0 - latLoadTransfer - longLoadTransfer));
+
+  // Friction heating components
+  const frontBrakeHeat = (car.brakeInput * car.brakeFrontLoad * 42.0);
+  const rearBrakeHeat = (car.brakeInput * car.brakeRearLoad * 42.0);
+  const steerScrubHeat = absSteer * Math.min(1.4, Math.abs(vf) / 200) * TIRE_CONFIG.corneringHeatingScalar;
+  const driveWheelspinHeat = (thr && Math.abs(vf) < 300 ? (1.0 - Math.min(1.0, Math.abs(vf) / 300)) * (car.isBoosting ? 1.8 : 1.0) * TIRE_CONFIG.wheelspinHeatingScalar : 0);
+  const driftSlipHeat = (car.isDrifting ? (0.6 + car.driftIntensity * 0.8) * TIRE_CONFIG.driftHeatingScalar : 0) + (Math.abs(vl) / 60) * 14.0;
+
+  // Zero-allocation per-tire thermodynamics and wear update
+  const updateSingleTire = (tire, load, heatGen, slipWork) => {
+    // Temperature change: friction heat generation minus convective cooling
+    const netHeat = (heatGen * load * offTrackHeatMult * TIRE_CONFIG.temperatureGainRate) - ((tire.temp - ambientTemp) * coolingRate);
+    tire.temp = Math.max(TIRE_CONFIG.minTireTemperature, Math.min(TIRE_CONFIG.maxTireTemperature, tire.temp + netHeat * dt));
+
+    // Wear accumulation
+    const wearWork = (slipWork + heatGen * 0.12) * load * (car.isDrifting ? TIRE_CONFIG.driftWearMultiplier : 1.0) * (!onTrack ? 1.5 : 1.0);
+    const wearDelta = wearWork * TIRE_CONFIG.tireWearRate * wearMult * dt;
+    tire.wear = Math.min(1.0, tire.wear + wearDelta);
+
+    // Grip synthesis: temperature bell-curve * wear curve
+    const targetTempGrip = calculateTireTempGrip(tire.temp);
+    const targetWearGrip = calculateTireWearGrip(tire.wear);
+    const targetGrip = Math.max(TIRE_CONFIG.minimumGripMultiplier, Math.min(1.05, targetTempGrip * targetWearGrip));
+    tire.grip += (targetGrip - tire.grip) * Math.min(1.0, 10.0 * dt);
+    tire.load = load;
+  };
+
+  updateSingleTire(car.tires.fl, flLoad, frontBrakeHeat + steerScrubHeat * 1.1, (car.wheelSlipFront || 0) + absSteer * 0.4);
+  updateSingleTire(car.tires.fr, frLoad, frontBrakeHeat + steerScrubHeat * 1.1, (car.wheelSlipFront || 0) + absSteer * 0.4);
+  updateSingleTire(car.tires.rl, rlLoad, rearBrakeHeat + driveWheelspinHeat + driftSlipHeat, (car.wheelSlipRear || 0) + (car.driftIntensity || 0) * 0.8);
+  updateSingleTire(car.tires.rr, rrLoad, rearBrakeHeat + driveWheelspinHeat + driftSlipHeat, (car.wheelSlipRear || 0) + (car.driftIntensity || 0) * 0.8);
+
+  // Axle and overall aggregate grips
+  car.tires.frontGrip = (car.tires.fl.grip + car.tires.fr.grip) * 0.5;
+  car.tires.rearGrip = (car.tires.rl.grip + car.tires.rr.grip) * 0.5;
+  car.tires.overallGrip = (car.tires.frontGrip + car.tires.rearGrip) * 0.5;
+  car.tires.avgTemp = (car.tires.fl.temp + car.tires.fr.temp + car.tires.rl.temp + car.tires.rr.temp) * 0.25;
+  car.tires.avgWear = (car.tires.fl.wear + car.tires.fr.wear + car.tires.rl.wear + car.tires.rr.wear) * 0.25;
+
+  // 4. Deceleration calculation with grip traction cap (limited by tire grip to avoid infinite braking)
   const configuredMaxForce = BRAKE_CONFIG.maxBrakeForce * (BRAKE_CONFIG.userBrakeForceMultiplier || 1.0);
   const requestedBrakeDecel = configuredMaxForce * car.brakeInput * aeroBrakeMult;
-  const availableBrakeTraction = configuredMaxForce * 1.35 * surfaceGripFactor;
+  const availableBrakeTraction = configuredMaxForce * 1.20 * surfaceGripFactor * car.tires.overallGrip;
   const actualBrakeDecel = Math.min(requestedBrakeDecel, availableBrakeTraction);
   car.actualBrakeForce = actualBrakeDecel;
 
@@ -3313,9 +3694,9 @@ function update(dt) {
     }
   }
 
-  // Grip Calculation with Weather & Drift Modifiers
-  let baseNormalGrip = (onTrack ? DRIFT_CONFIG.normalGrip : 3.2);
-  let baseDriftGrip = (onTrack ? DRIFT_CONFIG.driftGrip : 1.1) / Math.max(0.2, driftHandlingMultiplier);
+  // Grip Calculation with Weather, Drift & Tire Grip Modifiers
+  let baseNormalGrip = (onTrack ? DRIFT_CONFIG.normalGrip : 3.2) * car.tires.rearGrip;
+  let baseDriftGrip = ((onTrack ? DRIFT_CONFIG.driftGrip : 1.1) / Math.max(0.2, driftHandlingMultiplier)) * car.tires.overallGrip;
 
   if (weather === 'cloudy') {
     baseNormalGrip *= 0.95; baseDriftGrip *= 0.95;
@@ -3368,7 +3749,7 @@ function update(dt) {
   if (weather === 'snow') steerCoeff = 3.2;
 
   const ar = Math.abs(vf);
-  const baseTurnRate = car.steer * steerCoeff * steeringSensitivity * Math.min(ar / 220, 1) / (1 + ar / 620) * (vf >= 0 ? 1 : -1);
+  const baseTurnRate = car.steer * steerCoeff * steeringSensitivity * car.tires.frontGrip * Math.min(ar / 220, 1) / (1 + ar / 620) * (vf >= 0 ? 1 : -1);
   let finalYawRate = baseTurnRate;
 
   // Trail-braking yaw dynamics based on front-to-rear brake balance
@@ -3505,6 +3886,19 @@ function update(dt) {
 
   $('rev').firstElementChild.style.width = Math.round(Math.max(0, Math.min(1, inG)) * 100) + '%';
   $('ersb').firstElementChild.style.width = Math.round(car.ers * 100) + '%';
+  // Update Tire Condition Tag on Dashboard
+  const tireDashEl = $('tire-dash-tag');
+  if (tireDashEl) {
+    const avgT = Math.round(car.tires.avgTemp);
+    const avgGripPct = Math.round(car.tires.overallGrip * 100);
+    tireDashEl.textContent = `TIRES ${avgT}°C · ${avgGripPct}%`;
+    tireDashEl.className = '';
+    if (avgT < TIRE_CONFIG.coldThresholdTemperature) tireDashEl.classList.add('cold');
+    else if (avgT > TIRE_CONFIG.overheatThresholdTemperature) tireDashEl.classList.add('hot');
+    else if (avgT > 105) tireDashEl.classList.add('warm');
+    else tireDashEl.classList.add('optimal');
+  }
+
   // Update Brake Bias Tag on Dashboard
   const bbEl = $('bb-tag');
   if (bbEl) {
@@ -3737,6 +4131,65 @@ function update(dt) {
       }
     }
     sideTelemetry.classList.toggle('brake-glowing', (car.brakeInput || 0) > 0.45);
+
+    // 2c. Update Tire Temperature, Grip & Wear Telemetry Indicators
+    const sideTireStatus = $('side-tire-status');
+    const sideTireGripVal = $('side-tire-grip-val');
+    const sideTireLifeVal = $('side-tire-life-val');
+
+    const positions = ['fl', 'fr', 'rl', 'rr'];
+    for (let p = 0; p < positions.length; p++) {
+      const pos = positions[p];
+      const t = car.tires[pos];
+      const cardEl = $(`tire-${pos}`);
+      const tempEl = $(`tire-${pos}-temp`);
+      const lifeEl = $(`tire-${pos}-life`);
+
+      if (tempEl) tempEl.textContent = `${Math.round(t.temp)}°C`;
+      if (lifeEl) {
+        const lifePct = Math.max(0, Math.round((1.0 - t.wear) * 100));
+        lifeEl.style.width = `${lifePct}%`;
+      }
+      if (cardEl) {
+        cardEl.className = 'tire-card';
+        if (t.temp < TIRE_CONFIG.coldThresholdTemperature) cardEl.classList.add('cold');
+        else if (t.temp > TIRE_CONFIG.overheatThresholdTemperature) cardEl.classList.add('hot');
+        else if (t.temp > 105) cardEl.classList.add('warm');
+        else cardEl.classList.add('optimal');
+      }
+    }
+
+    if (sideTireGripVal) {
+      const gripPct = Math.round(car.tires.overallGrip * 100);
+      sideTireGripVal.textContent = `${gripPct}%`;
+      sideTireGripVal.style.color = (gripPct >= 96) ? 'var(--neon-lime)' : (gripPct >= 85 ? 'var(--pure-white)' : 'var(--hot-orange)');
+    }
+    if (sideTireLifeVal) {
+      const avgLifePct = Math.max(0, Math.round((1.0 - car.tires.avgWear) * 100));
+      sideTireLifeVal.textContent = `${avgLifePct}%`;
+      sideTireLifeVal.style.color = (avgLifePct >= 70) ? 'var(--neon-lime)' : (avgLifePct >= 35 ? 'var(--hot-orange)' : '#ff1744');
+    }
+
+    if (sideTireStatus) {
+      const avgT = Math.round(car.tires.avgTemp);
+      const gripPct = Math.round(car.tires.overallGrip * 100);
+      if (avgT > TIRE_CONFIG.overheatThresholdTemperature) {
+        sideTireStatus.textContent = `OVERHEATING ${avgT}°C · ${gripPct}% GRIP`;
+        sideTireStatus.className = 'side-status-box brake-active';
+      } else if (avgT < TIRE_CONFIG.coldThresholdTemperature) {
+        sideTireStatus.textContent = `COLD TIRES ${avgT}°C · ${gripPct}% GRIP`;
+        sideTireStatus.className = 'side-status-box';
+        sideTireStatus.style.borderColor = '#00b0ff';
+        sideTireStatus.style.color = '#00b0ff';
+      } else {
+        sideTireStatus.textContent = `OPTIMAL ${avgT}°C · ${gripPct}% GRIP`;
+        sideTireStatus.className = 'side-status-box';
+        sideTireStatus.style.borderColor = '';
+        sideTireStatus.style.color = '';
+      }
+    }
+
+    sideTelemetry.classList.toggle('tire-overheating', car.tires.avgTemp > TIRE_CONFIG.overheatThresholdTemperature);
 
     // 3. Update ERS Overtake Boost Telemetry Indicators
     sideTelemetry.classList.toggle('ers-glowing', !!car.isBoosting);
