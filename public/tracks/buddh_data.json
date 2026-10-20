@@ -1,0 +1,338 @@
+{
+  "name": "Buddh International Circuit",
+  "location": "Jaypee Sports City, Greater Noida, Uttar Pradesh, India",
+  "coordinates": {
+    "latitude": 28.348,
+    "longitude": 77.531
+  },
+  "length_km": 5.125,
+  "length_miles": 3.185,
+  "total_turns": 16,
+  "direction": "Clockwise",
+  "designer": "Hermann Tilke",
+  "lap_record": {
+    "time": "1:27.249",
+    "driver": "Sebastian Vettel",
+    "team": "Red Bull Racing-Renault",
+    "year": 2011
+  },
+  "drs_zones": [
+    {
+      "zone": 1,
+      "detection_point": "After Turn 15",
+      "activation_point": "Main Pit Straight",
+      "length_m": 650
+    },
+    {
+      "zone": 2,
+      "detection_point": "Exit of Turn 3",
+      "activation_point": "Long Back Straight",
+      "length_m": 1060
+    }
+  ],
+  "sectors": [
+    {
+      "sector": 1,
+      "starts_at_turn": 1,
+      "ends_at_turn": 3,
+      "color": "#FFB800"
+    },
+    {
+      "sector": 2,
+      "starts_at_turn": 4,
+      "ends_at_turn": 9,
+      "color": "#9D4EDD"
+    },
+    {
+      "sector": 3,
+      "starts_at_turn": 10,
+      "ends_at_turn": 16,
+      "color": "#00E5FF"
+    }
+  ],
+  "turns": [
+    {
+      "number": 1,
+      "name": "Turn 1",
+      "type": "Right",
+      "marker": [
+        144.5,
+        143.9
+      ],
+      "apex": [
+        167.6,
+        157.6
+      ],
+      "lap_pct": 0.132,
+      "gear": 2,
+      "speed_kmh": 105,
+      "desc": "Heavy braking at end of pit straight into sharp 90\u00b0 right-hander."
+    },
+    {
+      "number": 2,
+      "name": "Turn 2",
+      "type": "Left",
+      "marker": [
+        233.7,
+        159.1
+      ],
+      "apex": [
+        217.1,
+        138.4
+      ],
+      "lap_pct": 0.157,
+      "gear": 3,
+      "speed_kmh": 145,
+      "desc": "Downhill sweeping left curve transitioning into the Turn 3 complex."
+    },
+    {
+      "number": 3,
+      "name": "Turn 3",
+      "type": "Right Hairpin",
+      "marker": [
+        278.3,
+        14.7
+      ],
+      "apex": [
+        261.8,
+        35.7
+      ],
+      "lap_pct": 0.211,
+      "gear": 1,
+      "speed_kmh": 82,
+      "desc": "Tight, tightening uphill right hairpin leading onto the massive 1.1km back straight."
+    },
+    {
+      "number": 4,
+      "name": "Turn 4",
+      "type": "Right Hairpin",
+      "marker": [
+        417.7,
+        582.3
+      ],
+      "apex": [
+        403.5,
+        561.8
+      ],
+      "lap_pct": 0.459,
+      "gear": 2,
+      "speed_kmh": 90,
+      "desc": "Prime overtaking zone at end of 1.1km DRS straight, braking from 335+ km/h down to 90 km/h."
+    },
+    {
+      "number": 5,
+      "name": "Turn 5",
+      "type": "Left Chicane",
+      "marker": [
+        191.7,
+        482.1
+      ],
+      "apex": [
+        175.3,
+        464.9
+      ],
+      "lap_pct": 0.575,
+      "gear": 4,
+      "speed_kmh": 215,
+      "desc": "Fast, technical left entry of high-speed chicane."
+    },
+    {
+      "number": 6,
+      "name": "Turn 6",
+      "type": "Right Chicane",
+      "marker": [
+        129.7,
+        485.3
+      ],
+      "apex": [
+        152.0,
+        490.0
+      ],
+      "lap_pct": 0.591,
+      "gear": 4,
+      "speed_kmh": 200,
+      "desc": "Right flick exit requiring precise curb management."
+    },
+    {
+      "number": 7,
+      "name": "Turn 7",
+      "type": "Right",
+      "marker": [
+        184.7,
+        517.3
+      ],
+      "apex": [
+        160.7,
+        515.3
+      ],
+      "lap_pct": 0.604,
+      "gear": 5,
+      "speed_kmh": 230,
+      "desc": "Sweeping right-hand bend loading the left-side tires."
+    },
+    {
+      "number": 8,
+      "name": "Turn 8",
+      "type": "Left",
+      "marker": [
+        176.7,
+        593.3
+      ],
+      "apex": [
+        154.6,
+        583.5
+      ],
+      "lap_pct": 0.635,
+      "gear": 4,
+      "speed_kmh": 185,
+      "desc": "Downhill left-hand turn leading into Turn 9."
+    },
+    {
+      "number": 9,
+      "name": "Turn 9",
+      "type": "Right",
+      "marker": [
+        149.7,
+        618.3
+      ],
+      "apex": [
+        125.6,
+        617.0
+      ],
+      "lap_pct": 0.656,
+      "gear": 3,
+      "speed_kmh": 150,
+      "desc": "Blind entry right turn plunging down towards the Parabolica."
+    },
+    {
+      "number": 10,
+      "name": "Turn 10",
+      "type": "Right Parabolica Entry",
+      "marker": [
+        130.7,
+        751.5
+      ],
+      "apex": [
+        113.4,
+        733.5
+      ],
+      "lap_pct": 0.71,
+      "gear": 4,
+      "speed_kmh": 190,
+      "desc": "Entry into the multi-apex banked parabolic curve, modeled after Istanbul Park Turn 8."
+    },
+    {
+      "number": 11,
+      "name": "Turn 11",
+      "type": "Right Parabolica Exit",
+      "marker": [
+        14.7,
+        672.3
+      ],
+      "apex": [
+        39.2,
+        680.3
+      ],
+      "lap_pct": 0.762,
+      "gear": 5,
+      "speed_kmh": 225,
+      "desc": "High-G exit of the banked curve with tricky track limits on the left curb."
+    },
+    {
+      "number": 12,
+      "name": "Turn 12",
+      "type": "Left",
+      "marker": [
+        56.7,
+        628.3
+      ],
+      "apex": [
+        74.6,
+        645.3
+      ],
+      "lap_pct": 0.785,
+      "gear": 3,
+      "speed_kmh": 140,
+      "desc": "Technical uphill left-hander setting up Sector 3 rhythm."
+    },
+    {
+      "number": 13,
+      "name": "Turn 13",
+      "type": "Right",
+      "marker": [
+        95.7,
+        560.3
+      ],
+      "apex": [
+        120.9,
+        561.6
+      ],
+      "lap_pct": 0.828,
+      "gear": 4,
+      "speed_kmh": 175,
+      "desc": "Medium-speed right turn over crest."
+    },
+    {
+      "number": 14,
+      "name": "Turn 14",
+      "type": "Left",
+      "marker": [
+        68.7,
+        523.3
+      ],
+      "apex": [
+        93.6,
+        517.3
+      ],
+      "lap_pct": 0.852,
+      "gear": 3,
+      "speed_kmh": 135,
+      "desc": "Sharp left turn testing front-end grip."
+    },
+    {
+      "number": 15,
+      "name": "Turn 15",
+      "type": "Left Chicane",
+      "marker": [
+        100.7,
+        373.3
+      ],
+      "apex": [
+        113.6,
+        395.2
+      ],
+      "lap_pct": 0.909,
+      "gear": 2,
+      "speed_kmh": 115,
+      "desc": "First part of final chicane, crucial for good exit onto pit straight."
+    },
+    {
+      "number": 16,
+      "name": "Turn 16",
+      "type": "Right Chicane",
+      "marker": [
+        284.7,
+        473.3
+      ],
+      "apex": [
+        266.6,
+        458.2
+      ],
+      "lap_pct": 0.988,
+      "gear": 3,
+      "speed_kmh": 140,
+      "desc": "Final right flick onto the pit straight; DRS zone 1 detection point."
+    }
+  ],
+  "svg": {
+    "viewBox": "0 0 435 770",
+    "track_path": "M263.373,432.217l-96.534-264.13c0,0-3.417-11.104,5.765-14.521s21.996-0.428,35.662-8.969  c13.669-8.542,22.763-17.174,31.185-41.849c6.197-18.151,7.266-35.234,7.479-39.718s1.281-19.646,1.281-19.646  s0.004-7.479,7.906-8.76c7.9-1.281,9.182,6.406,10.463,11.531s55.951,203.083,63.426,230.63  c7.473,27.546,77.729,271.621,77.729,271.621s3.623,9.178-5.98,14.521c-7.971,4.436-14.312-0.218-19.432-2.989  c-9.154-4.957-178.966-99.081-178.966-99.081s-14.521-8.756-25.838,1.922s-22.635,21.566-22.635,21.566s-2.78,3.84-2.989,6.192  c-0.286,3.216-0.641,5.766,0.213,8.328s3.416,5.765,4.911,6.833s3.844,3.204,3.844,6.834s-5.417,67.702-5.417,67.702  s0,3.56-3.559,7.38c-3.055,3.279-5.209,4.254-7.466,5.556c-2.068,1.192-9.029,4.428-9.029,4.428s-8.855,3.3-9.336,10.597  c-0.425,6.448-4.483,110.826-4.483,110.826s-0.681,7.065-7.625,14.013c-5.027,5.029-11.199,9.723-20.99,10.758  c-8.561,0.905-17.246-1.054-26.906-7.046c-10.187-6.318-16.329-16.171-20.173-23.858s-6.859-15.976-7.587-24.401  c-0.538-6.229,1.943-11.977,4.698-15.161c1.986-2.296,17.976-15.13,22.421-19.219c4.431-4.075,10.586-9.706,15.457-16.143  c2.431-3.212,6.164-9.896,6.164-9.896l31.976-57.24c0,0,3.012-7.437,1.536-15.25c-1.604-8.487-7.207-13.804-7.207-13.804  l-17.191-19.531c0,0-3.299-3.473-2.764-8.857c0.677-6.813,8.969-100.577,8.969-100.577s0.735-10.732,10.725-17.229  c10.679-6.945,19.598-1.348,19.598-1.348l120.239,67.691c0,0,6.834,3.201,12.812-2.776c4.863-4.862,3.846-10.251,1.283-17.298  C264.812,435.81,263.373,432.217,263.373,432.217z",
+    "pit_lane_path": "M264.053,463.063l18.705-13.768c0,0,1.482-0.816,1.408-2.521l-0.84-2.149l-6.703-15.635  c0,0-1.164-5.591-6.947-9.594c-4.301-2.977-7.277-9.263-7.277-9.263l-49.64-136.292c0,0-1.985-6.616-6.858-11.42  c-4.352-4.289-8.473-10.494-10.338-15.935",
+    "start_finish_line": {
+      "x1": 248,
+      "y1": 390,
+      "x2": 278,
+      "y2": 401
+    }
+  }
+}

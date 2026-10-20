@@ -1,0 +1,194 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -40 520 860" width="100%" height="100%">
+  <defs>
+    <!-- Background styling -->
+    <radialGradient id="bg-grad" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#181e2e" />
+      <stop offset="60%" stop-color="#0e121a" />
+      <stop offset="100%" stop-color="#080a0f" />
+    </radialGradient>
+    
+    <!-- Track Outer Glow -->
+    <filter id="track-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#e10600" flood-opacity="0.2" />
+    </filter>
+    
+    <!-- Kerb Pattern (Red and White) -->
+    <pattern id="kerb-pattern" width="8" height="4" patternUnits="userSpaceOnUse">
+      <rect width="4" height="4" fill="#e10600" />
+      <rect x="4" width="4" height="4" fill="#ffffff" />
+    </pattern>
+
+    <!-- Start/Finish Checkerboard -->
+    <pattern id="finish-checkers" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect width="3" height="3" fill="#ffffff" />
+      <rect x="3" y="3" width="3" height="3" fill="#ffffff" />
+      <rect x="3" width="3" height="3" fill="#000000" />
+      <rect y="3" width="3" height="3" fill="#000000" />
+    </pattern>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect x="-40" y="-40" width="520" height="860" fill="url(#bg-grad)" rx="16" />
+  
+  <!-- Subtle Grid Lines -->
+  <g opacity="0.05" stroke="#ffffff" stroke-width="1">
+    <line x1="-40" y1="100" x2="480" y2="100" />
+    <line x1="-40" y1="250" x2="480" y2="250" />
+    <line x1="-40" y1="400" x2="480" y2="400" />
+    <line x1="-40" y1="550" x2="480" y2="550" />
+    <line x1="-40" y1="700" x2="480" y2="700" />
+    <line x1="80" y1="-40" x2="80" y2="820" />
+    <line x1="200" y1="-40" x2="200" y2="820" />
+    <line x1="320" y1="-40" x2="320" y2="820" />
+    <line x1="440" y1="-40" x2="440" y2="820" />
+  </g>
+
+  <!-- Circuit Title & Badges -->
+  <g id="circuit-header" transform="translate(20, 10)">
+    <text font-family="'Inter', -apple-system, sans-serif" font-size="14" font-weight="900" fill="#e10600" letter-spacing="2">FORMULA 1 GRAND PRIX OF INDIA</text>
+    <text y="20" font-family="'Inter', -apple-system, sans-serif" font-size="20" font-weight="800" fill="#ffffff" letter-spacing="1">BUDDH INTERNATIONAL CIRCUIT</text>
+    <text y="36" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="500" fill="#94a3b8">Greater Noida, Uttar Pradesh • 5.125 km • 16 Turns • Clockwise</text>
+  </g>
+
+  <!-- North Indicator -->
+  <g id="compass" transform="translate(440, 40)">
+    <circle r="16" fill="#161c28" stroke="#334155" stroke-width="1.5" />
+    <polygon points="0,-12 3,2 0,0 -3,2" fill="#e10600" />
+    <polygon points="0,12 3,-2 0,0 -3,-2" fill="#64748b" />
+    <text y="-18" font-family="'Inter', sans-serif" font-size="9" font-weight="800" fill="#e10600" text-anchor="middle">N</text>
+  </g>
+
+  <!-- Pit Lane -->
+  <g id="pit-lane-group">
+    <path d="M264.053,463.063l18.705-13.768c0,0,1.482-0.816,1.408-2.521l-0.84-2.149l-6.703-15.635  c0,0-1.164-5.591-6.947-9.594c-4.301-2.977-7.277-9.263-7.277-9.263l-49.64-136.292c0,0-1.985-6.616-6.858-11.42  c-4.352-4.289-8.473-10.494-10.338-15.935" fill="none" stroke="#0a0d14" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M264.053,463.063l18.705-13.768c0,0,1.482-0.816,1.408-2.521l-0.84-2.149l-6.703-15.635  c0,0-1.164-5.591-6.947-9.594c-4.301-2.977-7.277-9.263-7.277-9.263l-49.64-136.292c0,0-1.985-6.616-6.858-11.42  c-4.352-4.289-8.473-10.494-10.338-15.935" fill="none" stroke="#334155" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M264.053,463.063l18.705-13.768c0,0,1.482-0.816,1.408-2.521l-0.84-2.149l-6.703-15.635  c0,0-1.164-5.591-6.947-9.594c-4.301-2.977-7.277-9.263-7.277-9.263l-49.64-136.292c0,0-1.985-6.616-6.858-11.42  c-4.352-4.289-8.473-10.494-10.338-15.935" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3 3" />
+    <!-- Pit text -->
+    <text x="215" y="300" transform="rotate(-70 215 300)" font-family="'Inter', sans-serif" font-size="8" font-weight="700" fill="#94a3b8" letter-spacing="2">PIT LANE</text>
+  </g>
+
+  <!-- Track Curbs / Borders (Layer underneath) -->
+  <path d="M263.373,432.217l-96.534-264.13c0,0-3.417-11.104,5.765-14.521s21.996-0.428,35.662-8.969  c13.669-8.542,22.763-17.174,31.185-41.849c6.197-18.151,7.266-35.234,7.479-39.718s1.281-19.646,1.281-19.646  s0.004-7.479,7.906-8.76c7.9-1.281,9.182,6.406,10.463,11.531s55.951,203.083,63.426,230.63  c7.473,27.546,77.729,271.621,77.729,271.621s3.623,9.178-5.98,14.521c-7.971,4.436-14.312-0.218-19.432-2.989  c-9.154-4.957-178.966-99.081-178.966-99.081s-14.521-8.756-25.838,1.922s-22.635,21.566-22.635,21.566s-2.78,3.84-2.989,6.192  c-0.286,3.216-0.641,5.766,0.213,8.328s3.416,5.765,4.911,6.833s3.844,3.204,3.844,6.834s-5.417,67.702-5.417,67.702  s0,3.56-3.559,7.38c-3.055,3.279-5.209,4.254-7.466,5.556c-2.068,1.192-9.029,4.428-9.029,4.428s-8.855,3.3-9.336,10.597  c-0.425,6.448-4.483,110.826-4.483,110.826s-0.681,7.065-7.625,14.013c-5.027,5.029-11.199,9.723-20.99,10.758  c-8.561,0.905-17.246-1.054-26.906-7.046c-10.187-6.318-16.329-16.171-20.173-23.858s-6.859-15.976-7.587-24.401  c-0.538-6.229,1.943-11.977,4.698-15.161c1.986-2.296,17.976-15.13,22.421-19.219c4.431-4.075,10.586-9.706,15.457-16.143  c2.431-3.212,6.164-9.896,6.164-9.896l31.976-57.24c0,0,3.012-7.437,1.536-15.25c-1.604-8.487-7.207-13.804-7.207-13.804  l-17.191-19.531c0,0-3.299-3.473-2.764-8.857c0.677-6.813,8.969-100.577,8.969-100.577s0.735-10.732,10.725-17.229  c10.679-6.945,19.598-1.348,19.598-1.348l120.239,67.691c0,0,6.834,3.201,12.812-2.776c4.863-4.862,3.846-10.251,1.283-17.298  C264.812,435.81,263.373,432.217,263.373,432.217z" fill="none" stroke="#e10600" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" filter="url(#track-glow)" />
+  <path d="M263.373,432.217l-96.534-264.13c0,0-3.417-11.104,5.765-14.521s21.996-0.428,35.662-8.969  c13.669-8.542,22.763-17.174,31.185-41.849c6.197-18.151,7.266-35.234,7.479-39.718s1.281-19.646,1.281-19.646  s0.004-7.479,7.906-8.76c7.9-1.281,9.182,6.406,10.463,11.531s55.951,203.083,63.426,230.63  c7.473,27.546,77.729,271.621,77.729,271.621s3.623,9.178-5.98,14.521c-7.971,4.436-14.312-0.218-19.432-2.989  c-9.154-4.957-178.966-99.081-178.966-99.081s-14.521-8.756-25.838,1.922s-22.635,21.566-22.635,21.566s-2.78,3.84-2.989,6.192  c-0.286,3.216-0.641,5.766,0.213,8.328s3.416,5.765,4.911,6.833s3.844,3.204,3.844,6.834s-5.417,67.702-5.417,67.702  s0,3.56-3.559,7.38c-3.055,3.279-5.209,4.254-7.466,5.556c-2.068,1.192-9.029,4.428-9.029,4.428s-8.855,3.3-9.336,10.597  c-0.425,6.448-4.483,110.826-4.483,110.826s-0.681,7.065-7.625,14.013c-5.027,5.029-11.199,9.723-20.99,10.758  c-8.561,0.905-17.246-1.054-26.906-7.046c-10.187-6.318-16.329-16.171-20.173-23.858s-6.859-15.976-7.587-24.401  c-0.538-6.229,1.943-11.977,4.698-15.161c1.986-2.296,17.976-15.13,22.421-19.219c4.431-4.075,10.586-9.706,15.457-16.143  c2.431-3.212,6.164-9.896,6.164-9.896l31.976-57.24c0,0,3.012-7.437,1.536-15.25c-1.604-8.487-7.207-13.804-7.207-13.804  l-17.191-19.531c0,0-3.299-3.473-2.764-8.857c0.677-6.813,8.969-100.577,8.969-100.577s0.735-10.732,10.725-17.229  c10.679-6.945,19.598-1.348,19.598-1.348l120.239,67.691c0,0,6.834,3.201,12.812-2.776c4.863-4.862,3.846-10.251,1.283-17.298  C264.812,435.81,263.373,432.217,263.373,432.217z" fill="none" stroke="#111625" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M263.373,432.217l-96.534-264.13c0,0-3.417-11.104,5.765-14.521s21.996-0.428,35.662-8.969  c13.669-8.542,22.763-17.174,31.185-41.849c6.197-18.151,7.266-35.234,7.479-39.718s1.281-19.646,1.281-19.646  s0.004-7.479,7.906-8.76c7.9-1.281,9.182,6.406,10.463,11.531s55.951,203.083,63.426,230.63  c7.473,27.546,77.729,271.621,77.729,271.621s3.623,9.178-5.98,14.521c-7.971,4.436-14.312-0.218-19.432-2.989  c-9.154-4.957-178.966-99.081-178.966-99.081s-14.521-8.756-25.838,1.922s-22.635,21.566-22.635,21.566s-2.78,3.84-2.989,6.192  c-0.286,3.216-0.641,5.766,0.213,8.328s3.416,5.765,4.911,6.833s3.844,3.204,3.844,6.834s-5.417,67.702-5.417,67.702  s0,3.56-3.559,7.38c-3.055,3.279-5.209,4.254-7.466,5.556c-2.068,1.192-9.029,4.428-9.029,4.428s-8.855,3.3-9.336,10.597  c-0.425,6.448-4.483,110.826-4.483,110.826s-0.681,7.065-7.625,14.013c-5.027,5.029-11.199,9.723-20.99,10.758  c-8.561,0.905-17.246-1.054-26.906-7.046c-10.187-6.318-16.329-16.171-20.173-23.858s-6.859-15.976-7.587-24.401  c-0.538-6.229,1.943-11.977,4.698-15.161c1.986-2.296,17.976-15.13,22.421-19.219c4.431-4.075,10.586-9.706,15.457-16.143  c2.431-3.212,6.164-9.896,6.164-9.896l31.976-57.24c0,0,3.012-7.437,1.536-15.25c-1.604-8.487-7.207-13.804-7.207-13.804  l-17.191-19.531c0,0-3.299-3.473-2.764-8.857c0.677-6.813,8.969-100.577,8.969-100.577s0.735-10.732,10.725-17.229  c10.679-6.945,19.598-1.348,19.598-1.348l120.239,67.691c0,0,6.834,3.201,12.812-2.776c4.863-4.862,3.846-10.251,1.283-17.298  C264.812,435.81,263.373,432.217,263.373,432.217z" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M263.373,432.217l-96.534-264.13c0,0-3.417-11.104,5.765-14.521s21.996-0.428,35.662-8.969  c13.669-8.542,22.763-17.174,31.185-41.849c6.197-18.151,7.266-35.234,7.479-39.718s1.281-19.646,1.281-19.646  s0.004-7.479,7.906-8.76c7.9-1.281,9.182,6.406,10.463,11.531s55.951,203.083,63.426,230.63  c7.473,27.546,77.729,271.621,77.729,271.621s3.623,9.178-5.98,14.521c-7.971,4.436-14.312-0.218-19.432-2.989  c-9.154-4.957-178.966-99.081-178.966-99.081s-14.521-8.756-25.838,1.922s-22.635,21.566-22.635,21.566s-2.78,3.84-2.989,6.192  c-0.286,3.216-0.641,5.766,0.213,8.328s3.416,5.765,4.911,6.833s3.844,3.204,3.844,6.834s-5.417,67.702-5.417,67.702  s0,3.56-3.559,7.38c-3.055,3.279-5.209,4.254-7.466,5.556c-2.068,1.192-9.029,4.428-9.029,4.428s-8.855,3.3-9.336,10.597  c-0.425,6.448-4.483,110.826-4.483,110.826s-0.681,7.065-7.625,14.013c-5.027,5.029-11.199,9.723-20.99,10.758  c-8.561,0.905-17.246-1.054-26.906-7.046c-10.187-6.318-16.329-16.171-20.173-23.858s-6.859-15.976-7.587-24.401  c-0.538-6.229,1.943-11.977,4.698-15.161c1.986-2.296,17.976-15.13,22.421-19.219c4.431-4.075,10.586-9.706,15.457-16.143  c2.431-3.212,6.164-9.896,6.164-9.896l31.976-57.24c0,0,3.012-7.437,1.536-15.25c-1.604-8.487-7.207-13.804-7.207-13.804  l-17.191-19.531c0,0-3.299-3.473-2.764-8.857c0.677-6.813,8.969-100.577,8.969-100.577s0.735-10.732,10.725-17.229  c10.679-6.945,19.598-1.348,19.598-1.348l120.239,67.691c0,0,6.834,3.201,12.812-2.776c4.863-4.862,3.846-10.251,1.283-17.298  C264.812,435.81,263.373,432.217,263.373,432.217z" fill="none" stroke="#0f172a" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Centerline / Racing Guide Line -->
+  <path id="center-racing-line" d="M263.373,432.217l-96.534-264.13c0,0-3.417-11.104,5.765-14.521s21.996-0.428,35.662-8.969  c13.669-8.542,22.763-17.174,31.185-41.849c6.197-18.151,7.266-35.234,7.479-39.718s1.281-19.646,1.281-19.646  s0.004-7.479,7.906-8.76c7.9-1.281,9.182,6.406,10.463,11.531s55.951,203.083,63.426,230.63  c7.473,27.546,77.729,271.621,77.729,271.621s3.623,9.178-5.98,14.521c-7.971,4.436-14.312-0.218-19.432-2.989  c-9.154-4.957-178.966-99.081-178.966-99.081s-14.521-8.756-25.838,1.922s-22.635,21.566-22.635,21.566s-2.78,3.84-2.989,6.192  c-0.286,3.216-0.641,5.766,0.213,8.328s3.416,5.765,4.911,6.833s3.844,3.204,3.844,6.834s-5.417,67.702-5.417,67.702  s0,3.56-3.559,7.38c-3.055,3.279-5.209,4.254-7.466,5.556c-2.068,1.192-9.029,4.428-9.029,4.428s-8.855,3.3-9.336,10.597  c-0.425,6.448-4.483,110.826-4.483,110.826s-0.681,7.065-7.625,14.013c-5.027,5.029-11.199,9.723-20.99,10.758  c-8.561,0.905-17.246-1.054-26.906-7.046c-10.187-6.318-16.329-16.171-20.173-23.858s-6.859-15.976-7.587-24.401  c-0.538-6.229,1.943-11.977,4.698-15.161c1.986-2.296,17.976-15.13,22.421-19.219c4.431-4.075,10.586-9.706,15.457-16.143  c2.431-3.212,6.164-9.896,6.164-9.896l31.976-57.24c0,0,3.012-7.437,1.536-15.25c-1.604-8.487-7.207-13.804-7.207-13.804  l-17.191-19.531c0,0-3.299-3.473-2.764-8.857c0.677-6.813,8.969-100.577,8.969-100.577s0.735-10.732,10.725-17.229  c10.679-6.945,19.598-1.348,19.598-1.348l120.239,67.691c0,0,6.834,3.201,12.812-2.776c4.863-4.862,3.846-10.251,1.283-17.298  C264.812,435.81,263.373,432.217,263.373,432.217z" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5 5" opacity="0.8" />
+
+  <!-- DRS Zone 2 on 1.1km Back Straight -->
+  <path d="M280,180 L370,480" fill="none" stroke="#22c55e" stroke-width="3" stroke-dasharray="8 4" stroke-linecap="round" opacity="0.9" />
+  <g transform="translate(350, 310) rotate(70)">
+    <rect x="-25" y="-8" width="50" height="16" rx="4" fill="#22c55e" />
+    <text y="3" font-family="'Inter', sans-serif" font-size="9" font-weight="800" fill="#000000" text-anchor="middle">DRS ZONE 2</text>
+  </g>
+
+  <!-- DRS Zone 1 on Pit Straight -->
+  <path d="M240,360 L180,200" fill="none" stroke="#22c55e" stroke-width="3" stroke-dasharray="8 4" stroke-linecap="round" opacity="0.9" />
+  <g transform="translate(195, 275) rotate(-69)">
+    <rect x="-25" y="-8" width="50" height="16" rx="4" fill="#22c55e" />
+    <text y="3" font-family="'Inter', sans-serif" font-size="9" font-weight="800" fill="#000000" text-anchor="middle">DRS ZONE 1</text>
+  </g>
+
+  <!-- Start / Finish Line -->
+  <g id="start-finish" transform="translate(210, 315) rotate(-20)">
+    <rect x="-2" y="-12" width="12" height="24" fill="url(#finish-checkers)" stroke="#ffffff" stroke-width="1" rx="1" />
+    <!-- Race Direction Arrow -->
+    <polygon points="18,-1 14,-5 14,-2 6,-2 6,0 14,0 14,3" fill="#ffffff" />
+  </g>
+
+  <!-- Turn Markers 1 to 16 -->
+  <g id="turn-markers">
+    
+    <g class="turn-marker" data-turn="1" transform="translate(144.5,143.9)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">1</text>
+    </g>
+
+    <g class="turn-marker" data-turn="2" transform="translate(233.7,159.1)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">2</text>
+    </g>
+
+    <g class="turn-marker" data-turn="3" transform="translate(278.3,14.7)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">3</text>
+    </g>
+
+    <g class="turn-marker" data-turn="4" transform="translate(417.7,582.3)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">4</text>
+    </g>
+
+    <g class="turn-marker" data-turn="5" transform="translate(191.7,482.1)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">5</text>
+    </g>
+
+    <g class="turn-marker" data-turn="6" transform="translate(129.7,485.3)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">6</text>
+    </g>
+
+    <g class="turn-marker" data-turn="7" transform="translate(184.7,517.3)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">7</text>
+    </g>
+
+    <g class="turn-marker" data-turn="8" transform="translate(176.7,593.3)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">8</text>
+    </g>
+
+    <g class="turn-marker" data-turn="9" transform="translate(149.7,618.3)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">9</text>
+    </g>
+
+    <g class="turn-marker" data-turn="10" transform="translate(130.7,751.5)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">10</text>
+    </g>
+
+    <g class="turn-marker" data-turn="11" transform="translate(14.7,672.3)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">11</text>
+    </g>
+
+    <g class="turn-marker" data-turn="12" transform="translate(56.7,628.3)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">12</text>
+    </g>
+
+    <g class="turn-marker" data-turn="13" transform="translate(95.7,560.3)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">13</text>
+    </g>
+
+    <g class="turn-marker" data-turn="14" transform="translate(68.7,523.3)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">14</text>
+    </g>
+
+    <g class="turn-marker" data-turn="15" transform="translate(100.7,373.3)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">15</text>
+    </g>
+
+    <g class="turn-marker" data-turn="16" transform="translate(284.7,473.3)">
+      <circle r="12" fill="#111625" stroke="#e10600" stroke-width="2" />
+      <text y="4" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">16</text>
+    </g>
+  </g>
+
+  <!-- Track Specs Badge at Bottom -->
+  <g transform="translate(20, 770)">
+    <rect width="440" height="36" rx="8" fill="#111625" stroke="#1e293b" stroke-width="1" />
+    <text x="16" y="22" font-family="'Inter', sans-serif" font-size="10" font-weight="700" fill="#94a3b8">LAP RECORD:</text>
+    <text x="92" y="22" font-family="'Inter', sans-serif" font-size="11" font-weight="800" fill="#38bdf8">1:27.249</text>
+    <text x="142" y="22" font-family="'Inter', sans-serif" font-size="10" font-weight="600" fill="#64748b">S. Vettel (Red Bull, 2011)</text>
+    
+    <text x="300" y="22" font-family="'Inter', sans-serif" font-size="10" font-weight="700" fill="#94a3b8">TOP SPEED:</text>
+    <text x="372" y="22" font-family="'Inter', sans-serif" font-size="11" font-weight="800" fill="#22c55e">338.4 km/h</text>
+  </g>
+</svg>
