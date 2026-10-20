@@ -73,6 +73,10 @@ canvas{display:block;width:100%;height:100%}
 @keyframes drsBlink{0%,100%{opacity:1}50%{opacity:0.65}}
 #drift-tag{font-family:var(--font-display);font-size:12px;letter-spacing:1px;color:var(--dim);transition:all 0.12s ease;padding:2px 6px;border:1.5px solid #2a2a2a;background:rgba(255,255,255,0.05);display:inline-block}
 #drift-tag.on{color:var(--ink-black);background:var(--hot-orange);border-color:var(--ink-black);box-shadow:2px 2px 0 var(--neon-lime);font-weight:800;transform:scale(1.04)}
+#bb-tag{font-family:var(--font-display);font-size:12px;letter-spacing:1px;color:var(--neon-lime);transition:all 0.12s ease;padding:2px 7px;border:1.5px solid #2a2a2a;background:rgba(255,255,255,0.05);display:inline-block;cursor:pointer;user-select:none}
+#bb-tag:hover{border-color:var(--neon-lime);background:rgba(200,255,46,0.12)}
+#bb-tag.braking{color:var(--pure-white);background:#e10600;border-color:#ff3b30;box-shadow:0 0 10px rgba(225,6,0,0.8);font-weight:800;transform:scale(1.05)}
+#bb-tag.rear-bias{color:var(--hot-orange);border-color:rgba(255,107,26,0.5)}
 
 #mini{
   top:calc(12px + env(safe-area-inset-top,0px));
@@ -336,8 +340,12 @@ canvas{display:block;width:100%;height:100%}
   gap: 10px;
   user-select: none;
   pointer-events: none;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  scrollbar-width: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+#side-telemetry::-webkit-scrollbar { display: none; }
 #side-telemetry.drs-glowing {
   border-color: var(--neon-lime);
   box-shadow: 4px 4px 0 var(--neon-lime), 0 0 25px rgba(200, 255, 46, 0.4);
@@ -345,6 +353,102 @@ canvas{display:block;width:100%;height:100%}
 #side-telemetry.drift-glowing {
   border-color: var(--hot-orange);
   box-shadow: 4px 4px 0 var(--hot-orange), 0 0 25px rgba(255, 107, 26, 0.45);
+}
+#side-telemetry.brake-glowing {
+  border-color: #ff3b30;
+  box-shadow: 4px 4px 0 #ff3b30, 0 0 22px rgba(255, 59, 48, 0.55);
+}
+
+/* BRAKE BIAS TELEMETRY SECTION STYLES */
+.bias-meter-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #111;
+  border: 1px solid #222;
+  padding: 6px;
+}
+.bias-labels-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.8px;
+}
+.bias-label-f { color: var(--neon-lime); }
+.bias-label-r { color: var(--hot-orange); }
+.bias-bar-track {
+  position: relative;
+  height: 9px;
+  background: #18181b;
+  border: 1px solid #333;
+  display: flex;
+  overflow: hidden;
+}
+.bias-bar-fill-f {
+  height: 100%;
+  background: var(--neon-lime);
+  transition: width 0.08s ease;
+}
+.bias-bar-fill-r {
+  height: 100%;
+  background: var(--hot-orange);
+  transition: width 0.08s ease;
+}
+.bias-bar-center-notch {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 56%;
+  width: 2px;
+  background: #fff;
+  opacity: 0.85;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.side-status-box.brake-active {
+  color: var(--pure-white);
+  background: #e10600;
+  border-color: #ff3b30;
+  box-shadow: 0 0 14px rgba(225, 6, 0, 0.7);
+  font-weight: 800;
+}
+.side-status-box.brake-front {
+  color: var(--ink-black);
+  background: var(--neon-lime);
+  border-color: var(--neon-lime);
+  font-weight: 800;
+}
+.side-status-box.brake-rear {
+  color: var(--ink-black);
+  background: var(--hot-orange);
+  border-color: var(--hot-orange);
+  font-weight: 800;
+}
+
+/* Interactive On-the-Fly Brake Bias Toast */
+#bias-toast {
+  position: fixed;
+  bottom: 115px;
+  left: 50%;
+  transform: translateX(-50%) skewX(-4deg);
+  background: var(--ink-black);
+  border: 2.5px solid var(--neon-lime);
+  box-shadow: 4px 4px 0 #000, 0 0 20px rgba(200, 255, 46, 0.4);
+  padding: 7px 20px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: var(--pure-white);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 50;
+  white-space: nowrap;
+}
+#bias-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) skewX(-4deg) translateY(-8px);
 }
 
 .side-pod-header {
@@ -839,6 +943,7 @@ canvas{display:block;width:100%;height:100%}
       <div class="control-row"><span>Throttle</span><span class="keycaps"><span class="keycap">W</span><span class="keycap">↑</span></span></div>
       <div class="control-row"><span>Brake / reverse</span><span class="keycaps"><span class="keycap">S</span><span class="keycap">↓</span></span></div>
       <div class="control-row"><span>Steer</span><span class="keycaps"><span class="keycap">A</span><span class="keycap">D</span></span></div>
+      <div class="control-row"><span>Brake Balance [Rear / Front]</span><span class="keycaps"><span class="keycap">[</span><span class="keycap">]</span></span></div>
       <div class="control-row"><span>DRS (Deploy / Close)</span><span class="keycaps"><span class="keycap">E</span></span></div>
       <div class="control-row"><span>Power Drift</span><span class="keycaps"><span class="keycap">SPACE</span></span></div>
       <div class="control-row"><span>ERS Boost</span><span class="keycaps"><span class="keycap">SHIFT</span></span></div>
@@ -854,6 +959,8 @@ canvas{display:block;width:100%;height:100%}
     <h3>Vehicle &amp; Audio Calibration</h3>
     <label class="setting-row" for="steer-setting"><span>Steering response</span><output id="steer-value">100%</output><input id="steer-setting" type="range" min="60" max="150" value="100"></label>
     <label class="setting-row" for="drift-setting"><span>Drift response &amp; grip</span><output id="drift-value">100%</output><input id="drift-setting" type="range" min="50" max="150" value="100"></label>
+    <label class="setting-row" for="brake-bias-setting"><span>Front Brake Balance</span><output id="brake-bias-value">56% F</output><input id="brake-bias-setting" type="range" min="45" max="70" value="56"></label>
+    <label class="setting-row" for="brake-force-setting"><span>Max Braking Power</span><output id="brake-force-value">100%</output><input id="brake-force-setting" type="range" min="70" max="150" value="100"></label>
     <label class="setting-row" for="drs-mode-sel">
       <span>DRS Activation Rules</span>
       <select id="drs-mode-sel" style="background:#111;color:#fff;border:1.5px solid #444;font-family:var(--font-display);padding:4px 8px;font-size:12px;border-radius:2px">
@@ -974,6 +1081,42 @@ canvas{display:block;width:100%;height:100%}
 
   <div class="side-divider"></div>
 
+  <!-- BRAKE BALANCE & PRESSURE TELEMETRY SECTION -->
+  <div class="side-section" id="side-brake-section">
+    <div class="side-sec-title">
+      <span>BRAKES &middot; BIAS</span>
+      <span class="key-hint">KEYS [ &amp; ]</span>
+    </div>
+    <div class="side-status-box" id="side-brake-status">BALANCED 56:44</div>
+
+    <!-- Dual Axle Brake Bias Visualization Bar -->
+    <div class="bias-meter-wrap">
+      <div class="bias-labels-row">
+        <span class="bias-label-f" id="side-bias-f-lbl">FRONT 56%</span>
+        <span class="bias-label-r" id="side-bias-r-lbl">44% REAR</span>
+      </div>
+      <div class="bias-bar-track">
+        <div class="bias-bar-fill-f" id="side-bias-fill-f" style="width: 56%;"></div>
+        <div class="bias-bar-fill-r" id="side-bias-fill-r" style="width: 44%;"></div>
+        <div class="bias-bar-center-notch"></div>
+      </div>
+    </div>
+
+    <!-- Live Brake Metrics Readout -->
+    <div class="side-metrics">
+      <div class="side-metric-cell">
+        <span class="label">PEDAL INPUT</span>
+        <span class="value" id="side-brake-pressure">0%</span>
+      </div>
+      <div class="side-metric-cell">
+        <span class="label">HANDLING TRAIT</span>
+        <span class="value" id="side-brake-trait">OPTIMAL</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="side-divider"></div>
+
   <!-- ERS OVERTAKE BOOST TELEMETRY SECTION -->
   <div class="side-section" id="side-ers-section">
     <div class="side-sec-title">
@@ -1025,10 +1168,12 @@ canvas{display:block;width:100%;height:100%}
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
       <div id="drs">DRS off</div>
       <div id="drift-tag">DRIFT OFF</div>
+      <div id="bb-tag" title="Brake Balance (Adjust with [ and ])">BB 56%</div>
     </div>
   </div>
 </div>
-<div id="help"><b>Buddh International Circuit</b> · 5.13 km<br>↑ W throttle · ↓ S brake · ← → A D steer<br>E: DRS (Deploy in Zones) · Space: Drift · Shift: ERS · C: camera · R: restart · Esc: menu</div>
+<div id="help"><b>Buddh International Circuit</b> · 5.13 km<br>↑ W throttle · ↓ S brake · ← → A D steer · [ ] Brake bias<br>E: DRS (Deploy in Zones) · Space: Drift · Shift: ERS · C: camera · R: restart · Esc: menu</div>
+<div id="bias-toast" aria-live="polite">BRAKE BIAS: 56% F / 44% R</div>
 
 
 <script>
@@ -1165,6 +1310,28 @@ const DRS_CONFIG = {
   ]
 };
 
+// ==========================================================================
+// TUNABLE CONTROLLED BRAKING & BRAKE BALANCE CONFIGURATION
+// ==========================================================================
+const BRAKE_CONFIG = {
+  maxBrakeForce: 2150,            // Base peak deceleration force at 100% brake pedal
+  brakeResponse: 8.5,             // Pedal application ramp-up rate (units/s)
+  brakeReleaseRate: 14.0,         // Pedal release ramp-down rate (units/s)
+  defaultBias: 0.56,              // Initial front brake bias (56% Front / 44% Rear)
+  minBias: 0.45,                  // 45% Front bias minimum limit
+  maxBias: 0.70,                  // 70% Front bias maximum limit
+  biasStep: 0.01,                 // 1% per keypress adjustment
+  reverseMaxSpeed: -120,          // Peak reverse velocity
+  reverseAccel: 450,              // Reverse acceleration rate
+  reverseDelay: 0.16,             // Brief stationary deadband before shifting to reverse
+  highSpeedAeroFactor: 0.35,      // Downforce braking assistance multiplier at top speed
+  lowSpeedCutoff: 1.5,            // Low speed threshold for smooth exponential stop
+  userBrakeForceMultiplier: (function(){
+    const s = localStorage.getItem('formula_v_brake_force');
+    return s ? Math.max(0.7, Math.min(1.5, parseFloat(s) || 1.0)) : 1.0;
+  })()
+};
+
 const car = {
   x: 0, y: 0, a: 0, vx: 0, vy: 0, steer: 0, idx: 0, ers: 1, gear: 0, rpm: 4000,
   // Dynamic Drift States
@@ -1185,7 +1352,21 @@ const car = {
   isBoosting: false,            // True when Overtake Boost is actively firing
   boostBlend: 0,                // Smooth 0.0 to 1.0 power transition factor
   boostAccelBonus: 0,           // Interpolated electric acceleration boost
-  boostSpeedBonus: 0            // Interpolated top speed boost
+  boostSpeedBonus: 0,           // Interpolated top speed boost
+  // Functional Controlled Braking & Brake Balance States
+  brakeInput: 0,                // Smooth progressive brake pedal position (0.0 to 1.0)
+  brakeBias: (function(){
+    const s = localStorage.getItem('formula_v_brake_bias');
+    const v = s ? parseFloat(s) : 0.56;
+    return Math.max(0.45, Math.min(0.70, isNaN(v) ? 0.56 : v));
+  })(),
+  actualBrakeForce: 0,          // Live effective deceleration force being exerted
+  brakeFrontLoad: 0.56,         // Front axle braking share
+  brakeRearLoad: 0.44,          // Rear axle braking share
+  isReversing: false,           // True when actively reversing
+  stoppedDuration: 0,           // Timer held stopped while braking before reverse engages
+  wheelSlipFront: 0,            // Front axle slip factor under heavy braking (0 to 1)
+  wheelSlipRear: 0              // Rear axle slip factor under heavy braking (0 to 1)
 };
 let driftHandlingMultiplier = 1.0;
 let keys = {}, state = 'idle', t0 = 0, lapT = 0, lapNo = 1, best = null, last = null, halfway = false, lightsT = 0, go = false;
@@ -1991,8 +2172,8 @@ function buildF1Mesh(bodyHex, accentHex, rimHex) {
   addBox(bodyGroup, 0.04, 0.48, 0.52, -0.68, 1.40, 0.86, 0, 0, 0, matBody);
   addBox(bodyGroup, 0.04, 0.48, 0.52,  0.68, 1.40, 0.86, 0, 0, 0, matBody);
 
-  // Wheels
-  const wheels = { front: [], allSpin: [] };
+  // Wheels (separated into frontSpin and rearSpin for axle-specific braking simulation)
+  const wheels = { front: [], frontSpin: [], rearSpin: [], allSpin: [] };
   [
     [-0.82, -0.90, 0.32, 0.32, 0.30, true],
     [ 0.82, -0.90, 0.32, 0.32, 0.30, true],
@@ -2002,12 +2183,21 @@ function buildF1Mesh(bodyHex, accentHex, rimHex) {
     const { wheelPivot, spinGroup } = createLowPolyWheel(rad, width, matRim, matTire);
     wheelPivot.position.set(-wx, wz, -wy);
     root.add(wheelPivot);
-    if (isFront) wheels.front.push(wheelPivot);
+    if (isFront) {
+      wheels.front.push(wheelPivot);
+      wheels.frontSpin.push(spinGroup);
+    } else {
+      wheels.rearSpin.push(spinGroup);
+    }
     wheels.allSpin.push(spinGroup);
   });
 
+  // Rear Rain / Brake Safety Light LED
+  const matBrakeLight = new THREE.MeshStandardMaterial({ color: 0x330000, emissive: 0x000000, roughness: 0.2 });
+  const brakeLight = addBox(bodyGroup, 0.18, 0.08, 0.12, 0, 1.46, 0.28, 0, 0, 0, matBrakeLight);
+
   root.scale.setScalar(CAR_SCALE);
-  return { root, bodyGroup, wheels, steeringWheel, drsFlap };
+  return { root, bodyGroup, wheels, steeringWheel, drsFlap, brakeLight };
 }
 
 function buildStreetRacerMesh(bodyHex, accentHex, rimHex) {
@@ -2050,7 +2240,7 @@ function buildStreetRacerMesh(bodyHex, accentHex, rimHex) {
   steeringWheel.rotation.x = THREE.MathUtils.degToRad(35);
   bodyGroup.add(steeringWheel);
 
-  const wheels = { front: [], allSpin: [] };
+  const wheels = { front: [], frontSpin: [], rearSpin: [], allSpin: [] };
   [
     [-0.82, -0.8, 0.32, true],
     [ 0.82, -0.8, 0.32, true],
@@ -2060,12 +2250,21 @@ function buildStreetRacerMesh(bodyHex, accentHex, rimHex) {
     const { wheelPivot, spinGroup } = createLowPolyWheel(0.32, 0.26, matRim, matTire);
     wheelPivot.position.set(-wx, wz, -wy);
     root.add(wheelPivot);
-    if (isFront) wheels.front.push(wheelPivot);
+    if (isFront) {
+      wheels.front.push(wheelPivot);
+      wheels.frontSpin.push(spinGroup);
+    } else {
+      wheels.rearSpin.push(spinGroup);
+    }
     wheels.allSpin.push(spinGroup);
   });
 
+  // Street Car Rear Tail / Brake Lights
+  const matBrakeLight = new THREE.MeshStandardMaterial({ color: 0x330000, emissive: 0x000000, roughness: 0.2 });
+  const brakeLight = addBox(bodyGroup, 1.25, 0.08, 0.10, 0, 1.18, 0.65, 0, 0, 0, matBrakeLight);
+
   root.scale.setScalar(CAR_SCALE);
-  return { root, bodyGroup, wheels, steeringWheel, drsFlap };
+  return { root, bodyGroup, wheels, steeringWheel, drsFlap, brakeLight };
 }
 
 // Build Player Car
@@ -2416,6 +2615,7 @@ function fullRaceReset() {
   car.vx = car.vy = 0; car.steer = 0; car.idx = i; car.ers = 1; car.ersCharge = 100; car.isBoosting = false; car.boostBlend = 0; car.boostAccelBonus = 0; car.boostSpeedBonus = 0;
   car.isDrifting = false; car.driftIntensity = 0; car.driftAngle = 0; car.driftDir = 0; car.driftDuration = 0;
   car.drsOpen = false; car.currentDrag = DRS_CONFIG.dragNormal; car.drsAccelBonus = 0; car.currentMaxV = DRS_CONFIG.maxSpeedNormal;
+    car.brakeInput = 0; car.actualBrakeForce = 0; car.isReversing = false; car.stoppedDuration = 0; car.wheelSlipFront = 0; car.wheelSlipRear = 0;
   clearDriftFX();
   lapNo = 1; lapT = 0; halfway = false; go = false; state = 'lights'; lightsT = 0;
   lapTimes = []; best = null; last = null; raceFinished = false; totalRaceTime = 0;
@@ -2589,6 +2789,66 @@ function toggleDRS() {
   }
 }
 
+// Brake Bias & Controlled Braking Management
+let biasToastTimeout = null;
+function showBiasToast(bias) {
+  const toast = $('bias-toast');
+  if (!toast) return;
+  const fPct = Math.round(bias * 100);
+  const rPct = 100 - fPct;
+  let trait = 'BALANCED';
+  if (fPct >= 62) trait = 'HIGH UNDERSTEER (ENTRY STABLE)';
+  else if (fPct >= 57) trait = 'FORWARD STABLE';
+  else if (fPct === 56) trait = 'OPTIMAL ARCADE-SIM 56:44';
+  else if (fPct <= 49) trait = 'AGILE TURN-IN (REAR ROTATION)';
+  else trait = 'NEUTRAL TURN-IN';
+
+  toast.innerHTML = `BRAKE BIAS: <b style="color:var(--neon-lime)">${fPct}% FRONT</b> / <b style="color:var(--hot-orange)">${rPct}% REAR</b> &middot; <span style="font-size:12px;color:var(--dim)">${trait}</span>`;
+  toast.classList.add('show');
+  if (biasToastTimeout) clearTimeout(biasToastTimeout);
+  biasToastTimeout = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 1400);
+}
+
+function playBiasTickAudio() {
+  if (!audioCtx || !audioEnabled) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    const baseFreq = car.brakeBias >= 0.56 ? 780 : 580;
+    osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(baseFreq + 150, audioCtx.currentTime + 0.035);
+    g.gain.setValueAtTime(0.04 * volumeLevel, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.035);
+    osc.connect(g);
+    g.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.04);
+  } catch(e) {}
+}
+
+function setBrakeBias(newBias, showFeedback = true) {
+  const clamped = Math.max(BRAKE_CONFIG.minBias, Math.min(BRAKE_CONFIG.maxBias, Math.round(newBias * 100) / 100));
+  car.brakeBias = clamped;
+  localStorage.setItem('formula_v_brake_bias', clamped.toString());
+
+  const biasSlider = $('brake-bias-setting');
+  if (biasSlider) biasSlider.value = Math.round(clamped * 100);
+  const biasOutput = $('brake-bias-value');
+  if (biasOutput) biasOutput.value = `${Math.round(clamped * 100)}% F`;
+
+  if (showFeedback) {
+    showBiasToast(clamped);
+    playBiasTickAudio();
+  }
+}
+
+function adjustBrakeBias(delta) {
+  setBrakeBias(car.brakeBias + delta, true);
+}
+
 function closeDRS(reason) {
   if (car.drsOpen) {
     car.drsOpen = false;
@@ -2627,6 +2887,14 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyV' || k === 'v') setCarModel(activeVehicle === 'street' ? 'f1' : 'street');
   if (e.code === 'KeyU' || k === 'u') toggleAudio();
   if (e.code === 'KeyE' || k === 'e') toggleDRS();
+  if (e.code === 'BracketLeft' || k === '[' || e.key === '[') {
+    e.preventDefault();
+    adjustBrakeBias(-BRAKE_CONFIG.biasStep);
+  }
+  if (e.code === 'BracketRight' || k === ']' || e.key === ']') {
+    e.preventDefault();
+    adjustBrakeBias(BRAKE_CONFIG.biasStep);
+  }
   if (e.code.startsWith('Arrow') || e.code === 'Space' || k === ' ') e.preventDefault();
 });
 addEventListener('keyup', e => { setPlayerKeyState(e, 0); });
@@ -2687,6 +2955,35 @@ if (driftSlider) {
   driftSlider.addEventListener('input', e => {
     driftHandlingMultiplier = Number(e.target.value) / 100;
     $('drift-value').value = e.target.value + '%';
+  });
+}
+const brakeBiasSlider = $('brake-bias-setting');
+if (brakeBiasSlider) {
+  brakeBiasSlider.value = Math.round(car.brakeBias * 100);
+  $('brake-bias-value').value = `${Math.round(car.brakeBias * 100)}% F`;
+  brakeBiasSlider.addEventListener('input', e => {
+    const val = Number(e.target.value) / 100;
+    setBrakeBias(val, true);
+  });
+}
+const brakeForceSlider = $('brake-force-setting');
+if (brakeForceSlider) {
+  const curForcePct = Math.round(BRAKE_CONFIG.userBrakeForceMultiplier * 100);
+  brakeForceSlider.value = curForcePct;
+  $('brake-force-value').value = `${curForcePct}%`;
+  brakeForceSlider.addEventListener('input', e => {
+    BRAKE_CONFIG.userBrakeForceMultiplier = Number(e.target.value) / 100;
+    $('brake-force-value').value = e.target.value + '%';
+    localStorage.setItem('formula_v_brake_force', BRAKE_CONFIG.userBrakeForceMultiplier.toString());
+  });
+}
+const bbTagEl = $('bb-tag');
+if (bbTagEl) {
+  bbTagEl.addEventListener('click', () => {
+    // Click cycles bias: +2%, wraps from 70% to 45%
+    let nextBias = car.brakeBias + 0.02;
+    if (nextBias > BRAKE_CONFIG.maxBias + 0.001) nextBias = BRAKE_CONFIG.minBias;
+    setBrakeBias(nextBias, true);
   });
 }
 const drsModeSel = $('drs-mode-sel');
@@ -2824,8 +3121,8 @@ function update(dt) {
 
   // Automatic DRS deactivation conditions
   if (car.drsOpen) {
-    // 1. Hard braking shuts DRS immediately (Standard F1 regulation)
-    if (brk) {
+    // 1. Hard or significant braking shuts DRS immediately (Standard F1 regulation)
+    if (brk || car.brakeInput > 0.10) {
       closeDRS('BRAKE');
     }
     // 2. Leaving the DRS zone closes DRS automatically
@@ -2842,7 +3139,7 @@ function update(dt) {
   // FUNCTIONAL ERS & OVERTAKE BOOST CALCULATION
   // =========================================================================
   const wantsBoost = !!(keys.ShiftLeft || keys.ShiftRight);
-  const canBoost = (state !== 'paused' && state !== 'lights') && !raceFinished && thr && ((car.ersCharge || 0) > 0);
+  const canBoost = (state !== 'paused' && state !== 'lights') && !raceFinished && thr && !brk && ((car.brakeInput || 0) < 0.12) && ((car.ersCharge || 0) > 0);
 
   if (wantsBoost && canBoost && (car.isBoosting || (car.ersCharge || 0) >= ERS_CONFIG.ersMinActivationCharge)) {
     car.isBoosting = true;
@@ -2854,9 +3151,9 @@ function update(dt) {
     car.isBoosting = false;
     // Energy Recovery / Harvesting
     let recoveryRate = ERS_CONFIG.ersRechargeRate;
-    if (brk) {
-      // MGU-K Regenerative Braking Recovery
-      recoveryRate = ERS_CONFIG.ersBrakeRecovery;
+    if (brk || (car.brakeInput || 0) > 0.08) {
+      // MGU-K Regenerative Braking Recovery (scales dynamically with brake input)
+      recoveryRate = ERS_CONFIG.ersBrakeRecovery * (0.6 + (car.brakeInput || 0) * 0.4);
     } else if (!thr && vf > 20) {
       // MGU-H Coasting Recovery
       recoveryRate = ERS_CONFIG.ersCoastRecovery;
@@ -2896,15 +3193,89 @@ function update(dt) {
     vf += totalAccel * (1 - Math.max(0, vf) / maxV) * dt;
   }
 
-  // Braking
-  let brakePower = 1900;
-  if (weather === 'rain') brakePower = 1300;
-  else if (weather === 'snow') brakePower = 850;
+  // =========================================================================
+  // PROGRESSIVE CONTROLLED BRAKING & FRONT/REAR BRAKE BALANCE
+  // =========================================================================
+  // 1. Progressive brake input ramping (avoids unrealistic instant impulse)
+  const targetBrakePedal = brk ? 1.0 : 0.0;
+  const bRate = brk ? BRAKE_CONFIG.brakeResponse : BRAKE_CONFIG.brakeReleaseRate;
+  car.brakeInput = (car.brakeInput || 0) + (targetBrakePedal - (car.brakeInput || 0)) * Math.min(1, bRate * dt);
+  if (!brk && car.brakeInput < 0.005) car.brakeInput = 0;
 
-  if (brk) {
-    vf -= (vf > 0 ? brakePower : 500) * dt;
-    if (vf < -120) vf = -120;
-    if (car.isDrifting) vl *= Math.exp(-3.2 * dt);
+  // 2. Weather & surface traction limits
+  let surfaceGripFactor = onTrack ? 1.0 : (gravel ? 0.38 : 0.62);
+  if (weather === 'cloudy') surfaceGripFactor *= 0.95;
+  else if (weather === 'rain') surfaceGripFactor *= 0.65;
+  else if (weather === 'snow') surfaceGripFactor *= 0.35;
+
+  // 3. Speed-dependent aerodynamic downforce assistance (realistic F1 aero braking curve)
+  const aeroBrakeMult = 1.0 + BRAKE_CONFIG.highSpeedAeroFactor * Math.min(1.2, Math.max(0, vf) / 600);
+
+  // 4. Deceleration calculation with grip traction cap (prevents infinite braking)
+  const configuredMaxForce = BRAKE_CONFIG.maxBrakeForce * (BRAKE_CONFIG.userBrakeForceMultiplier || 1.0);
+  const requestedBrakeDecel = configuredMaxForce * car.brakeInput * aeroBrakeMult;
+  const availableBrakeTraction = configuredMaxForce * 1.35 * surfaceGripFactor;
+  const actualBrakeDecel = Math.min(requestedBrakeDecel, availableBrakeTraction);
+  car.actualBrakeForce = actualBrakeDecel;
+
+  // 5. Axle brake load distribution & wheel slip simulation
+  const biasFront = car.brakeBias;
+  const biasRear = 1.0 - biasFront;
+  car.brakeFrontLoad = biasFront;
+  car.brakeRearLoad = biasRear;
+
+  const gripSaturation = actualBrakeDecel / Math.max(10, availableBrakeTraction);
+  car.wheelSlipFront = Math.min(1.0, gripSaturation * (biasFront / 0.56) * car.brakeInput);
+  car.wheelSlipRear = Math.min(1.0, gripSaturation * (biasRear / 0.44) * car.brakeInput);
+
+  // 6. Progressive velocity deceleration & smooth directional transition
+  if (vf > BRAKE_CONFIG.lowSpeedCutoff) {
+    // Forward motion: progressive braking smoothly reduces speed
+    car.isReversing = false;
+    car.stoppedDuration = 0;
+    vf -= actualBrakeDecel * dt;
+    // Prevent backward velocity jump/overshoot below 0
+    if (vf < 0.2) vf = 0;
+  } else if (vf < -BRAKE_CONFIG.lowSpeedCutoff) {
+    // Reversing motion
+    car.isReversing = true;
+    if (thr) {
+      // Throttle acts as progressive forward brake when in reverse!
+      vf += 1350 * dt;
+      if (vf > -0.2) vf = 0;
+    } else if (brk) {
+      // Holding brake accelerates backward up to reverse top speed
+      vf = Math.max(BRAKE_CONFIG.reverseMaxSpeed, vf - BRAKE_CONFIG.reverseAccel * dt);
+    } else {
+      // Coasting to stop in reverse
+      vf += 320 * dt;
+      if (vf > -0.2) vf = 0;
+    }
+  } else {
+    // Low speed / stopped zone (|vf| <= lowSpeedCutoff)
+    if (brk && !thr) {
+      car.stoppedDuration = (car.stoppedDuration || 0) + dt;
+      // After brief intentional deadband, engage reverse gear smoothly
+      if (car.stoppedDuration > BRAKE_CONFIG.reverseDelay) {
+        car.isReversing = true;
+        vf -= BRAKE_CONFIG.reverseAccel * dt;
+      } else {
+        // Exponential settling to 0 while stopped before reverse engages
+        vf *= Math.exp(-24 * dt);
+        if (Math.abs(vf) < 0.15) vf = 0;
+      }
+    } else {
+      car.stoppedDuration = 0;
+      car.isReversing = false;
+      vf *= Math.exp(-24 * dt);
+      if (Math.abs(vf) < 0.15) vf = 0;
+    }
+  }
+
+  // 7. Controlled braking during drift: reduces speed while preserving steering controllability
+  if (car.isDrifting && car.brakeInput > 0.05) {
+    const driftBrakeDamp = 1.6 + (biasFront - 0.45) * 2.2;
+    vl *= Math.exp(-driftBrakeDamp * car.brakeInput * dt);
   }
 
   // Drift Triggering Logic
@@ -2999,6 +3370,20 @@ function update(dt) {
   const ar = Math.abs(vf);
   const baseTurnRate = car.steer * steerCoeff * steeringSensitivity * Math.min(ar / 220, 1) / (1 + ar / 620) * (vf >= 0 ? 1 : -1);
   let finalYawRate = baseTurnRate;
+
+  // Trail-braking yaw dynamics based on front-to-rear brake balance
+  if (car.brakeInput > 0.04 && absSteer > 0.03 && vf > 25) {
+    const biasDelta = car.brakeBias - 0.56;
+    // Front bias (> 56%): understeer damping; Rear bias (< 56%): rotation enhancement
+    const yawBiasMultiplier = 1.0 - (biasDelta * 0.85 * car.brakeInput);
+    finalYawRate *= Math.max(0.72, Math.min(1.28, yawBiasMultiplier));
+
+    // Under aggressive rear braking (bias < 0.50) with heavy steering into turn:
+    if (car.brakeBias < 0.50 && car.brakeInput > 0.35) {
+      const rearTurnAssist = car.steer * (0.50 - car.brakeBias) * 1.5 * car.brakeInput * Math.min(1.0, vf / 170);
+      finalYawRate += rearTurnAssist;
+    }
+  }
 
   if (car.isDrifting) {
     // Oversteer yaw rotation: tail swings outward into slide
@@ -3120,6 +3505,15 @@ function update(dt) {
 
   $('rev').firstElementChild.style.width = Math.round(Math.max(0, Math.min(1, inG)) * 100) + '%';
   $('ersb').firstElementChild.style.width = Math.round(car.ers * 100) + '%';
+  // Update Brake Bias Tag on Dashboard
+  const bbEl = $('bb-tag');
+  if (bbEl) {
+    const fPct = Math.round(car.brakeBias * 100);
+    bbEl.textContent = `BB ${fPct}%`;
+    bbEl.classList.toggle('braking', (car.brakeInput || 0) > 0.15);
+    bbEl.classList.toggle('rear-bias', car.brakeBias < 0.53);
+  }
+
   const drsEl = $('drs');
   if (drsEl) {
     if (car.drsOpen) {
@@ -3284,6 +3678,66 @@ function update(dt) {
       }
     }
 
+    // 2b. Update Brake Balance & Pressure Telemetry Indicators
+    const sideBrakeStatus = $('side-brake-status');
+    const sideBiasFLbl = $('side-bias-f-lbl');
+    const sideBiasRLbl = $('side-bias-r-lbl');
+    const sideBiasFillF = $('side-bias-fill-f');
+    const sideBiasFillR = $('side-bias-fill-r');
+    const sideBrakePressure = $('side-brake-pressure');
+    const sideBrakeTrait = $('side-brake-trait');
+
+    const fPct = Math.round(car.brakeBias * 100);
+    const rPct = 100 - fPct;
+
+    if (sideBiasFLbl) sideBiasFLbl.textContent = `FRONT ${fPct}%`;
+    if (sideBiasRLbl) sideBiasRLbl.textContent = `${rPct}% REAR`;
+    if (sideBiasFillF) sideBiasFillF.style.width = `${fPct}%`;
+    if (sideBiasFillR) sideBiasFillR.style.width = `${rPct}%`;
+
+    if (sideBrakePressure) {
+      const pressPct = Math.round((car.brakeInput || 0) * 100);
+      sideBrakePressure.textContent = `${pressPct}%`;
+      sideBrakePressure.style.color = pressPct > 10 ? '#ff3b30' : 'var(--pure-white)';
+    }
+
+    if (sideBrakeTrait) {
+      if (fPct >= 62) {
+        sideBrakeTrait.textContent = 'STABLE (HIGH UNDERSTEER)';
+        sideBrakeTrait.style.color = 'var(--neon-lime)';
+      } else if (fPct >= 57) {
+        sideBrakeTrait.textContent = 'FORWARD STABLE';
+        sideBrakeTrait.style.color = 'var(--neon-lime)';
+      } else if (fPct === 56) {
+        sideBrakeTrait.textContent = 'BALANCED (56:44)';
+        sideBrakeTrait.style.color = '#00e5ff';
+      } else if (fPct <= 49) {
+        sideBrakeTrait.textContent = 'AGILE (REAR OVERSTEER)';
+        sideBrakeTrait.style.color = 'var(--hot-orange)';
+      } else {
+        sideBrakeTrait.textContent = 'NEUTRAL TURN-IN';
+        sideBrakeTrait.style.color = 'var(--pure-white)';
+      }
+    }
+
+    if (sideBrakeStatus) {
+      if ((car.brakeInput || 0) > 0.08) {
+        const pressPct = Math.round(car.brakeInput * 100);
+        sideBrakeStatus.textContent = `BRAKING ${pressPct}% (${fPct}:${rPct})`;
+        sideBrakeStatus.className = 'side-status-box brake-active';
+      } else if (fPct > 56) {
+        sideBrakeStatus.textContent = `FRONT BIAS ${fPct}:${rPct}`;
+        sideBrakeStatus.className = 'side-status-box brake-front';
+      } else if (fPct < 56) {
+        sideBrakeStatus.textContent = `REAR BIAS ${fPct}:${rPct}`;
+        sideBrakeStatus.className = 'side-status-box brake-rear';
+      } else {
+        sideBrakeStatus.textContent = `BALANCED ${fPct}:${rPct}`;
+        sideBrakeStatus.className = 'side-status-box';
+      }
+    }
+    sideTelemetry.classList.toggle('brake-glowing', (car.brakeInput || 0) > 0.45);
+
     // 3. Update ERS Overtake Boost Telemetry Indicators
     sideTelemetry.classList.toggle('ers-glowing', !!car.isBoosting);
     const sideErsStatus = $('side-ers-status');
@@ -3375,8 +3829,9 @@ function update(dt) {
 
   car.kmh = kmh; car.vf = vf; car.gear = g; car.inG = inG; car.thr = thr; car.brk = brk;
 
-  // Car Body Roll & Pitch
-  const targetPitch = (brk ? 0.06 : 0) - (thr ? 0.04 : 0);
+  // Car Body Roll & Pitch (enhanced nose-dive pitch proportional to progressive brake input & front bias)
+  const brakePitchMagnitude = (car.brakeInput || 0) * (0.045 + (car.brakeBias || 0.56) * 0.035);
+  const targetPitch = brakePitchMagnitude - (thr ? 0.04 : 0);
   car.pitch = (car.pitch || 0) + (targetPitch - (car.pitch || 0)) * Math.min(1, 8 * dt);
   const latG = ((car.vl || 0) / 280) * 0.045;
   const targetRoll = (-car.steer * 0.065 + latG) * Math.min(1, kmh / 140);
@@ -3408,15 +3863,35 @@ function updateThreeScene(dt) {
     playerCarObj.bodyGroup.rotation.z = car.roll || 0;
 
     // Front Wheels Steer
-    playerCarObj.wheels.front.forEach(p => {
-      p.rotation.y = -car.steer * 0.45;
-    });
+    if (playerCarObj.wheels && playerCarObj.wheels.front) {
+      playerCarObj.wheels.front.forEach(p => {
+        p.rotation.y = -car.steer * 0.45;
+      });
+    }
 
-    // All Wheels Spin
-    const spinDelta = (car.vf / (0.34 * CAR_SCALE)) * dt;
-    playerCarObj.wheels.allSpin.forEach(s => {
-      s.rotation.x += spinDelta;
-    });
+    // Axle-Specific Wheels Spin (accounting for axle braking slip)
+    const baseWheelSpinRate = (car.vf / (0.34 * CAR_SCALE));
+    const frontSpinDelta = baseWheelSpinRate * (1 - (car.wheelSlipFront || 0) * 0.70) * dt;
+    const rearSpinDelta = baseWheelSpinRate * (1 - (car.wheelSlipRear || 0) * 0.70) * dt;
+
+    if (playerCarObj.wheels && playerCarObj.wheels.frontSpin && playerCarObj.wheels.frontSpin.length > 0) {
+      playerCarObj.wheels.frontSpin.forEach(s => { s.rotation.x += frontSpinDelta; });
+      playerCarObj.wheels.rearSpin.forEach(s => { s.rotation.x += rearSpinDelta; });
+    } else if (playerCarObj.wheels && playerCarObj.wheels.allSpin) {
+      playerCarObj.wheels.allSpin.forEach(s => { s.rotation.x += baseWheelSpinRate * dt; });
+    }
+
+    // Real-Time Brake Light Illumination
+    if (playerCarObj.brakeLight && playerCarObj.brakeLight.material) {
+      const bIntensity = (car.brakeInput || 0);
+      if (bIntensity > 0.05) {
+        playerCarObj.brakeLight.material.emissive.setHex(0xff1e00);
+        playerCarObj.brakeLight.material.emissiveIntensity = 0.5 + bIntensity * 2.5;
+      } else {
+        playerCarObj.brakeLight.material.emissive.setHex(0x000000);
+        playerCarObj.brakeLight.material.emissiveIntensity = 0;
+      }
+    }
 
     // Cockpit Steering Wheel
     if (playerCarObj.steeringWheel) {
