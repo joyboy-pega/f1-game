@@ -3,19 +3,16 @@
 import { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CameraViewMode } from '@/lib/game/constants';
-import { CarPhysicsState } from '@/lib/game/physics';
+import { useGameStore } from '@/lib/game/store';
+import { world } from '@/lib/game/sim/world';
 
-interface CameraProps {
-  carState: CarPhysicsState;
-  viewMode: CameraViewMode;
-}
-
-export function Camera({ carState, viewMode }: CameraProps) {
+export function Camera() {
   const { camera } = useThree();
+  const viewMode = useGameStore((s) => s.settings.cameraView);
   const smoothedCamPos = useRef(new THREE.Vector3(0, 30, -100));
 
   useFrame((state, dt) => {
+    const carState = world.player.phys;
     const pCam = camera as THREE.PerspectiveCamera;
     if (!pCam.isPerspectiveCamera) return;
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useGameStore } from '@/lib/game/store';
 
 export function MainMenu() {
   // Currencies state
@@ -522,7 +523,7 @@ export function MainMenu() {
                       SPIN: {autoSpin ? 'ON' : 'OFF'}
                     </button>
                     <Link
-                      href={`/game?car=${currentCar}&cam=chase`}
+                      href="/game" onClick={() => useGameStore.getState().setSettings({ carModel: currentCar, cameraView: 'chase' })}
                       className="btn-cardboard-ctrl active"
                       id="btn-drive-cardboard"
                       style={{ textDecoration: 'none', background: 'var(--neon-lime)', color: 'var(--ink-black)', fontWeight: 800 }}
@@ -589,7 +590,7 @@ export function MainMenu() {
             {/* PRIMARY RACE CTA BUTTONS */}
             <section className="action-buttons-wrap">
               <Link
-                href={`/game?car=${currentCar}&cam=chase`}
+                href="/game" onClick={() => useGameStore.getState().setSettings({ carModel: currentCar, cameraView: 'chase' })}
                 className="btn-race-primary"
                 id="btn-race-main"
                 title="Launch Formula V Grand Prix"
@@ -655,7 +656,7 @@ export function MainMenu() {
             <div className="nav-label">GARAGE</div>
           </button>
 
-          <Link href={`/game?car=${currentCar}&cam=chase`} className="nav-race-center" id="nav-btn-race" title="Race Now" style={{ textDecoration: 'none' }}>
+          <Link href="/game" onClick={() => useGameStore.getState().setSettings({ carModel: currentCar, cameraView: 'chase' })} className="nav-race-center" id="nav-btn-race" title="Race Now" style={{ textDecoration: 'none' }}>
             <div className="nav-race-circle">
               <span className="nav-race-label">RACE</span>
             </div>
@@ -700,7 +701,7 @@ export function MainMenu() {
               <button type="button" className="modal-close-btn" onClick={() => setActiveModal(null)}>X</button>
             </div>
             <div className="modal-body">
-              <Link href={`/game?car=${currentCar}&cam=chase`} className="mode-option-btn" style={{ textDecoration: 'none' }}>
+              <Link href="/game" onClick={() => useGameStore.getState().setSettings({ carModel: currentCar, cameraView: 'chase' })} className="mode-option-btn" style={{ textDecoration: 'none' }}>
                 <div className="mode-opt-header">
                   <span className="mode-opt-name">🏎️ 3D COCKPIT GRAND PRIX</span>
                   <span className="mode-opt-tag">HOT</span>
@@ -708,7 +709,7 @@ export function MainMenu() {
                 <div className="mode-opt-desc">Full 3D cockpit simulation at Buddh International Circuit. Real DRS, ERS boost &amp; tire thermal model.</div>
               </Link>
 
-              <Link href={`/game?car=street&cam=hood`} className="mode-option-btn" style={{ textDecoration: 'none' }}>
+              <Link href="/game" onClick={() => useGameStore.getState().setSettings({ carModel: 'street', cameraView: 'hood' })} className="mode-option-btn" style={{ textDecoration: 'none' }}>
                 <div className="mode-opt-header">
                   <span className="mode-opt-name">🏁 NOSE CAM TIME TRIAL</span>
                   <span className="mode-opt-tag">APEX</span>
@@ -795,7 +796,7 @@ export function MainMenu() {
               </div>
 
               <Link
-                href={`/game?car=${currentCar}&cam=chase`}
+                href="/game" onClick={() => useGameStore.getState().setSettings({ carModel: currentCar, cameraView: 'chase' })}
                 className="mode-option-btn"
                 style={{ textAlign: 'center', background: 'var(--neon-lime)', color: 'var(--ink-black)', fontWeight: 800, textDecoration: 'none' }}
               >
@@ -856,7 +857,7 @@ export function MainMenu() {
               </p>
 
               <Link
-                href={`/game?car=${currentCar}&cam=chase`}
+                href="/game" onClick={() => useGameStore.getState().setSettings({ carModel: currentCar, cameraView: 'chase' })}
                 className="mode-option-btn"
                 style={{ textAlign: 'center', textDecoration: 'none' }}
               >

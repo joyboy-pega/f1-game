@@ -186,26 +186,65 @@ export const TIRE_CONFIG = {
   lockupWearMultiplier: 2.2,
 };
 
-// AI Rival Driver Configurations
+// Driver roster (fictional teams & drivers). `skill` feeds the AI controller.
 export interface AIConfig {
-  pace: number;
-  cornerBrake: number;
-  accel: number;
-  name: string;
-  color: string;
-  accent: string;
-  rim: string;
+  pace: number; // 0..1+ straight-line & cornering commitment
+  cornerBrake: number; // how conservative into corners (higher = earlier braking)
+  accel: number; // throttle application aggressiveness
+  consistency: number; // 0..1, lower = more lap-to-lap noise and mistakes
+  aggression: number; // 0..1, willingness to attempt overtakes / defend
 }
 
-export const AI_CONFIGS: AIConfig[] = [
-  { pace: 1.00, cornerBrake: 0.72, accel: 0.97, name: 'APEX #1',     color: '#1E41B0', accent: '#FFD700', rim: '#C0C0C0' },
-  { pace: 0.97, cornerBrake: 0.75, accel: 0.94, name: 'NOVA #44',    color: '#00D2BE', accent: '#000000', rim: '#00D2BE' },
-  { pace: 0.95, cornerBrake: 0.68, accel: 1.00, name: 'VELOCITY #4', color: '#FF8700', accent: '#0072BB', rim: '#1E1E1E' },
-  { pace: 0.98, cornerBrake: 0.70, accel: 0.96, name: 'TITAN #16',   color: '#DC0000', accent: '#FFFFFF', rim: '#DC0000' },
-  { pace: 0.93, cornerBrake: 0.73, accel: 0.92, name: 'PHANTOM #14', color: '#006F62', accent: '#CEDC00', rim: '#1E1E1E' },
-  { pace: 0.91, cornerBrake: 0.65, accel: 0.90, name: 'ORBIT #63',   color: '#00A3E0', accent: '#002F6C', rim: '#C0C0C0' },
-  { pace: 0.88, cornerBrake: 0.62, accel: 0.88, name: 'PULSE #81',   color: '#FD4BC7', accent: '#0090FF', rim: '#FD4BC7' },
+export interface Livery {
+  body: string;
+  accent: string;
+  rim: string;
+  number: number;
+}
+
+export interface DriverProfile {
+  id: string;
+  name: string;
+  code: string; // 3-letter timing code
+  team: string;
+  livery: Livery;
+  skill: AIConfig;
+}
+
+export const DRIVER_ROSTER: DriverProfile[] = [
+  { id: 'apx', name: 'Rhys Calder', code: 'CAL', team: 'Apex Dynamics', livery: { body: '#1E41B0', accent: '#FFD700', rim: '#C0C0C0', number: 1 }, skill: { pace: 1.0, cornerBrake: 0.72, accel: 0.97, consistency: 0.95, aggression: 0.8 } },
+  { id: 'nov', name: 'Mateo Varga', code: 'VAR', team: 'Nova Racing', livery: { body: '#00D2BE', accent: '#111111', rim: '#00D2BE', number: 44 }, skill: { pace: 0.98, cornerBrake: 0.75, accel: 0.94, consistency: 0.93, aggression: 0.6 } },
+  { id: 'vel', name: 'Kenji Arata', code: 'ARA', team: 'Velocity GP', livery: { body: '#FF8700', accent: '#0072BB', rim: '#1E1E1E', number: 4 }, skill: { pace: 0.97, cornerBrake: 0.68, accel: 1.0, consistency: 0.9, aggression: 0.85 } },
+  { id: 'tit', name: 'Lucien Moreau', code: 'MOR', team: 'Titan Corsa', livery: { body: '#DC0000', accent: '#FFFFFF', rim: '#DC0000', number: 16 }, skill: { pace: 0.975, cornerBrake: 0.7, accel: 0.96, consistency: 0.88, aggression: 0.75 } },
+  { id: 'pha', name: 'Sofia Lindqvist', code: 'LIN', team: 'Phantom F1', livery: { body: '#006F62', accent: '#CEDC00', rim: '#1E1E1E', number: 14 }, skill: { pace: 0.955, cornerBrake: 0.73, accel: 0.92, consistency: 0.92, aggression: 0.5 } },
+  { id: 'orb', name: 'Dev Malhotra', code: 'MAL', team: 'Orbit Motorsport', livery: { body: '#00A3E0', accent: '#002F6C', rim: '#C0C0C0', number: 63 }, skill: { pace: 0.95, cornerBrake: 0.65, accel: 0.9, consistency: 0.86, aggression: 0.65 } },
+  { id: 'pul', name: 'Oscar Hale', code: 'HAL', team: 'Pulse Racing', livery: { body: '#FD4BC7', accent: '#0090FF', rim: '#FD4BC7', number: 81 }, skill: { pace: 0.94, cornerBrake: 0.62, accel: 0.88, consistency: 0.84, aggression: 0.7 } },
+  { id: 'ion', name: 'Yuki Tanabe', code: 'TAN', team: 'Ion Racing', livery: { body: '#F5F5F5', accent: '#E10600', rim: '#111111', number: 22 }, skill: { pace: 0.935, cornerBrake: 0.7, accel: 0.9, consistency: 0.85, aggression: 0.55 } },
+  { id: 'zen', name: 'Marco Bellini', code: 'BEL', team: 'Zenith Corse', livery: { body: '#6B21A8', accent: '#F59E0B', rim: '#F59E0B', number: 10 }, skill: { pace: 0.93, cornerBrake: 0.69, accel: 0.91, consistency: 0.83, aggression: 0.8 } },
+  { id: 'hel', name: 'Aiden Brooks', code: 'BRO', team: 'Helix Works', livery: { body: '#14532D', accent: '#E5E7EB', rim: '#9CA3AF', number: 27 }, skill: { pace: 0.925, cornerBrake: 0.71, accel: 0.89, consistency: 0.82, aggression: 0.45 } },
+  { id: 'sol', name: 'Priya Raman', code: 'RAM', team: 'Solaris', livery: { body: '#FACC15', accent: '#111827', rim: '#111827', number: 5 }, skill: { pace: 0.92, cornerBrake: 0.67, accel: 0.9, consistency: 0.8, aggression: 0.6 } },
 ];
+
+export const MAX_AI_CARS = DRIVER_ROSTER.length;
+
+// Track arc length (world units) — used for timing, gaps and AI look-ahead
+export const segmentLengths = new Float32Array(N);
+export const cumulativeS = new Float32Array(N + 1);
+for (let i = 0; i < N; i++) {
+  const a = trackSplinePoints[i];
+  const b = trackSplinePoints[(i + 1) % N];
+  segmentLengths[i] = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  cumulativeS[i + 1] = cumulativeS[i] + segmentLengths[i];
+}
+export const TRACK_LENGTH = cumulativeS[N];
+
+// Sector boundaries as spline indices (S1: [0,s1), S2: [s1,s2), S3: [s2,N))
+export const SECTOR_BOUNDS: [number, number] = [280, 1130];
+
+export type TyreCompound = 'soft' | 'medium' | 'hard' | 'inter' | 'wet';
+export type GameMode = 'race' | 'timetrial' | 'practice';
+export type Difficulty = 'rookie' | 'pro' | 'legend';
+export type TimeOfDay = 'day' | 'sunset' | 'night';
 
 export type WeatherType = 'sunny' | 'cloudy' | 'rain' | 'snow';
 export type CameraViewMode = 'chase' | 'cockpit' | 'tcam' | 'hood';

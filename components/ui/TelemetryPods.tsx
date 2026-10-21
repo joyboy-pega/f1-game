@@ -1,19 +1,15 @@
 'use client';
 
 import React from 'react';
-import { CarPhysicsState, fitFreshTires } from '@/lib/game/physics';
-import { audio } from '@/lib/game/audio';
-import { ToastMessage } from '@/lib/game/gameState';
+import { controls } from '@/lib/game/controls';
+import { useGameStore } from '@/lib/game/store';
+import { useRefreshRate } from '@/lib/game/useTicker';
+import { world } from '@/lib/game/sim/world';
 
-interface TelemetryPodsProps {
-  carState: CarPhysicsState;
-  isOpen: boolean;
-  onToggle: () => void;
-  addToast: (toast: ToastMessage) => void;
-}
-
-export function TelemetryPods({ carState, isOpen, onToggle, addToast }: TelemetryPodsProps) {
-  if (!isOpen) return null;
+export function TelemetryPods() {
+  useRefreshRate(15);
+  const carState = world.player.phys;
+  const onToggle = useGameStore.getState().toggleTelemetry;
 
   const { fl, fr, rl, rr, avgTemp, overallGrip } = carState.tires;
   const avgT = Math.round(avgTemp);
@@ -25,30 +21,8 @@ export function TelemetryPods({ carState, isOpen, onToggle, addToast }: Telemetr
     return 'optimal';
   };
 
-  const handlePitStop = () => {
-    fitFreshTires(carState);
-    audio.playPitSound();
-    addToast({
-      id: 'pit',
-      type: 'tire',
-      title: 'PIT STOP COMPLETE',
-      subtitle: 'FRESH SOFT TIRES FITTED (100% GRIP)',
-      duration: 2.5,
-    });
-  };
-
-  const adjustBias = (delta: number) => {
-    carState.brakeBias = Math.max(0.45, Math.min(0.7, carState.brakeBias + delta));
-    audio.playBiasTick();
-    const f = Math.round(carState.brakeBias * 100);
-    const r = 100 - f;
-    addToast({
-      id: 'bias',
-      type: 'bias',
-      title: `BRAKE BIAS: ${f}% F / ${r}% R`,
-      duration: 1.5,
-    });
-  };
+  const handlePitStop = () => controls.fireTrigger('pitStopRequested');
+  const adjustBias = (delta: number) => controls.fireTrigger(delta > 0 ? 'brakeBiasUp' : 'brakeBiasDown');
 
   const fPct = Math.round(carState.brakeBias * 100);
   const rPct = 100 - fPct;

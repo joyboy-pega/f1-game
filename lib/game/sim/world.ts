@@ -1,0 +1,403 @@
+import { DRIVER_ROSTER, MAX_AI_CARS, HW, N, trackSplinePoints, type TyreCompound } from '../constants';
+import { NEUTRAL_CONTROLS, type ControlState } from '../controls';
+import {
+  DEFAULT_SETTINGS,
+  formatLapTime,
+  type ClassificationRow,
+  type GameSettings,
+  type HudSnapshot,
+  type RacePhase,
+  type RaceResults,
+  type SectorStatus,
+  type TimingRow,
+} from '../gameState';
+import { createInitialCarState, findNearestTrackPoint, fitFreshTires, updateCarPhysics } from '../physics';
+import { createBrain, driveAI } from './ai';
+import { EventBus } from './events';
+import {
+  advanceTiming,
+  arcPosition,
+  createOverallBests,
+  createTiming,
+  formatGap,
+  gridSlotIndex,
+  liveDelta,
+  sortRunningOrder,
+  type OverallBests,
+} from './race';
+import type { WorldCar } from './types';
+
+export const FIXED_DT = 1 / 120;
+const MAX_SUBSTEPS = 10;
+const GRID_HOLD = 1.0; // seconds on the grid before the first light
+const LIGHT_INTERVAL = 1.0;
+const POSITION_DEBOUNCE = 0.5;
+
+function makeCar(id: number, isPlayer: boolean, idx: number, lateral: number, compound: TyreCompound): WorldCar {
+  const phys = createInitialCarState(idx, lateral);
+  const { s } = arcPosition(phys);
+  return {
+    id,
+    isPlayer,
+    driver: { name: '', code: '', team: '', livery: { body: '#fff', accent: '#000', rim: '#ccc', number: 0 } },
+    skill: null,
+    phys,
+    ctrl: { ...NEUTRAL_CONTROLS },
+    compound,
+    timing: createTiming(s, true),
+    ai: null,
+    surface: { onTrack: true, gravel: false, dist: Math.abs(lateral) },
+    lateral,
+    inPit: false,
+    position: 1,
+    stats: { topSpeedKmh: 0, drsUses: 0, ersUses: 0, overtakes: 0 },
+  };
+}
+
+export class GameWorld {
+  cars: WorldCar[] = [];
+  player!: WorldCar;
+  order: WorldCar[] = [];
+  settings: GameSettings = DEFAULT_SETTINGS;
+  phase: RacePhase = 'grid';
+  phaseTime = 0;
+  raceTime = 0;
+  lightsLit = 0;
+  paused = false;
+  /** Increments on every setup() so renderers can rebuild per-car objects. */
+  raceId = 0;
+  chequered = false;
+  finishCount = 0;
+  overall: OverallBests = createOverallBests();
+  readonly events = new EventBus();
+
+  private acc = 0;
+  private lightsHold = 1.2;
+  private shownPosition = 1;
+  private candidatePosition = 1;
+  private candidateTime = 0;
+
+  constructor() {
+    this.setup(DEFAULT_SETTINGS);
+  }
+
+  get isRace() {
+    return this.settings.mode === 'race';
+  }
+
+  setup(settings: GameSettings) {
+    this.settings = settings;
+    this.raceId++;
+    this.events.clear();
+    this.overall = createOverallBests();
+    this.phaseTime = 0;
+    this.raceTime = 0;
+    this.lightsLit = 0;
+    this.lightsHold = 0.6 + Math.random() * 1.6;
+    this.chequered = false;
+    this.finishCount = 0;
+    this.acc = 0;
+    this.paused = false;
+
+    const race = settings.mode === 'race';
+    const aiCount = race ? Math.max(0, Math.min(MAX_AI_CARS, settings.aiCount)) : 0;
+    const carCount = aiCount + 1;
+    const playerSlot = race ? Math.max(0, Math.min(carCount - 1, settings.gridPosition - 1)) : 0;
+
+    const cars: WorldCar[] = [];
+    let aiIdx = 0;
+    for (let slot = 0; slot < carCount; slot++) {
+      const isPlayer = slot === playerSlot;
+      // Staggered 2-wide grid; solo modes start further back for a rolling out-lap
+      const idx = race ? gridSlotIndex(slot) : (N - 80) % N;
+      const lateral = race ? (slot % 2 === 0 ? -1 : 1) * HW * 0.42 : 0;
+      const compound: TyreCompound = isPlayer ? settings.startCompound : aiIdx % 3 === 2 ? 'medium' : 'soft';
+      const car = makeCar(cars.length, isPlayer, idx, lateral, compound);
+      if (isPlayer) {
+        car.driver = { name: settings.driverName, code: settings.driverCode, team: 'Player', livery: settings.livery };
+      } else {
+        const d = DRIVER_ROSTER[aiIdx++];
+        car.driver = { name: d.name, code: d.code, team: d.team, livery: d.livery };
+        car.skill = d.skill;
+        car.ai = createBrain(slot);
+      }
+      car.position = slot + 1;
+      cars.push(car);
+    }
+
+    this.cars = cars;
+    this.player = cars[playerSlot];
+    this.order = [...cars];
+    this.shownPosition = this.candidatePosition = playerSlot + 1;
+    this.candidateTime = 0;
+
+    if (race) {
+      this.phase = 'grid';
+    } else {
+      this.phase = 'racing';
+    }
+  }
+
+  /** Advance by one rendered frame. Splits into fixed steps; triggers apply on the first step only. */
+  step(frameDt: number, input: ControlState) {
+    if (this.paused) return;
+    this.acc = Math.min(this.acc + frameDt, FIXED_DT * MAX_SUBSTEPS);
+    let first = true;
+    while (this.acc >= FIXED_DT) {
+      this.acc -= FIXED_DT;
+      const c = this.player.ctrl;
+      Object.assign(c, input);
+      if (!first) {
+        c.drsToggleRequested = c.brakeBiasUp = c.brakeBiasDown = c.pitStopRequested = c.resetRequested = false;
+      }
+      first = false;
+      this.fixedStep(FIXED_DT);
+    }
+  }
+
+  private fixedStep(dt: number) {
+    this.phaseTime += dt;
+
+    if (this.phase === 'grid' || this.phase === 'lights') {
+      this.updateStart(dt);
+      return;
+    }
+
+    this.raceTime += dt;
+    const s = this.settings;
+    const pc = this.player.ctrl;
+
+    if (pc.resetRequested) this.resetPlayer();
+    if (pc.pitStopRequested && s.mode === 'practice') {
+      fitFreshTires(this.player.phys);
+      this.events.emit({ type: 'pitExit', carId: this.player.id, compound: this.player.compound, stationaryTime: 0 });
+    }
+
+    for (const car of this.cars) {
+      if (car.ai) driveAI(car, dt, s.difficulty, this.raceTime);
+      const p = car.phys;
+      const wasDrs = p.drsOpen;
+      const wasErs = p.isBoosting;
+      const biasBefore = p.brakeBias;
+
+      const r = car.isPlayer
+        ? updateCarPhysics(p, car.ctrl, dt, s.weather, s.steeringSensitivity, s.brakeForce, s.tireWearRate)
+        : updateCarPhysics(p, car.ctrl, dt, s.weather, 1, 1, s.tireWearRate);
+      car.surface.onTrack = r.onTrack;
+      car.surface.gravel = r.gravel;
+      car.surface.dist = r.nearestDist;
+
+      if (p.drsOpen && !wasDrs) car.stats.drsUses++;
+      if (p.isBoosting && !wasErs) car.stats.ersUses++;
+      if (p.kmh > car.stats.topSpeedKmh) car.stats.topSpeedKmh = p.kmh;
+      if (car.isPlayer) {
+        if (p.drsOpen !== wasDrs) this.events.emit({ type: 'drs', carId: car.id, open: p.drsOpen, reason: r.drsClosedReason });
+        if (p.isBoosting !== wasErs) this.events.emit({ type: 'ers', carId: car.id, active: p.isBoosting });
+        if (p.brakeBias !== biasBefore) this.events.emit({ type: 'bias', carId: car.id, bias: p.brakeBias });
+      }
+
+      const { s: arcS, lateral } = arcPosition(p);
+      car.lateral = lateral;
+      const res = advanceTiming(car, arcS, {
+        raceTime: this.raceTime,
+        dt,
+        standingStart: this.isRace,
+        overall: this.overall,
+        events: this.events,
+      });
+      if (res.lapCompleted && this.isRace && !car.timing.finished) {
+        if (car.timing.lapsCompleted >= s.totalLaps || this.chequered) this.finishCar(car, res.crossTime);
+      }
+    }
+
+    this.updateOrder(dt);
+  }
+
+  private updateStart(dt: number) {
+    // Cars are held on the grid; engines can still be revved.
+    for (const car of this.cars) {
+      const p = car.phys;
+      const throttle = car.isPlayer ? car.ctrl.throttle : 0.25 + 0.2 * Math.sin(this.phaseTime * 3 + car.id);
+      p.rpm += (4000 + throttle * 7500 - p.rpm) * Math.min(1, 10 * dt);
+      p.gear = 'N';
+    }
+    if (this.phase === 'grid') {
+      if (this.phaseTime >= GRID_HOLD) {
+        this.phase = 'lights';
+        this.phaseTime = 0;
+      }
+      return;
+    }
+    const lit = Math.min(5, Math.floor(this.phaseTime / LIGHT_INTERVAL) + 1);
+    if (lit !== this.lightsLit && this.phaseTime < 5 * LIGHT_INTERVAL) {
+      this.lightsLit = lit;
+      this.events.emit({ type: 'lightsOn', count: lit });
+    }
+    if (this.phaseTime >= 5 * LIGHT_INTERVAL + this.lightsHold) {
+      this.lightsLit = 0;
+      this.phase = 'racing';
+      this.phaseTime = 0;
+      this.raceTime = 0;
+      for (const car of this.cars) {
+        car.timing.lapStartTime = 0;
+        car.timing.sectorStartTime = null;
+      }
+      this.events.emit({ type: 'lightsOut' });
+    }
+  }
+
+  private finishCar(car: WorldCar, at: number) {
+    car.timing.finished = true;
+    car.timing.finishTime = at;
+    this.finishCount++;
+    if (!this.chequered) {
+      this.chequered = true;
+      this.events.emit({ type: 'chequered' });
+    }
+    this.events.emit({ type: 'finish', carId: car.id, position: this.finishCount });
+    if (car.isPlayer) this.phase = 'finished';
+  }
+
+  private updateOrder(dt: number) {
+    this.order = sortRunningOrder(this.cars);
+    this.order.forEach((c, i) => (c.position = i + 1));
+    const pos = this.player.position;
+    if (pos !== this.candidatePosition) {
+      this.candidatePosition = pos;
+      this.candidateTime = 0;
+    } else if (pos !== this.shownPosition) {
+      this.candidateTime += dt;
+      if (this.candidateTime >= POSITION_DEBOUNCE) {
+        if (pos < this.shownPosition) this.player.stats.overtakes += this.shownPosition - pos;
+        this.events.emit({ type: 'positionChange', carId: this.player.id, from: this.shownPosition, to: pos });
+        this.shownPosition = pos;
+      }
+    }
+  }
+
+  /** Put the player back on the centreline at the nearest point, stationary. */
+  resetPlayer() {
+    const p = this.player.phys;
+    const [ni] = findNearestTrackPoint(p.x, p.y, p.idx);
+    const fresh = createInitialCarState(ni, 0);
+    p.x = fresh.x;
+    p.y = fresh.y;
+    p.a = fresh.a;
+    p.vx = p.vy = p.vf = p.vl = 0;
+    p.idx = ni;
+    p.isDrifting = false;
+    p.driftIntensity = 0;
+    p.drsOpen = false;
+    this.events.emit({ type: 'reset', carId: this.player.id });
+  }
+
+  // ---------------------------------------------------------------- snapshots
+
+  buildHud(): HudSnapshot {
+    const pl = this.player;
+    const t = pl.timing;
+    const leader = this.order[0];
+    const totalLaps = this.isRace ? this.settings.totalLaps : Math.max(1, t.lapsCompleted + 1);
+
+    const sectors = [0, 1, 2].map((k) => {
+      const time = t.sectorTimes[k];
+      if (time === null) return { time: null, status: 'none' as SectorStatus };
+      const ob = this.overall.bestSectors[k];
+      const pb = t.bestSectors[k];
+      const status: SectorStatus = ob !== null && time <= ob ? 'overall' : pb !== null && time <= pb ? 'personal' : 'slower';
+      return { time, status };
+    });
+
+    const order: TimingRow[] = this.order.map((c, i) => ({
+      position: i + 1,
+      carId: c.id,
+      code: c.driver.code,
+      name: c.driver.name,
+      team: c.driver.team,
+      color: c.driver.livery.body,
+      isPlayer: c.isPlayer,
+      gapToLeader: i === 0 ? 'LEADER' : formatGap(c.timing, leader.timing),
+      interval: i === 0 ? '' : formatGap(c.timing, this.order[i - 1].timing),
+      lap: Math.max(1, c.timing.lapsCompleted + 1),
+      bestLap: c.timing.bestLap,
+      lastLap: c.timing.lastLap,
+      compound: c.compound,
+      inPit: c.inPit,
+      finished: c.timing.finished,
+      penaltySec: c.timing.penaltySec,
+    }));
+
+    return {
+      lap: Math.max(1, Math.min(totalLaps, t.lapsCompleted + 1)),
+      totalLaps,
+      position: pl.position,
+      carCount: this.cars.length,
+      raceTime: this.raceTime,
+      currentLapTime: t.lapStartTime !== null && this.phase !== 'grid' && this.phase !== 'lights' ? this.raceTime - t.lapStartTime : 0,
+      lastLap: t.lastLap,
+      bestLap: t.bestLap,
+      deltaToBest: liveDelta(t),
+      sectors,
+      currentSector: t.currentSector,
+      order,
+      penaltySec: t.penaltySec,
+      trackLimitWarnings: t.trackLimitWarnings,
+      compound: pl.compound,
+    };
+  }
+
+  buildResults(): RaceResults {
+    const finished = this.cars
+      .filter((c) => c.timing.finished)
+      .sort((a, b) => (a.timing.finishTime! + a.timing.penaltySec) - (b.timing.finishTime! + b.timing.penaltySec));
+    const running = this.order.filter((c) => !c.timing.finished);
+    const ordered = [...finished, ...running];
+    const winner = finished[0];
+    const winnerTime = winner ? winner.timing.finishTime! + winner.timing.penaltySec : null;
+
+    const classification: ClassificationRow[] = ordered.map((c, i) => {
+      const total = c.timing.finished ? c.timing.finishTime! + c.timing.penaltySec : null;
+      let gapText: string;
+      if (i === 0 && total !== null) gapText = formatLapTime(total);
+      else if (total !== null && winnerTime !== null) gapText = `+${(total - winnerTime).toFixed(3)}`;
+      else gapText = winner ? formatGap(c.timing, winner.timing) : 'DNF';
+      return {
+        position: i + 1,
+        carId: c.id,
+        code: c.driver.code,
+        name: c.driver.name,
+        team: c.driver.team,
+        color: c.driver.livery.body,
+        isPlayer: c.isPlayer,
+        totalTime: total,
+        gapText,
+        bestLap: c.timing.bestLap,
+        laps: Math.max(0, c.timing.lapsCompleted),
+        pitStops: c.timing.pitStops,
+        penaltySec: c.timing.penaltySec,
+      };
+    });
+
+    const fl = this.overall.bestLapCarId !== null ? this.cars[this.overall.bestLapCarId] : null;
+    const pl = this.player;
+    return {
+      mode: this.settings.mode,
+      classification,
+      playerPosition: classification.find((r) => r.isPlayer)?.position ?? pl.position,
+      playerLapTimes: [...pl.timing.lapTimes],
+      fastestLap: fl && this.overall.bestLap !== null ? { carId: fl.id, code: fl.driver.code, time: this.overall.bestLap } : null,
+      topSpeed: pl.stats.topSpeedKmh,
+      overtakes: pl.stats.overtakes,
+      drsUses: pl.stats.drsUses,
+      ersUses: pl.stats.ersUses,
+      totalTime: pl.timing.finishTime ?? this.raceTime,
+    };
+  }
+}
+
+export const world = new GameWorld();
+
+/** Convenience for renderers: world-space position of spline index i. */
+export function trackPoint(i: number): [number, number] {
+  return trackSplinePoints[((i % N) + N) % N];
+}

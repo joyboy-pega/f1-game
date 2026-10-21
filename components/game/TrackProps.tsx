@@ -12,12 +12,10 @@ import {
   DRS_CONFIG,
 } from '@/lib/game/constants';
 
-interface TrackPropsProps {
-  lightsActiveCount: number; // 0 to 5
-  lightsOut: boolean;
-}
+import { useGameStore } from '@/lib/game/store';
 
-export function TrackProps({ lightsActiveCount, lightsOut }: TrackPropsProps) {
+export function TrackProps() {
+  const lightsActiveCount = useGameStore((s) => s.lightsLit);
   const gantryLightsRef = useRef<THREE.MeshStandardMaterial[]>([]);
 
   // 1. Finish Line Decal Texture
@@ -46,12 +44,12 @@ export function TrackProps({ lightsActiveCount, lightsOut }: TrackPropsProps) {
   useEffect(() => {
     gantryLightsRef.current.forEach((mat, i) => {
       if (!mat) return;
-      const isOn = i < lightsActiveCount && !lightsOut;
+      const isOn = i < lightsActiveCount;
       mat.color.setHex(isOn ? 0xff0000 : 0x220000);
       mat.emissive.setHex(isOn ? 0xff1100 : 0x000000);
       mat.emissiveIntensity = isOn ? 1.8 : 0;
     });
-  }, [lightsActiveCount, lightsOut]);
+  }, [lightsActiveCount]);
 
   // Start Gantry Transform (at idx 0)
   const gantryTransform = useMemo(() => {

@@ -3,17 +3,13 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { WeatherType } from '@/lib/game/constants';
-import { CarPhysicsState } from '@/lib/game/physics';
+import { useGameStore } from '@/lib/game/store';
+import { world } from '@/lib/game/sim/world';
+import { QUALITY_PRESETS } from '@/lib/game/performance';
 
-interface EnvironmentProps {
-  weather: WeatherType;
-  carState: CarPhysicsState;
-  shadows: boolean;
-  shadowMapSize: number;
-}
-
-export function Environment({ weather, carState, shadows, shadowMapSize }: EnvironmentProps) {
+export function Environment() {
+  const weather = useGameStore((s) => s.settings.weather);
+  const { shadows, shadowMapSize } = QUALITY_PRESETS[useGameStore((s) => s.quality)];
   const sunLightRef = useRef<THREE.DirectionalLight>(null);
   const sunTargetRef = useRef<THREE.Object3D>(null);
 
@@ -70,7 +66,9 @@ export function Environment({ weather, carState, shadows, shadowMapSize }: Envir
 
   // Keep sunlight and shadow frustum centered near player car
   useFrame(() => {
+    const carState = world.player.phys;
     if (sunLightRef.current && sunTargetRef.current) {
+      sunLightRef.current.target = sunTargetRef.current;
       sunLightRef.current.position.set(carState.x + 180, 280, carState.y + 120);
       sunTargetRef.current.position.set(carState.x, 0, carState.y);
     }
@@ -93,7 +91,6 @@ export function Environment({ weather, carState, shadows, shadowMapSize }: Envir
         color={weatherConfig.sunColor}
         intensity={weatherConfig.sunIntensity}
         castShadow={shadows}
-        target={sunTargetRef.current || undefined}
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
         shadow-camera-near={5}

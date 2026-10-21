@@ -2,55 +2,31 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { CarPhysicsState, fitFreshTires } from '@/lib/game/physics';
-import { RaceState, ToastMessage, RaceOrderRow, formatLapTime, GameSettings } from '@/lib/game/gameState';
+import { formatLapTime } from '@/lib/game/gameState';
 import { audio } from '@/lib/game/audio';
+import { controls } from '@/lib/game/controls';
+import { useGameStore } from '@/lib/game/store';
+import { useRefreshRate } from '@/lib/game/useTicker';
+import { world } from '@/lib/game/sim/world';
 
-interface HUDProps {
-  carState: CarPhysicsState;
-  raceState: RaceState;
-  settings: GameSettings;
-  currentLap: number;
-  totalLaps: number;
-  lapTime: number;
-  bestLapTime: number | null;
-  lastLapTime: number | null;
-  playerPosition: number;
-  raceOrder: RaceOrderRow[];
-  toasts: ToastMessage[];
-  lightsActiveCount: number;
-  lightsOut: boolean;
-  telemetryOpen: boolean;
-  onToggleTelemetry: () => void;
-  onCycleCamera: () => void;
-  onCycleWeather: () => void;
-  onToggleCarModel: () => void;
-  onPause: () => void;
-  addToast: (toast: ToastMessage) => void;
-}
+export function HUD() {
+  useRefreshRate(30);
+  const hud = useGameStore((s) => s.hud);
+  const phase = useGameStore((s) => s.phase);
+  const lightsActiveCount = useGameStore((s) => s.lightsLit);
+  const settings = useGameStore((s) => s.settings);
+  const toasts = useGameStore((s) => s.toasts);
+  const telemetryOpen = useGameStore((s) => s.telemetryOpen);
+  const { toggleTelemetry: onToggleTelemetry, cycleCamera: onCycleCamera, setSettings } = useGameStore.getState();
+  const onPause = () => useGameStore.getState().setPaused(true);
+  const onCycleWeather = () => {
+    const order = ['sunny', 'cloudy', 'rain', 'snow'] as const;
+    setSettings({ weather: order[(order.indexOf(settings.weather) + 1) % order.length] });
+  };
+  const onToggleCarModel = () => setSettings({ carModel: settings.carModel === 'f1' ? 'street' : 'f1' });
 
-export function HUD({
-  carState,
-  raceState,
-  settings,
-  currentLap,
-  totalLaps,
-  lapTime,
-  bestLapTime,
-  lastLapTime,
-  playerPosition,
-  raceOrder,
-  toasts,
-  lightsActiveCount,
-  lightsOut,
-  telemetryOpen,
-  onToggleTelemetry,
-  onCycleCamera,
-  onCycleWeather,
-  onToggleCarModel,
-  onPause,
-  addToast,
-}: HUDProps) {
+  const carState = world.player.phys;
+  const { lap: currentLap, totalLaps, currentLapTime: lapTime, bestLap: bestLapTime, lastLap: lastLapTime, position: playerPosition } = hud;
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(audio.isEnabled());
 
@@ -73,30 +49,8 @@ export function HUD({
     setAudioEnabled(en);
   };
 
-  const handleQuickPit = () => {
-    fitFreshTires(carState);
-    audio.playPitSound();
-    addToast({
-      id: 'pit',
-      type: 'tire',
-      title: 'PIT STOP COMPLETE',
-      subtitle: 'FRESH SOFT TIRES FITTED (100% GRIP)',
-      duration: 2.5,
-    });
-  };
-
-  const handleQuickBias = (delta: number) => {
-    carState.brakeBias = Math.max(0.45, Math.min(0.7, carState.brakeBias + delta));
-    audio.playBiasTick();
-    const curFPct = Math.round(carState.brakeBias * 100);
-    const curRPct = 100 - curFPct;
-    addToast({
-      id: 'bias',
-      type: 'bias',
-      title: `BRAKE BIAS: ${curFPct}% F / ${curRPct}% R`,
-      duration: 1.5,
-    });
-  };
+  const handleQuickPit = () => controls.fireTrigger('pitStopRequested');
+  const handleQuickBias = (delta: number) => controls.fireTrigger(delta > 0 ? 'brakeBiasUp' : 'brakeBiasDown');
 
   return (
     <>
@@ -203,7 +157,7 @@ export function HUD({
       </div>
 
       {/* 3. F1 START LIGHTS BANNER */}
-      {raceState === 'lights' && !lightsOut && (
+      {phase === 'lights' && (
         <div id="lights">
           {[0, 1, 2, 3, 4].map((i) => (
             <span key={i} className={i < lightsActiveCount ? 'on' : ''} />
@@ -213,7 +167,7 @@ export function HUD({
 
       {/* 4. BIG GO / MESSAGE BANNER */}
       <div id="msg">
-        {raceState === 'lights' && lightsOut ? 'GO' : ''}
+        {''}
       </div>
 
       {/* 5. POSITION BADGE (Clickable for Leaderboard) */}
@@ -223,7 +177,7 @@ export function HUD({
         onClick={() => setShowLeaderboard(!showLeaderboard)}
         title="Toggle Race Order Leaderboard"
       >
-        POS {playerPosition}/8
+        POS {playerPosition}/{hud.carCount}
       </div>
 
       {/* Leaderboard Drawer */}
@@ -231,14 +185,14 @@ export function HUD({
         <div id="leaderboard" style={{ display: 'block' }}>
           <div id="leaderboard-title">RACE ORDER</div>
           <div id="lb-rows">
-            {raceOrder.map((row) => (
+            {hud.order.map((row) => (
               <div
                 key={row.position}
                 className={`lb-row ${row.isPlayer ? 'lb-you' : ''}`}
               >
                 <span className="lb-pos">P{row.position}</span>
-                <span className="lb-name">{row.name}</span>
-                <span className="lb-gap">{row.gapText}</span>
+                <span className="lb-name">{row.code}</span>
+                <span className="lb-gap">{row.gapToLeader}</span>
               </div>
             ))}
           </div>
@@ -265,10 +219,7 @@ export function HUD({
         <div
           id="drs"
           className={carState.drsOpen ? 'on' : carState.vf > 175 ? 'avail' : ''}
-          onClick={() => {
-            carState.drsOpen = !carState.drsOpen;
-            audio.playDrsTone(carState.drsOpen);
-          }}
+          onClick={() => controls.fireTrigger('drsToggleRequested')}
           style={{ cursor: 'pointer' }}
           title="DRS Rear Wing Flap [Key: F]"
         >

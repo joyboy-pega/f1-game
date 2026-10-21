@@ -2,15 +2,14 @@
 
 import React, { useRef, useEffect } from 'react';
 import { N, trackSplinePoints, minimapBounds, DRS_CONFIG } from '@/lib/game/constants';
-import { CarPhysicsState, AICarState, isCarInDrsZone } from '@/lib/game/physics';
+import { isCarInDrsZone } from '@/lib/game/physics';
+import { useRefreshRate } from '@/lib/game/useTicker';
+import { world } from '@/lib/game/sim/world';
 
-interface MinimapProps {
-  carState: CarPhysicsState;
-  aiCars: AICarState[];
-}
-
-export function Minimap({ carState, aiCars }: MinimapProps) {
+export function Minimap() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  useRefreshRate(4);
+  const carState = world.player.phys;
 
   useEffect(() => {
     let animId: number;
@@ -83,12 +82,14 @@ export function Minimap({ carState, aiCars }: MinimapProps) {
       ctx.stroke();
 
       // AI Rival Dots
-      aiCars.forEach((ai) => {
-        const ax = ai.x * s + ox;
-        const ay = ai.y * s + oy;
+      const player = world.player.phys;
+      world.cars.forEach((c) => {
+        if (c.isPlayer) return;
+        const ax = c.phys.x * s + ox;
+        const ay = c.phys.y * s + oy;
         ctx.beginPath();
         ctx.arc(ax, ay, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = ai.cfg.color;
+        ctx.fillStyle = c.driver.livery.body;
         ctx.fill();
         ctx.strokeStyle = '#080c14';
         ctx.lineWidth = 1.2;
@@ -96,8 +97,8 @@ export function Minimap({ carState, aiCars }: MinimapProps) {
       });
 
       // Player Car Dot (Neon Lime with border)
-      const px = carState.x * s + ox;
-      const py = carState.y * s + oy;
+      const px = player.x * s + ox;
+      const py = player.y * s + oy;
       ctx.beginPath();
       ctx.arc(px, py, 6.5, 0, Math.PI * 2);
       ctx.fillStyle = '#C8FF2E';
@@ -112,7 +113,7 @@ export function Minimap({ carState, aiCars }: MinimapProps) {
 
     animId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animId);
-  }, [carState, aiCars]);
+  }, []);
 
   const inDrs = isCarInDrsZone(carState.idx);
   const curIdx = carState.idx;

@@ -2,15 +2,27 @@
 
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { formatLapTime, RaceStatistics } from '@/lib/game/gameState';
+import { formatLapTime, RaceResults } from '@/lib/game/gameState';
 
 interface GameOverProps {
-  stats: RaceStatistics;
+  results: RaceResults;
   onRestart: () => void;
   onExitToMenu: () => void;
 }
 
-export function GameOver({ stats, onRestart, onExitToMenu }: GameOverProps) {
+export function GameOver({ results, onRestart, onExitToMenu }: GameOverProps) {
+  const lapTimes = results.playerLapTimes;
+  const stats = {
+    position: results.playerPosition,
+    totalTime: results.totalTime,
+    bestLap: lapTimes.length ? Math.min(...lapTimes) : null,
+    lastLap: lapTimes.length ? lapTimes[lapTimes.length - 1] : null,
+    topSpeed: results.topSpeed,
+    overtakeCount: results.overtakes,
+    drsUseCount: results.drsUses,
+    ersUseCount: results.ersUses,
+    lapTimes,
+  };
   useEffect(() => {
     if (stats.position <= 3) {
       try {

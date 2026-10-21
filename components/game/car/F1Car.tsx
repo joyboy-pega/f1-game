@@ -3,18 +3,21 @@
 import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CAR_SCALE, VehicleModelType } from '@/lib/game/constants';
-import { CarPhysicsState } from '@/lib/game/physics';
+import { CAR_SCALE } from '@/lib/game/constants';
+import type { WorldCar } from '@/lib/game/sim/types';
 
-interface CarProps {
-  carState: CarPhysicsState;
-  modelType: VehicleModelType;
-  bodyColor: string;
-  accentColor: string;
-  rimColor: string;
+export interface F1CarProps {
+  car: WorldCar;
 }
 
-export function Car({ carState, modelType, bodyColor, accentColor, rimColor }: CarProps) {
+/**
+ * Renders one world car. Reads `car.phys` every frame; never re-renders from sim state.
+ * Contract (WS-A may replace internals freely): root group placed at (phys.x, 0.05, phys.y),
+ * rotation.y = PI/2 - phys.a, uniform CAR_SCALE.
+ */
+export function F1Car({ car }: F1CarProps) {
+  const carState = car.phys;
+  const { body: bodyColor, accent: accentColor, rim: rimColor } = car.driver.livery;
   const rootRef = useRef<THREE.Group>(null);
   const bodyGroupRef = useRef<THREE.Group>(null);
   const steeringWheelRef = useRef<THREE.Mesh>(null);

@@ -1,26 +1,31 @@
 'use client';
 
 import React from 'react';
-import { controls, ControlState } from '@/lib/game/controls';
+import { controls, ControlHold, ControlTrigger } from '@/lib/game/controls';
 
 export function MobileControls() {
-  const bindControl = (action: keyof ControlState) => {
+  const bindControl = (action: ControlHold | ControlTrigger) => {
+    const isHold = (['throttle', 'brake', 'steerLeft', 'steerRight', 'handbrake', 'ersBoost', 'lookBack'] as string[]).includes(action);
+    const set = (active: boolean) => {
+      if (isHold) controls.setVirtualHold(action as ControlHold, active);
+      else if (active) controls.fireTrigger(action as ControlTrigger);
+    };
     return {
       onPointerDown: (e: React.PointerEvent) => {
         e.preventDefault();
-        controls.setVirtualControl(action, true);
+        set(true);
       },
       onPointerUp: (e: React.PointerEvent) => {
         e.preventDefault();
-        controls.setVirtualControl(action, false);
+        set(false);
       },
       onPointerLeave: (e: React.PointerEvent) => {
         e.preventDefault();
-        controls.setVirtualControl(action, false);
+        set(false);
       },
       onPointerCancel: (e: React.PointerEvent) => {
         e.preventDefault();
-        controls.setVirtualControl(action, false);
+        set(false);
       },
     };
   };

@@ -7,15 +7,11 @@ import {
   HW,
   trackSplinePoints,
   normals,
-  WeatherType,
-  DRS_CONFIG,
 } from '@/lib/game/constants';
+import { useGameStore } from '@/lib/game/store';
 
-interface TrackProps {
-  weather: WeatherType;
-}
-
-export function Track({ weather }: TrackProps) {
+export function Track() {
+  const weather = useGameStore((s) => s.settings.weather);
   // Road & Gravel procedural textures
   const { roadTexture, gravelTexture } = useMemo(() => {
     // Road Texture

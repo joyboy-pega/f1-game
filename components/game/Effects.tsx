@@ -3,21 +3,18 @@
 import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { WeatherType } from '@/lib/game/constants';
-import { CarPhysicsState } from '@/lib/game/physics';
-
-interface EffectsProps {
-  carState: CarPhysicsState;
-  weather: WeatherType;
-  particleDensity: number;
-}
+import { useGameStore } from '@/lib/game/store';
+import { world } from '@/lib/game/sim/world';
+import { QUALITY_PRESETS } from '@/lib/game/performance';
 
 const SKID_MAX = 180;
 const SMOKE_MAX = 90;
 const RAIN_COUNT = 900;
 const SNOW_COUNT = 700;
 
-export function Effects({ carState, weather, particleDensity }: EffectsProps) {
+export function Effects() {
+  const weather = useGameStore((s) => s.settings.weather);
+  const { particleDensity } = QUALITY_PRESETS[useGameStore((s) => s.quality)];
   // 1. Skid marks (instanced mesh)
   const skidMeshRef = useRef<THREE.InstancedMesh>(null);
   const skidHead = useRef(0);
@@ -96,6 +93,7 @@ export function Effects({ carState, weather, particleDensity }: EffectsProps) {
   }, [skidDummy]);
 
   useFrame((_, dt) => {
+    const carState = world.player.phys;
     // 1. Skid marks logic
     const isSkidding = (carState.isDrifting && carState.kmh > 60) || (carState.brakeInput > 0.6 && carState.kmh > 35);
     if (isSkidding && skidMeshRef.current) {

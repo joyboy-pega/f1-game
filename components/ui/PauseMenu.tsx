@@ -2,26 +2,18 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { GameSettings, WeatherType, CameraViewMode, VehicleModelType } from '@/lib/game/gameState';
+import { WeatherType } from '@/lib/game/gameState';
+import { useGameStore } from '@/lib/game/store';
 
 interface PauseMenuProps {
-  isOpen: boolean;
-  settings: GameSettings;
-  onUpdateSettings: (newSettings: Partial<GameSettings>) => void;
   onResume: () => void;
   onRestart: () => void;
   onExitToMenu: () => void;
 }
 
-export function PauseMenu({
-  isOpen,
-  settings,
-  onUpdateSettings,
-  onResume,
-  onRestart,
-  onExitToMenu,
-}: PauseMenuProps) {
-  if (!isOpen) return null;
+export function PauseMenu({ onResume, onRestart, onExitToMenu }: PauseMenuProps) {
+  const settings = useGameStore((s) => s.settings);
+  const onUpdateSettings = useGameStore((s) => s.setSettings);
 
   return (
     <section id="race-menu" aria-label="Race menu">

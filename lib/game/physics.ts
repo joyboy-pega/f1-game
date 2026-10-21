@@ -11,7 +11,6 @@ import {
   BRAKE_CONFIG,
   TIRE_CONFIG,
   WeatherType,
-  AIConfig,
 } from './constants';
 import { ControlState } from './controls';
 
@@ -92,19 +91,6 @@ export interface CarPhysicsState {
   guardRailSparks: number;
 }
 
-export interface AICarState {
-  x: number;
-  y: number;
-  a: number;
-  idx: number;
-  speed: number;
-  lapNo: number;
-  halfway: boolean;
-  lapT: number;
-  totalDist: number;
-  cfg: AIConfig;
-  finished: boolean;
-}
 
 export function calculateTireTempGrip(temp: number): number {
   if (temp < TIRE_CONFIG.optimalTireTemperature) {
@@ -131,24 +117,26 @@ export function calculateTireWearGrip(wear: number): number {
   return 1.0 - (1.0 - TIRE_CONFIG.minimumGripMultiplier) * Math.pow(w, 1.6);
 }
 
-export function createInitialCarState(): CarPhysicsState {
-  const p0 = trackSplinePoints[0];
-  const p1 = trackSplinePoints[1];
+/** Create a stationary car at spline index `idx`, offset `lateral` units along the track normal. */
+export function createInitialCarState(idx: number = 0, lateral: number = 0): CarPhysicsState {
+  const i = ((Math.round(idx) % N) + N) % N;
+  const p0 = trackSplinePoints[i];
+  const p1 = trackSplinePoints[(i + 1) % N];
   const initAngle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
   const initialTemp = 85.0;
   const initialWear = 0.0;
   const initGrip = calculateTireTempGrip(initialTemp) * calculateTireWearGrip(initialWear);
 
   return {
-    x: p0[0],
-    y: p0[1],
+    x: p0[0] + normals[i][0] * lateral,
+    y: p0[1] + normals[i][1] * lateral,
     a: initAngle,
     vx: 0,
     vy: 0,
     vf: 0,
     vl: 0,
     steer: 0,
-    idx: 0,
+    idx: i,
     ers: 1.0,
     gear: 'N',
     rpm: 4000,
@@ -277,9 +265,9 @@ export function updateCarPhysics(
   const gravel = d > HW + 40;
   let drsClosedReason: string | undefined;
 
-  // Steering target
-  const tgt = (ctrl.steerRight ? 1 : 0) - (ctrl.steerLeft ? 1 : 0);
-  car.steer += (tgt - car.steer) * Math.min(1, 8.5 * dt);
+  // Steering target (sticks respond faster than digital keys)
+  const steerRate = ctrl.analogSteer ? 20 : 8.5;
+  car.steer += (ctrl.steer - car.steer) * Math.min(1, steerRate * dt);
 
   // Local velocity projection
   const c = Math.cos(car.a);
@@ -303,7 +291,7 @@ export function updateCarPhysics(
   }
 
   if (car.drsOpen) {
-    if (ctrl.brake || car.brakeInput > 0.1) {
+    if (ctrl.brake > 0.1 || car.brakeInput > 0.1) {
       car.drsOpen = false;
       drsClosedReason = 'BRAKE';
     } else if (DRS_CONFIG.requireDrsZones && !isCarInDrsZone(ni)) {
@@ -317,7 +305,7 @@ export function updateCarPhysics(
 
   // ERS Boost
   const wantsBoost = ctrl.ersBoost;
-  const canBoost = ctrl.throttle && !ctrl.brake && car.brakeInput < 0.12 && car.ersCharge > 0;
+  const canBoost = ctrl.throttle > 0.5 && ctrl.brake < 0.1 && car.brakeInput < 0.12 && car.ersCharge > 0;
 
   if (wantsBoost && canBoost && (car.isBoosting || car.ersCharge >= ERS_CONFIG.ersMinActivationCharge)) {
     car.isBoosting = true;
@@ -328,9 +316,9 @@ export function updateCarPhysics(
   } else {
     car.isBoosting = false;
     let recoveryRate = ERS_CONFIG.ersRechargeRate;
-    if (ctrl.brake || car.brakeInput > 0.08) {
+    if (ctrl.brake > 0.05 || car.brakeInput > 0.08) {
       recoveryRate = ERS_CONFIG.ersBrakeRecovery * (0.6 + car.brakeInput * 0.4);
-    } else if (!ctrl.throttle && vf > 20) {
+    } else if (ctrl.throttle < 0.05 && vf > 20) {
       recoveryRate = ERS_CONFIG.ersCoastRecovery;
     }
     car.ersCharge = Math.min(ERS_CONFIG.maxERSCharge, car.ersCharge + recoveryRate * dt);
@@ -353,9 +341,9 @@ export function updateCarPhysics(
   const targetMaxV = (car.drsOpen ? DRS_CONFIG.maxSpeedDRS : DRS_CONFIG.maxSpeedNormal) + car.boostSpeedBonus;
   car.currentMaxV += (targetMaxV - car.currentMaxV) * Math.min(1, 8 * dt);
 
-  if (ctrl.throttle) {
+  if (ctrl.throttle > 0) {
     const totalAccel = 760 + car.boostAccelBonus + car.drsAccelBonus;
-    vf += totalAccel * (1 - Math.max(0, vf) / car.currentMaxV) * dt;
+    vf += totalAccel * ctrl.throttle * (1 - Math.max(0, vf) / car.currentMaxV) * dt;
   }
 
   // Progressive Braking & Brake Balance
@@ -366,10 +354,10 @@ export function updateCarPhysics(
     car.brakeBias = Math.max(BRAKE_CONFIG.minBias, car.brakeBias - BRAKE_CONFIG.biasStep);
   }
 
-  const targetBrakePedal = ctrl.brake ? 1.0 : 0.0;
-  const bRate = ctrl.brake ? BRAKE_CONFIG.brakeResponse : BRAKE_CONFIG.brakeReleaseRate;
+  const targetBrakePedal = ctrl.brake;
+  const bRate = ctrl.brake > car.brakeInput ? BRAKE_CONFIG.brakeResponse : BRAKE_CONFIG.brakeReleaseRate;
   car.brakeInput += (targetBrakePedal - car.brakeInput) * Math.min(1, bRate * dt);
-  if (!ctrl.brake && car.brakeInput < 0.005) car.brakeInput = 0;
+  if (ctrl.brake === 0 && car.brakeInput < 0.005) car.brakeInput = 0;
 
   // Surface traction
   let surfaceGripFactor = onTrack ? 1.0 : gravel ? 0.38 : 0.62;
@@ -393,7 +381,7 @@ export function updateCarPhysics(
   const offTrackHeatMult = !onTrack ? (gravel ? 1.6 : 1.3) : 1.0;
 
   const latLoadTransfer = Math.max(-0.35, Math.min(0.35, car.steer * 0.35));
-  const longLoadTransfer = car.brakeInput * 0.25 - (ctrl.throttle ? 0.15 : 0);
+  const longLoadTransfer = car.brakeInput * 0.25 - ctrl.throttle * 0.15;
 
   const flLoad = Math.max(0.4, Math.min(1.6, 1.0 + longLoadTransfer - latLoadTransfer));
   const frLoad = Math.max(0.4, Math.min(1.6, 1.0 + longLoadTransfer + latLoadTransfer));
@@ -403,7 +391,7 @@ export function updateCarPhysics(
   const frontBrakeHeat = car.brakeInput * TIRE_CONFIG.brakeHeatingScalar * car.brakeBias * Math.min(1.5, Math.abs(vf) / 220);
   const rearBrakeHeat = car.brakeInput * TIRE_CONFIG.brakeHeatingScalar * (1 - car.brakeBias) * Math.min(1.5, Math.abs(vf) / 220);
   const steerScrubHeat = absSteer * TIRE_CONFIG.corneringHeatingScalar * Math.min(1.4, Math.abs(vf) / 200);
-  const driveWheelspinHeat = ctrl.throttle && Math.abs(vf) < 140 ? (1 - Math.abs(vf) / 140) * TIRE_CONFIG.wheelspinHeatingScalar : 0;
+  const driveWheelspinHeat = ctrl.throttle > 0.3 && Math.abs(vf) < 140 ? ctrl.throttle * (1 - Math.abs(vf) / 140) * TIRE_CONFIG.wheelspinHeatingScalar : 0;
   const driftSlipHeat = car.isDrifting ? car.driftIntensity * TIRE_CONFIG.driftHeatingScalar : 0;
 
   const updateSingleTire = (tire: SingleTireState, load: number, heatGen: number, slipWork: number) => {
@@ -455,17 +443,17 @@ export function updateCarPhysics(
     if (vf < 0.2) vf = 0;
   } else if (vf < -BRAKE_CONFIG.lowSpeedCutoff) {
     car.isReversing = true;
-    if (ctrl.throttle) {
+    if (ctrl.throttle > 0.1) {
       vf += 1350 * dt;
       if (vf > -0.2) vf = 0;
-    } else if (ctrl.brake) {
+    } else if (ctrl.brake > 0.1) {
       vf = Math.max(BRAKE_CONFIG.reverseMaxSpeed, vf - BRAKE_CONFIG.reverseAccel * dt);
     } else {
       vf += 320 * dt;
       if (vf > -0.2) vf = 0;
     }
   } else {
-    if (ctrl.brake && !ctrl.throttle) {
+    if (ctrl.brake > 0.1 && ctrl.throttle < 0.1) {
       car.stoppedDuration += dt;
       if (car.stoppedDuration > BRAKE_CONFIG.reverseDelay) {
         car.isReversing = true;
@@ -498,7 +486,7 @@ export function updateCarPhysics(
   }
 
   if (car.isDrifting) {
-    if (ctrl.throttle && vf > 100 && (absSteer > 0.08 || ctrl.handbrake)) {
+    if (ctrl.throttle > 0.3 && vf > 100 && (absSteer > 0.08 || ctrl.handbrake)) {
       const slideDir = vl !== 0 ? Math.sign(vl) : car.steer !== 0 ? -Math.sign(car.steer) : -1;
       vl += slideDir * 180 * Math.min(1.3, vf / 300) * dt;
     }
@@ -638,52 +626,8 @@ export function updateCarPhysics(
   car.rpm = typeof g === 'number' ? 5200 + Math.max(0, Math.min(1, inG)) * 5800 : 3900;
 
   // Pitch & Roll visual dynamics
-  car.pitch = (car.brakeInput * 0.04) - (ctrl.throttle ? 0.025 : 0);
+  car.pitch = (car.brakeInput * 0.04) - ctrl.throttle * 0.025;
   car.roll = -(car.steer * 0.05) - (vl * 0.0003);
 
   return { onTrack, gravel, nearestIdx: ni, nearestDist: d, drsClosedReason };
-}
-
-export function updateAI(aiCars: AICarState[], dt: number, playerDist: number, playerIdx: number) {
-  aiCars.forEach((ai) => {
-    if (ai.finished) return;
-
-    const currentPt = trackSplinePoints[ai.idx];
-    const nextIdx = (ai.idx + 1) % N;
-    const nextPt = trackSplinePoints[nextIdx];
-    const targetA = Math.atan2(nextPt[1] - currentPt[1], nextPt[0] - currentPt[0]);
-
-    // Curvature deceleration
-    const curv = smoothCurvature[ai.idx] || 0.01;
-    const maxCornerSpeed = Math.max(220, 680 * (1 - curv * 12 * ai.cfg.cornerBrake));
-    const targetSpeed = Math.min(840 * ai.cfg.pace, maxCornerSpeed);
-
-    if (ai.speed < targetSpeed) {
-      ai.speed += 620 * ai.cfg.accel * dt;
-    } else {
-      ai.speed -= 850 * dt;
-    }
-
-    ai.speed = Math.max(80, ai.speed);
-    ai.a += Math.atan2(Math.sin(targetA - ai.a), Math.cos(targetA - ai.a)) * Math.min(1, 9 * dt);
-
-    const stepDist = ai.speed * dt;
-    ai.totalDist += stepDist;
-    ai.lapT += dt;
-
-    ai.x += Math.cos(ai.a) * stepDist;
-    ai.y += Math.sin(ai.a) * stepDist;
-
-    // Follow spline index
-    const [ni] = findNearestTrackPoint(ai.x, ai.y, ai.idx);
-    const prev = ai.idx;
-    ai.idx = ni;
-
-    if (ni > N * 0.45 && ni < N * 0.55) ai.halfway = true;
-    if (prev > N * 0.9 && ni < N * 0.1 && ai.halfway) {
-      ai.lapNo++;
-      ai.lapT = 0;
-      ai.halfway = false;
-    }
-  });
 }
