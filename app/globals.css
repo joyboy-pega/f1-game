@@ -1,27 +1,42 @@
+@import './kit.css';
+@import './hud.css';
 @import './cockpit.css';
 @import './lobby.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #000000;
-  --foreground: #ffffff;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   height: 100%;
-  width: 100%;
   overflow: hidden;
-  background: #000000;
-  color: #ffffff;
-  font-family: var(--font-ui, 'Archivo', sans-serif);
-  user-select: none;
-  -webkit-user-select: none;
+  background: #050506;
+  color: var(--ink-text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Buddh Circuit – Formula V 3D Racing Game',
+  title: 'Buddh GP — F1 Racing at Buddh International Circuit',
   description:
-    'High-octane Formula V 3D racing game at Buddh International Circuit featuring realistic physics, DRS zones, ERS overtake boost, and tire thermal simulation.',
-  keywords: ['F1', 'Buddh International Circuit', 'Racing Game', 'Three.js', 'Next.js', 'React Three Fiber', 'Rapier'],
+    'A browser Formula 1 racing game at Buddh International Circuit: full grid, DRS and ERS, tyre strategy, pit stops, weather and a live 3D garage.',
+  keywords: ['F1', 'Buddh International Circuit', 'Racing Game', 'Three.js', 'Next.js', 'React Three Fiber'],
   authors: [{ name: 'Arigatoo Club' }],
 };
 

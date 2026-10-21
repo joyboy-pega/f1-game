@@ -1,177 +1,126 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
-import { N, trackSplinePoints, minimapBounds, DRS_CONFIG } from '@/lib/game/constants';
-import { isCarInDrsZone } from '@/lib/game/physics';
-import { useRefreshRate } from '@/lib/game/useTicker';
+import React, { useEffect, useRef } from 'react';
+import { N, PIT_LANE, SECTOR_BOUNDS, trackSplinePoints } from '@/lib/game/constants';
+import { useTicker } from '@/lib/game/useTicker';
 import { world } from '@/lib/game/sim/world';
 
+const W = 216;
+const H = 150;
+const PAD = 14;
+const DPR = 2;
+const SECTOR_COLORS = ['#ffb800', '#b36bff', '#00e5ff'];
+
+function bounds() {
+  let a = 1e9, b = -1e9, c = 1e9, d = -1e9;
+  for (const p of trackSplinePoints) {
+    a = Math.min(a, p[0]); b = Math.max(b, p[0]);
+    c = Math.min(c, p[1]); d = Math.max(d, p[1]);
+  }
+  const s = Math.min((W - PAD * 2) / (b - a), (H - PAD * 2) / (d - c));
+  return { s, ox: W / 2 - ((a + b) / 2) * s, oy: H / 2 - ((c + d) / 2) * s };
+}
+const B = bounds();
+const px = (x: number) => x * B.s + B.ox;
+const py = (y: number) => y * B.s + B.oy;
+
+/** Track casing + sector-coloured line, drawn once. */
+function drawStatic(): HTMLCanvasElement {
+  const cv = document.createElement('canvas');
+  cv.width = W * DPR;
+  cv.height = H * DPR;
+  const ctx = cv.getContext('2d')!;
+  ctx.scale(DPR, DPR);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const path = (from: number, to: number) => {
+    ctx.beginPath();
+    for (let i = from; i <= to; i += 2) {
+      const p = trackSplinePoints[i % N];
+      if (i === from) ctx.moveTo(px(p[0]), py(p[1]));
+      else ctx.lineTo(px(p[0]), py(p[1]));
+    }
+  };
+
+  path(0, N);
+  ctx.closePath();
+  ctx.strokeStyle = '#05070b';
+  ctx.lineWidth = 8;
+  ctx.stroke();
+
+  const [s1, s2] = SECTOR_BOUNDS;
+  [[0, s1], [s1, s2], [s2, N]].forEach(([a, b], k) => {
+    path(a, b);
+    ctx.strokeStyle = SECTOR_COLORS[k];
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  });
+
+  // pit lane
+  ctx.beginPath();
+  const pitCount = (PIT_LANE.exitIdx - PIT_LANE.entryIdx + N) % N;
+  for (let k = 0; k <= pitCount; k += 3) {
+    const p = trackSplinePoints[(PIT_LANE.entryIdx + k) % N];
+    if (k === 0) ctx.moveTo(px(p[0]), py(p[1]));
+    else ctx.lineTo(px(p[0]), py(p[1]));
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 2]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // start / finish tick
+  const p0 = trackSplinePoints[0];
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(px(p0[0]) - 1, py(p0[1]) - 5, 2, 10);
+  return cv;
+}
+
+/** Bottom-left radar: static track, live car dots. */
 export function Minimap() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  useRefreshRate(4);
-  const carState = world.player.phys;
+  const ref = useRef<HTMLCanvasElement>(null);
+  const base = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    let animId: number;
-
-    const render = () => {
-      const cv = canvasRef.current;
-      if (!cv) return;
-      const ctx = cv.getContext('2d');
-      if (!ctx) return;
-
-      const { s, ox, oy, w, h } = minimapBounds;
-
-      ctx.save();
-      ctx.setTransform(2, 0, 0, 2, 0, 0);
-      ctx.clearRect(0, 0, w, h);
-
-      ctx.fillStyle = 'rgba(12, 16, 23, 0.65)';
-      ctx.fillRect(0, 0, w, h);
-
-      // Track Casing
-      ctx.beginPath();
-      for (let i = 0; i < N; i += 3) {
-        const X = trackSplinePoints[i][0] * s + ox;
-        const Y = trackSplinePoints[i][1] * s + oy;
-        if (i === 0) ctx.moveTo(X, Y);
-        else ctx.lineTo(X, Y);
-      }
-      ctx.closePath();
-      ctx.strokeStyle = '#080c14';
-      ctx.lineWidth = 10;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.stroke();
-
-      // Sector 1: Gold (#ffb800)
-      ctx.beginPath();
-      for (let i = 0; i <= 280; i += 2) {
-        const X = trackSplinePoints[i][0] * s + ox;
-        const Y = trackSplinePoints[i][1] * s + oy;
-        if (i === 0) ctx.moveTo(X, Y);
-        else ctx.lineTo(X, Y);
-      }
-      ctx.strokeStyle = '#ffb800';
-      ctx.lineWidth = 3.5;
-      ctx.stroke();
-
-      // Sector 2: Purple (#b56cff)
-      ctx.beginPath();
-      for (let i = 280; i <= 1130; i += 2) {
-        const X = trackSplinePoints[i][0] * s + ox;
-        const Y = trackSplinePoints[i][1] * s + oy;
-        if (i === 280) ctx.moveTo(X, Y);
-        else ctx.lineTo(X, Y);
-      }
-      ctx.strokeStyle = '#b56cff';
-      ctx.lineWidth = 3.5;
-      ctx.stroke();
-
-      // Sector 3: Cyan (#00e5ff)
-      ctx.beginPath();
-      for (let i = 1130; i < N; i += 2) {
-        const X = trackSplinePoints[i][0] * s + ox;
-        const Y = trackSplinePoints[i][1] * s + oy;
-        if (i === 1130) ctx.moveTo(X, Y);
-        else ctx.lineTo(X, Y);
-      }
-      ctx.lineTo(trackSplinePoints[0][0] * s + ox, trackSplinePoints[0][1] * s + oy);
-      ctx.strokeStyle = '#00e5ff';
-      ctx.lineWidth = 3.5;
-      ctx.stroke();
-
-      // AI Rival Dots
-      const player = world.player.phys;
-      world.cars.forEach((c) => {
-        if (c.isPlayer) return;
-        const ax = c.phys.x * s + ox;
-        const ay = c.phys.y * s + oy;
-        ctx.beginPath();
-        ctx.arc(ax, ay, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = c.driver.livery.body;
-        ctx.fill();
-        ctx.strokeStyle = '#080c14';
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-      });
-
-      // Player Car Dot (Neon Lime with border)
-      const px = player.x * s + ox;
-      const py = player.y * s + oy;
-      ctx.beginPath();
-      ctx.arc(px, py, 6.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#C8FF2E';
-      ctx.fill();
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 2.2;
-      ctx.stroke();
-
-      ctx.restore();
-      animId = requestAnimationFrame(render);
-    };
-
-    animId = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animId);
+    base.current = drawStatic();
   }, []);
 
-  const inDrs = isCarInDrsZone(carState.idx);
-  const curIdx = carState.idx;
-  const isS1 = curIdx <= 280;
-  const isS2 = curIdx > 280 && curIdx <= 1130;
-  const isS3 = curIdx > 1130;
+  useTicker(() => {
+    const cv = ref.current;
+    const bg = base.current;
+    if (!cv || !bg) return;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(bg, 0, 0, W, H);
 
-  const turnMap = [
-    { name: 'TURN 1', idx: 122 },
-    { name: 'TURN 3', idx: 263 },
-    { name: '1.1KM BACK STRAIGHT', idx: 500 },
-    { name: 'TURN 4', idx: 755 },
-    { name: 'TURN 6', idx: 957 },
-    { name: 'TURN 10-11', idx: 1280 },
-    { name: 'PARABOLICA', idx: 1650 },
-    { name: 'MAIN STRAIGHT', idx: 1880 },
-  ];
-  let currentTurn = 'MAIN STRAIGHT';
-  for (const t of turnMap) {
-    if (Math.abs(curIdx - t.idx) < 140) {
-      currentTurn = t.name;
-      break;
+    for (const car of world.cars) {
+      if (car.isPlayer) continue;
+      ctx.beginPath();
+      ctx.arc(px(car.phys.x), py(car.phys.y), car.inPit ? 2.4 : 3.6, 0, Math.PI * 2);
+      ctx.fillStyle = car.driver.livery.body;
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = '#05070b';
+      ctx.stroke();
     }
-  }
+    const me = world.player.phys;
+    ctx.beginPath();
+    ctx.arc(px(me.x), py(me.y), 5.4, 0, Math.PI * 2);
+    ctx.fillStyle = '#c8ff2e';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#000';
+    ctx.stroke();
+  });
 
   return (
-    <div className="hud hidden sm:flex" id="mini" title="Formula V GPS Minimap Radar">
-      <div id="mini-header">
-        <div className="mini-title-wrap">
-          <span className="f1-pill">F1</span>
-          <span className="mini-name">BUDDH GP</span>
-        </div>
-        <div className="mini-sectors">
-          <span className={`sec-badge ${isS1 ? 'active-s1' : ''}`} id="sec-1">
-            S1
-          </span>
-          <span className={`sec-badge ${isS2 ? 'active-s2' : ''}`} id="sec-2">
-            S2
-          </span>
-          <span className={`sec-badge ${isS3 ? 'active-s3' : ''}`} id="sec-3">
-            S3
-          </span>
-        </div>
-      </div>
-
-      <canvas
-        ref={canvasRef}
-        id="m"
-        width={660}
-        height={430}
-        style={{ width: '330px', height: '215px' }}
-      />
-
-      <div id="mini-footer">
-        <span id="mini-turn">{currentTurn}</span>
-        <span className={`mini-drs-tag ${inDrs ? 'active' : ''}`} id="mini-drs">
-          {inDrs ? 'DRS ZONE' : 'NO DRS'}
-        </span>
+    <div className="h-root">
+      <div className="h-minimap" aria-hidden="true">
+        <canvas ref={ref} width={W * DPR} height={H * DPR} style={{ width: W, height: H }} />
       </div>
     </div>
   );

@@ -1,0 +1,422 @@
+/* ==========================================================================
+   Buddh GP — design tokens + shared UI primitives (menus, lobby, HUD)
+   Palette: ink black, neon lime, hot orange. Timing colours follow F1 TV:
+   purple = overall best, green = personal best, yellow = slower.
+   ========================================================================== */
+
+:root {
+  --ink: #0a0a0a;
+  --ink-2: #111214;
+  --ink-3: #1a1c1f;
+  --ink-4: #26292e;
+  --ink-text: #f4f4ee;
+  --ink-mute: #8d9199;
+  --ink-dim: #5a5e66;
+  --lime: #c8ff2e;
+  --orange: #ff6b1a;
+  --purple: #b36bff;
+  --green: #00d26a;
+  --yellow: #ffd400;
+  --red: #ff3b30;
+  --blue: #2f8cff;
+  --edge: rgba(255, 255, 255, 0.16);
+  --panel: rgba(9, 10, 12, 0.78);
+
+  --font-display: 'Anton', 'Arial Narrow', Impact, sans-serif;
+  --font-ui: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Focus ring shared by every interactive element ---------- */
+.k-btn:focus-visible,
+.k-seg button:focus-visible,
+.k-switch:focus-visible,
+.k-tab:focus-visible,
+.k-range:focus-visible,
+.k-input:focus-visible,
+.k-swatch:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 2px;
+}
+
+/* ---------- Buttons ---------- */
+.k-btn {
+  appearance: none;
+  border: 2px solid var(--ink-text);
+  background: var(--ink);
+  color: var(--ink-text);
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 10px 18px;
+  cursor: pointer;
+  box-shadow: 4px 4px 0 #000;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease, color 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  line-height: 1;
+  white-space: nowrap;
+}
+.k-btn:hover {
+  background: var(--ink-text);
+  color: var(--ink);
+}
+.k-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 #000;
+}
+.k-btn.primary {
+  background: var(--lime);
+  color: #000;
+  border-color: #000;
+  box-shadow: 4px 4px 0 var(--ink-text);
+}
+.k-btn.primary:hover {
+  background: #fff;
+}
+.k-btn.hot {
+  background: var(--orange);
+  color: #000;
+  border-color: #000;
+  box-shadow: 4px 4px 0 var(--ink-text);
+}
+.k-btn.hot:hover {
+  background: #ff8a47;
+}
+.k-btn.danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+.k-btn.danger:hover {
+  background: var(--red);
+  color: #000;
+}
+.k-btn.armed {
+  background: var(--red);
+  color: #000;
+  border-color: #000;
+}
+.k-btn.ghost {
+  box-shadow: none;
+  border-color: var(--edge);
+}
+.k-btn.sm {
+  font-size: 14px;
+  padding: 7px 12px;
+  box-shadow: 3px 3px 0 #000;
+}
+
+/* ---------- Segmented choice ---------- */
+.k-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border: 2px solid var(--ink-4);
+  background: var(--ink);
+}
+.k-seg button {
+  appearance: none;
+  border: 0;
+  border-right: 2px solid var(--ink-4);
+  background: transparent;
+  color: var(--ink-mute);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  cursor: pointer;
+  min-height: 34px;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+.k-seg button:last-child {
+  border-right: 0;
+}
+.k-seg button:hover {
+  color: var(--ink-text);
+  background: var(--ink-3);
+}
+.k-seg button[aria-checked='true'] {
+  background: var(--lime);
+  color: #000;
+}
+.k-seg button .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: -1px;
+  border: 2px solid currentColor;
+}
+
+/* ---------- Switch ---------- */
+.k-switch {
+  appearance: none;
+  position: relative;
+  width: 52px;
+  height: 28px;
+  border: 2px solid var(--ink-4);
+  background: var(--ink);
+  cursor: pointer;
+  padding: 0;
+  flex: none;
+}
+.k-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: var(--ink-mute);
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.k-switch[aria-checked='true'] {
+  border-color: var(--lime);
+}
+.k-switch[aria-checked='true']::after {
+  transform: translateX(24px);
+  background: var(--lime);
+}
+
+/* ---------- Range ---------- */
+.k-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+.k-range::-webkit-slider-runnable-track {
+  height: 6px;
+  background: linear-gradient(90deg, var(--lime) var(--fill, 50%), var(--ink-4) var(--fill, 50%));
+}
+.k-range::-moz-range-track {
+  height: 6px;
+  background: var(--ink-4);
+}
+.k-range::-moz-range-progress {
+  height: 6px;
+  background: var(--lime);
+}
+.k-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 22px;
+  margin-top: -8px;
+  background: var(--ink-text);
+  border: 2px solid #000;
+  box-shadow: 2px 2px 0 var(--lime);
+}
+.k-range::-moz-range-thumb {
+  width: 12px;
+  height: 18px;
+  background: var(--ink-text);
+  border: 2px solid #000;
+  border-radius: 0;
+}
+
+/* ---------- Rows & fields ---------- */
+.k-field {
+  display: grid;
+  grid-template-columns: minmax(110px, 160px) 1fr auto;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--ink-4);
+}
+.k-field:last-child {
+  border-bottom: 0;
+}
+.k-field > label,
+.k-field > .k-label {
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.k-field .k-val {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--lime);
+  min-width: 52px;
+  text-align: right;
+}
+.k-field .k-hint {
+  grid-column: 2 / -1;
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-top: -4px;
+}
+
+.k-input {
+  background: var(--ink);
+  border: 2px solid var(--ink-4);
+  color: var(--ink-text);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 14px;
+  padding: 8px 10px;
+  width: 100%;
+  min-width: 0;
+  letter-spacing: 0.04em;
+}
+.k-input:focus {
+  border-color: var(--lime);
+}
+
+.k-section-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lime);
+  margin: 18px 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.k-section-title::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background: var(--ink-4);
+}
+.k-section-title:first-child {
+  margin-top: 0;
+}
+
+/* ---------- Key caps ---------- */
+.k-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  background: var(--ink-3);
+  border: 2px solid var(--ink-text);
+  border-bottom-width: 4px;
+  color: var(--ink-text);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---------- Tab strip ---------- */
+.k-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.k-tabs::-webkit-scrollbar {
+  display: none;
+}
+.k-tab {
+  appearance: none;
+  border: 2px solid var(--ink-4);
+  background: var(--ink);
+  color: var(--ink-mute);
+  font-family: var(--font-display);
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 9px 18px;
+  cursor: pointer;
+  transform: skewX(-8deg);
+  white-space: nowrap;
+  transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+}
+.k-tab > span {
+  display: block;
+  transform: skewX(8deg);
+}
+.k-tab:hover {
+  color: var(--ink-text);
+  border-color: var(--ink-text);
+}
+.k-tab[aria-selected='true'] {
+  background: var(--lime);
+  border-color: #000;
+  color: #000;
+  box-shadow: 4px 4px 0 var(--ink-text);
+}
+
+/* ---------- Compound chip ---------- */
+.k-comp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid var(--c, #fff);
+  color: var(--c, #fff);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.6);
+  flex: none;
+}
+
+/* ---------- Colour swatch input ---------- */
+.k-swatch {
+  position: relative;
+  width: 44px;
+  height: 36px;
+  border: 2px solid var(--ink-text);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  flex: none;
+}
+.k-swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.k-swatch::-webkit-color-swatch {
+  border: 0;
+}
+.k-swatch::-moz-color-swatch {
+  border: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .k-field {
+    grid-template-columns: 1fr auto;
+  }
+  .k-field > label,
+  .k-field > .k-label {
+    grid-column: 1 / -1;
+  }
+  .k-field .k-hint {
+    grid-column: 1 / -1;
+  }
+}
