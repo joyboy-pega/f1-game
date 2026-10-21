@@ -83,6 +83,11 @@ export interface WorldCar {
   /** Signed lateral offset from the centreline (+ = along track normal). */
   lateral: number;
   inPit: boolean;
+  /** DRS may be opened (within 1 s of car ahead at detection, zone active). Set by sim. */
+  drsAvailable: boolean;
+  /** Player/AI asked to pit at the next pit entry. */
+  pitRequest: boolean;
+  nextCompound: TyreCompound;
   /** 1-based race position (updated every step). */
   position: number;
   stats: CarStats;

@@ -62,6 +62,11 @@ export interface HudSnapshot {
   penaltySec: number;
   trackLimitWarnings: number;
   compound: TyreCompound;
+  drsAvailable: boolean;
+  boxRequested: boolean;
+  nextCompound: TyreCompound;
+  inPitLane: boolean;
+  tyreWear: number; // 0..1 average
 }
 
 export const EMPTY_HUD: HudSnapshot = {
@@ -84,6 +89,11 @@ export const EMPTY_HUD: HudSnapshot = {
   penaltySec: 0,
   trackLimitWarnings: 0,
   compound: 'soft',
+  drsAvailable: false,
+  boxRequested: false,
+  nextCompound: 'medium',
+  inPitLane: false,
+  tyreWear: 0,
 };
 
 export interface ClassificationRow {

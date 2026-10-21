@@ -49,6 +49,9 @@ function makeCar(id: number, isPlayer: boolean, idx: number, lateral: number, co
     surface: { onTrack: true, gravel: false, dist: Math.abs(lateral) },
     lateral,
     inPit: false,
+    drsAvailable: false,
+    pitRequest: false,
+    nextCompound: compound === 'soft' ? 'medium' : 'soft',
     position: 1,
     stats: { topSpeedKmh: 0, drsUses: 0, ersUses: 0, overtakes: 0 },
   };
@@ -148,7 +151,7 @@ export class GameWorld {
       const c = this.player.ctrl;
       Object.assign(c, input);
       if (!first) {
-        c.drsToggleRequested = c.brakeBiasUp = c.brakeBiasDown = c.pitStopRequested = c.resetRequested = false;
+        c.drsToggleRequested = c.brakeBiasUp = c.brakeBiasDown = c.pitStopRequested = c.resetRequested = c.compoundCycleRequested = false;
       }
       first = false;
       this.fixedStep(FIXED_DT);
@@ -343,6 +346,11 @@ export class GameWorld {
       penaltySec: t.penaltySec,
       trackLimitWarnings: t.trackLimitWarnings,
       compound: pl.compound,
+      drsAvailable: pl.drsAvailable,
+      boxRequested: pl.pitRequest,
+      nextCompound: pl.nextCompound,
+      inPitLane: pl.inPit,
+      tyreWear: pl.phys.tires.avgWear,
     };
   }
 

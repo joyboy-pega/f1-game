@@ -7,6 +7,7 @@ export interface ControlState {
   ersBoost: boolean;
   lookBack: boolean;
   drsToggleRequested: boolean;
+  compoundCycleRequested: boolean;
   brakeBiasUp: boolean;
   brakeBiasDown: boolean;
   pitStopRequested: boolean;
@@ -18,6 +19,7 @@ export interface ControlState {
 
 export type ControlTrigger =
   | 'drsToggleRequested'
+  | 'compoundCycleRequested'
   | 'brakeBiasUp'
   | 'brakeBiasDown'
   | 'pitStopRequested'
@@ -37,6 +39,7 @@ export const NEUTRAL_CONTROLS: Readonly<ControlState> = Object.freeze({
   ersBoost: false,
   lookBack: false,
   drsToggleRequested: false,
+  compoundCycleRequested: false,
   brakeBiasUp: false,
   brakeBiasDown: false,
   pitStopRequested: false,
@@ -53,7 +56,8 @@ const KEY_TRIGGERS: Record<string, ControlTrigger> = {
   KeyR: 'resetRequested',
   Escape: 'menuToggleRequested',
   KeyM: 'menuToggleRequested',
-  KeyP: 'pitStopRequested',
+  KeyP: 'pitStopRequested', // toggle 'box this lap'
+  KeyO: 'compoundCycleRequested', // choose tyre for the next stop
   KeyT: 'telemetryToggleRequested',
   BracketRight: 'brakeBiasUp',
   BracketLeft: 'brakeBiasDown',
@@ -69,6 +73,7 @@ const PAD_TRIGGERS: [number, ControlTrigger][] = [
   [4, 'brakeBiasDown'], // LB
   [13, 'pitStopRequested'], // D-pad down
   [12, 'resetRequested'], // D-pad up
+  [15, 'compoundCycleRequested'], // D-pad right
 ];
 
 const STICK_DEADZONE = 0.08;
@@ -185,6 +190,7 @@ export class ControlsManager {
     s.lookBack = !!(k.KeyB || t.lookBack || padLookBack);
 
     s.drsToggleRequested = this.triggers.has('drsToggleRequested');
+    s.compoundCycleRequested = this.triggers.has('compoundCycleRequested');
     s.brakeBiasUp = this.triggers.has('brakeBiasUp');
     s.brakeBiasDown = this.triggers.has('brakeBiasDown');
     s.pitStopRequested = this.triggers.has('pitStopRequested');

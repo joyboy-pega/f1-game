@@ -263,3 +263,18 @@ export const WEATHER_ICONS: Record<WeatherType, string> = {
   rain: '🌧️',
   snow: '❄️',
 };
+
+// Pit lane (shared contract: sim/pit.ts drives it, world/ visuals draw it).
+// +normal points to the OUTSIDE of the circuit on the main straight.
+export const PIT_LANE = {
+  side: 1 as 1 | -1,
+  entryIdx: 1790, // spline index where the pit lane splits from the track
+  exitIdx: 100, // spline index where it rejoins (before Turn 1)
+  boxStartIdx: 1815, // garages / pit boxes span this stretch
+  boxEndIdx: 1905,
+  laneOffset: HW + 46, // pit lane centre, units from the track centreline
+  laneHalfWidth: 20,
+  wallOffset: HW + 22, // pit wall between track and pit lane (cosmetic)
+  garageOffset: HW + 96, // garage fronts, beyond the physics wall at HW + 82
+  speedLimitKmh: 80,
+};
