@@ -19,7 +19,7 @@ workstream row in §4 before writing code. The lead updates §1 and §10 as work
 | WS-B | World, track dressing, lighting | ✅ merged |
 | WS-C | FX & post-processing | ✅ merged |
 | WS-D | Race logic & AI | ✅ merged (19 tests) |
-| WS-E | HUD, lobby, menus, results | 🟡 in progress |
+| WS-E | HUD, lobby, menus, results | ✅ merged |
 | WS-F | Audio | 🟡 in progress |
 | WS-G | Cameras, replay, ghost | 🟡 in progress |
 | WS-H | Repo hygiene (legacy/, favicon, manifest, README) | ✅ merged |
