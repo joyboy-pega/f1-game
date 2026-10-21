@@ -1,10 +1,17 @@
 'use client';
 
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CAR_SCALE } from '@/lib/game/constants';
+import { CAR_SCALE, type TyreCompound } from '@/lib/game/constants';
+import { useGameStore } from '@/lib/game/store';
 import type { WorldCar } from '@/lib/game/sim/types';
+import { F1_WHEELS, STREET_WHEELS, type WheelSpec } from './dimensions';
+import { getF1Geometries } from './f1Geometry';
+import { getStreetGeometries } from './streetGeometry';
+import { getLiveryMaterial } from './livery';
+import { createCarMaterials, getSharedMaterials } from './materials';
+import { getRimGeometry, getTyreGeometry } from './wheels';
 
 export interface F1CarProps {
   car: WorldCar;
@@ -12,300 +19,161 @@ export interface F1CarProps {
 
 /**
  * Renders one world car. Reads `car.phys` every frame; never re-renders from sim state.
- * Contract (WS-A may replace internals freely): root group placed at (phys.x, 0.05, phys.y),
- * rotation.y = PI/2 - phys.a, uniform CAR_SCALE.
+ * Contract: root group placed at (phys.x, 0.05, phys.y), rotation.y = PI/2 - phys.a,
+ * uniform CAR_SCALE. The player's car becomes a road supercar when settings.carModel === 'street'.
  */
 export function F1Car({ car }: F1CarProps) {
-  const carState = car.phys;
-  const { body: bodyColor, accent: accentColor, rim: rimColor } = car.driver.livery;
-  const rootRef = useRef<THREE.Group>(null);
-  const bodyGroupRef = useRef<THREE.Group>(null);
-  const steeringWheelRef = useRef<THREE.Mesh>(null);
-  const drsFlapRef = useRef<THREE.Mesh>(null);
-  const brakeLightMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const carModel = useGameStore((s) => s.settings.carModel);
+  const street = car.isPlayer && carModel === 'street';
+  return <CarRig key={street ? 'street' : 'f1'} car={car} street={street} />;
+}
 
-  const frontLeftWheelPivotRef = useRef<THREE.Group>(null);
-  const frontRightWheelPivotRef = useRef<THREE.Group>(null);
-  const frontLeftWheelSpinRef = useRef<THREE.Group>(null);
-  const frontRightWheelSpinRef = useRef<THREE.Group>(null);
-  const rearLeftWheelSpinRef = useRef<THREE.Group>(null);
-  const rearRightWheelSpinRef = useRef<THREE.Group>(null);
+// Max visual wheel spin per frame (rad): keeps 6-spoke rims from strobing backwards.
+const MAX_SPIN_STEP = 0.5;
+const DEG = Math.PI / 180;
+const FLAP_CLOSED = 25 * DEG;
+const FLAP_OPEN = -3 * DEG;
 
-  // Procedural corrugated texture for body
-  const bodyTexture = useMemo(() => {
-    const c = document.createElement('canvas');
-    c.width = 256;
-    c.height = 256;
-    const ctx = c.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = bodyColor;
-      ctx.fillRect(0, 0, 256, 256);
-      ctx.save();
-      ctx.translate(128, 128);
-      ctx.rotate((-18 * Math.PI) / 180);
-      ctx.translate(-128, -128);
-      ctx.strokeStyle = 'rgba(35, 16, 4, 0.22)';
-      for (let y = -60; y < 320; y += 7) {
-        ctx.lineWidth = y % 14 === 0 ? 2.2 : 1.1;
-        ctx.beginPath();
-        ctx.moveTo(-60, y);
-        ctx.lineTo(320, y);
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-    const tex = new THREE.CanvasTexture(c);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    return tex;
-  }, [bodyColor]);
+function CarRig({ car, street }: { car: WorldCar; street: boolean }) {
+  const livery = car.driver.livery;
+  const wheels: WheelSpec[] = street ? STREET_WHEELS : F1_WHEELS;
 
-  // Frame update
-  useFrame((_, dt) => {
-    if (!rootRef.current) return;
+  const liveryMat = useMemo(() => getLiveryMaterial(livery), [livery.body, livery.accent, livery.rim, livery.number]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shared = getSharedMaterials();
+  const mats = useMemo(() => createCarMaterials(), []);
+  useEffect(() => () => {
+    mats.rimFront.dispose();
+    mats.rimRear.dispose();
+    mats.brakeLight.dispose();
+  }, [mats]);
 
-    // World position & heading
-    rootRef.current.position.set(carState.x, 0.05, carState.y);
-    rootRef.current.rotation.y = Math.PI / 2 - carState.a;
+  const f1 = useMemo(() => (street ? null : getF1Geometries()), [street]);
+  const st = useMemo(() => (street ? getStreetGeometries() : null), [street]);
+  const rimGeo = useMemo(() => getRimGeometry(livery.rim), [livery.rim]);
+  const tyreGeo0 = useMemo(() => getTyreGeometry(car.compound), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Body pitch and roll
-    if (bodyGroupRef.current) {
-      bodyGroupRef.current.rotation.x = carState.pitch || 0;
-      bodyGroupRef.current.rotation.z = carState.roll || 0;
-    }
+  const root = useRef<THREE.Group>(null);
+  const bodyGroup = useRef<THREE.Group>(null);
+  const flapRef = useRef<THREE.Mesh>(null);
+  const steerRef = useRef<THREE.Mesh>(null);
+  const pivots = useRef<(THREE.Group | null)[]>([]);
+  const spins = useRef<(THREE.Group | null)[]>([]);
+  const tyres = useRef<(THREE.Mesh | null)[]>([]);
 
-    // Front steering angle
-    const steerAngle = -carState.steer * 0.45;
-    if (frontLeftWheelPivotRef.current) frontLeftWheelPivotRef.current.rotation.y = steerAngle;
-    if (frontRightWheelPivotRef.current) frontRightWheelPivotRef.current.rotation.y = steerAngle;
+  // Per-car animation state (no allocations in the frame loop).
+  const s = useRef({ compound: car.compound as TyreCompound, glow: 0, flap: FLAP_CLOSED, spin: [0, 0, 0, 0], tail: 0, t: Math.random() * 10 });
 
-    // Cockpit steering wheel
-    if (steeringWheelRef.current) {
-      steeringWheelRef.current.rotation.z = -carState.steer * 1.8;
+  useFrame((_, dtRaw) => {
+    const g = root.current;
+    if (!g) return;
+    const dt = Math.min(dtRaw, 0.05);
+    const p = car.phys;
+    const a = s.current;
+    a.t += dt;
+
+    g.position.set(p.x, 0.05, p.y);
+    g.rotation.y = Math.PI / 2 - p.a;
+
+    // Body attitude + ride-height drop with speed (aero squat).
+    const speedN = Math.min(1, Math.abs(p.vf) / 900);
+    if (bodyGroup.current) {
+      bodyGroup.current.rotation.x = p.pitch || 0;
+      bodyGroup.current.rotation.z = p.roll || 0;
+      bodyGroup.current.position.y = -0.016 * speedN * speedN;
     }
 
-    // Axle-specific wheel spin
-    const baseWheelSpinRate = carState.vf / (0.34 * CAR_SCALE);
-    const frontSpinDelta = baseWheelSpinRate * (1 - (carState.wheelSlipFront || 0) * 0.7) * dt;
-    const rearSpinDelta = baseWheelSpinRate * (1 - (carState.wheelSlipRear || 0) * 0.7) * dt;
-
-    if (frontLeftWheelSpinRef.current) frontLeftWheelSpinRef.current.rotation.x += frontSpinDelta;
-    if (frontRightWheelSpinRef.current) frontRightWheelSpinRef.current.rotation.x += frontSpinDelta;
-    if (rearLeftWheelSpinRef.current) rearLeftWheelSpinRef.current.rotation.x += rearSpinDelta;
-    if (rearRightWheelSpinRef.current) rearRightWheelSpinRef.current.rotation.x += rearSpinDelta;
-
-    // DRS flap animation
-    if (drsFlapRef.current) {
-      const targetFlap = carState.drsOpen ? -3 * (Math.PI / 180) : 25 * (Math.PI / 180);
-      carState.drsFlapAngle += (targetFlap - carState.drsFlapAngle) * Math.min(1, 16.0 * dt);
-      drsFlapRef.current.rotation.x = carState.drsFlapAngle;
+    // Wheels
+    const steerAngle = -p.steer * 0.45;
+    const base = p.vf * dt;
+    for (let i = 0; i < wheels.length; i++) {
+      const w = wheels[i];
+      const slip = w.front ? p.wheelSlipFront : p.wheelSlipRear;
+      const rate = (base / (w.radius * CAR_SCALE)) * (1 - Math.min(1, Math.max(0, slip || 0)) * 0.7);
+      const step = rate > MAX_SPIN_STEP ? MAX_SPIN_STEP : rate < -MAX_SPIN_STEP ? -MAX_SPIN_STEP : rate;
+      a.spin[i] = (a.spin[i] + step) % (Math.PI * 2);
+      const sp = spins.current[i];
+      if (sp) sp.rotation.x = a.spin[i];
+      const pv = pivots.current[i];
+      if (pv && w.front) pv.rotation.y = steerAngle;
     }
 
-    // Brake safety LED light
-    if (brakeLightMatRef.current) {
-      const bIntensity = carState.brakeInput || 0;
-      if (bIntensity > 0.05) {
-        brakeLightMatRef.current.emissive.setHex(0xff1e00);
-        brakeLightMatRef.current.emissiveIntensity = 0.5 + bIntensity * 2.5;
-      } else {
-        brakeLightMatRef.current.emissive.setHex(0x000000);
-        brakeLightMatRef.current.emissiveIntensity = 0;
+    // Tyre compound may change at runtime (pit stops).
+    if (a.compound !== car.compound) {
+      a.compound = car.compound;
+      const geo = getTyreGeometry(car.compound);
+      for (let i = 0; i < tyres.current.length; i++) {
+        const m = tyres.current[i];
+        if (m) m.geometry = geo;
       }
     }
+
+    // Brake discs: heat up fast under hard braking at speed, cool slowly.
+    const heat = Math.min(1, p.brakeInput * 1.4) * Math.min(1, Math.abs(p.vf) / 260);
+    const k = heat > a.glow ? 1 - Math.exp(-dt / 0.12) : 1 - Math.exp(-dt / 1.4);
+    a.glow += (heat - a.glow) * k;
+    const gl = a.glow * a.glow * 3.2;
+    mats.rimFront.emissiveIntensity = gl * (0.55 + 0.45 * (p.brakeBias ?? 0.5));
+    mats.rimRear.emissiveIntensity = gl * (1 - 0.35 * (p.brakeBias ?? 0.5));
+
+    // Tail light: steady red on the brakes, 4 Hz blink in rain/snow.
+    const weather = useGameStore.getState().settings.weather;
+    const wet = weather === 'rain' || weather === 'snow';
+    let lamp = 0.35 + p.brakeInput * 3.2;
+    if (wet && p.brakeInput < 0.05) lamp = Math.floor(a.t * 8) % 2 === 0 ? 3.2 : 0.2;
+    mats.brakeLight.emissiveIntensity = lamp;
+
+    // DRS flap (physics only seeds the angle, so animate it here).
+    const target = p.drsOpen ? FLAP_OPEN : FLAP_CLOSED;
+    a.flap += (target - a.flap) * Math.min(1, 16 * dt);
+    p.drsFlapAngle = a.flap;
+    if (flapRef.current) flapRef.current.rotation.x = a.flap;
+
+    if (steerRef.current) steerRef.current.rotation.z = -p.steer * 1.8;
   });
 
+  const setPivot = (i: number) => (el: THREE.Group | null) => {
+    pivots.current[i] = el;
+  };
+  const setSpin = (i: number) => (el: THREE.Group | null) => {
+    spins.current[i] = el;
+  };
+  const setTyre = (i: number) => (el: THREE.Mesh | null) => {
+    tyres.current[i] = el;
+  };
+
   return (
-    <group ref={rootRef} scale={[CAR_SCALE, CAR_SCALE, CAR_SCALE]}>
-      <group ref={bodyGroupRef}>
-        {/* Monocoque & Main Floor */}
-        <mesh position={[0, 0.14, -0.15]} castShadow receiveShadow>
-          <boxGeometry args={[1.35, 0.04, 2.2]} />
-          <meshStandardMaterial color={0x221a12} roughness={0.92} />
-        </mesh>
-        <mesh position={[0, 0.36, 0.1]} castShadow receiveShadow>
-          <boxGeometry args={[0.52, 0.42, 1.5]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-        <mesh position={[0, 0.28, 1.25]} rotation={[-THREE.MathUtils.degToRad(10), 0, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.36, 0.26, 1.0]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
+    <group ref={root} scale={CAR_SCALE}>
+      <group ref={bodyGroup}>
+        {f1 && (
+          <>
+            <mesh geometry={f1.body} material={liveryMat} castShadow receiveShadow />
+            <mesh geometry={f1.carbon} material={shared.carbon} castShadow receiveShadow />
+            <mesh ref={flapRef} geometry={f1.flap} material={liveryMat} position={f1.flapPivot} castShadow />
+            <group position={[0, 0.6, 0.3]} rotation={[0.6, Math.PI, 0]}>
+              <mesh ref={steerRef} geometry={f1.steeringWheel} material={shared.carbon} />
+            </group>
+            <mesh geometry={f1.brakeLight} material={mats.brakeLight} position={[0, 0.355, -1.472]} />
+          </>
+        )}
+        {st && (
+          <>
+            <mesh geometry={st.body} material={liveryMat} castShadow receiveShadow />
+            <mesh geometry={st.trim} material={shared.carbon} castShadow receiveShadow />
+            <mesh geometry={st.glass} material={shared.glass} />
+            <mesh geometry={st.lamps} material={shared.lamp} />
+            <mesh geometry={st.tailLight} material={mats.brakeLight} />
+          </>
+        )}
+      </group>
 
-        {/* Front Wing */}
-        <mesh position={[0, 0.14, 1.75]} castShadow receiveShadow>
-          <boxGeometry args={[1.65, 0.04, 0.38]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-        <mesh position={[0.45, 0.21, 1.68]} rotation={[-THREE.MathUtils.degToRad(18), 0, 0]} castShadow>
-          <boxGeometry args={[0.55, 0.03, 0.22]} />
-          <meshStandardMaterial color={accentColor} roughness={0.65} />
-        </mesh>
-        <mesh position={[-0.45, 0.21, 1.68]} rotation={[-THREE.MathUtils.degToRad(18), 0, 0]} castShadow>
-          <boxGeometry args={[0.55, 0.03, 0.22]} />
-          <meshStandardMaterial color={accentColor} roughness={0.65} />
-        </mesh>
-        <mesh position={[0.82, 0.22, 1.72]} castShadow>
-          <boxGeometry args={[0.04, 0.24, 0.46]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-        <mesh position={[-0.82, 0.22, 1.72]} castShadow>
-          <boxGeometry args={[0.04, 0.24, 0.46]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-
-        {/* Cockpit & Halo */}
-        <mesh position={[0.23, 0.62, -0.05]} castShadow>
-          <boxGeometry args={[0.06, 0.16, 0.65]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-        <mesh position={[-0.23, 0.62, -0.05]} castShadow>
-          <boxGeometry args={[0.06, 0.16, 0.65]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-        <mesh position={[0, 0.63, 0.25]} rotation={[-THREE.MathUtils.degToRad(25), 0, 0]} castShadow>
-          <boxGeometry args={[0.42, 0.12, 0.12]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-        <mesh position={[0, 0.52, -0.28]} rotation={[-THREE.MathUtils.degToRad(15), 0, 0]} castShadow>
-          <boxGeometry args={[0.36, 0.45, 0.12]} />
-          <meshStandardMaterial color={0x221a12} roughness={0.92} />
-        </mesh>
-
-        {/* Halo Safety Bar */}
-        <mesh position={[0, 0.82, 0.05]} rotation={[-THREE.MathUtils.degToRad(18), 0, 0]} castShadow>
-          <boxGeometry args={[0.05, 0.05, 0.55]} />
-          <meshStandardMaterial color={0x221a12} roughness={0.92} />
-        </mesh>
-        <mesh position={[0, 0.74, 0.22]} castShadow>
-          <boxGeometry args={[0.36, 0.05, 0.05]} />
-          <meshStandardMaterial color={0x221a12} roughness={0.92} />
-        </mesh>
-
-        {/* Cockpit Steering Wheel */}
-        <mesh ref={steeringWheelRef} position={[0, 0.62, 0.08]} rotation={[THREE.MathUtils.degToRad(55), 0, 0]}>
-          <torusGeometry args={[0.13, 0.025, 6, 10]} />
-          <meshStandardMaterial color={0x221a12} roughness={0.92} />
-        </mesh>
-
-        {/* Sidepods & Airbox */}
-        {[-1, 1].map((side) => (
-          <group key={side} position={[side * 0.48, 0, 0]}>
-            <mesh position={[0, 0.35, -0.25]} castShadow receiveShadow>
-              <boxGeometry args={[0.44, 0.38, 0.95]} />
-              <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-            </mesh>
-            <mesh position={[0, 0.35, 0.23]} castShadow receiveShadow>
-              <boxGeometry args={[0.36, 0.3, 0.05]} />
-              <meshStandardMaterial color={0x221a12} roughness={0.92} />
-            </mesh>
-            <mesh position={[0, 0.55, 0.18]} castShadow>
-              <boxGeometry args={[0.46, 0.04, 0.25]} />
-              <meshStandardMaterial color={accentColor} roughness={0.65} />
-            </mesh>
+      {wheels.map((w, i) => (
+        <group key={i} ref={setPivot(i)} position={[w.x, w.y, w.z]}>
+          <group ref={setSpin(i)}>
+            <mesh ref={setTyre(i)} geometry={tyreGeo0} material={shared.tyre} scale={[w.width, w.radius, w.radius]} castShadow />
+            <mesh geometry={rimGeo} material={w.front ? mats.rimFront : mats.rimRear} scale={[w.width, w.radius, w.radius]} />
           </group>
-        ))}
-        <mesh position={[0, 0.78, -0.55]} castShadow>
-          <boxGeometry args={[0.32, 0.42, 0.45]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-        <mesh position={[0, 0.65, -0.92]} rotation={[THREE.MathUtils.degToRad(22), 0, 0]} castShadow>
-          <boxGeometry args={[0.28, 0.38, 0.75]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-
-        {/* Rear Wing & Animated DRS Flap */}
-        <mesh position={[0.12, 0.72, -1.32]} rotation={[-THREE.MathUtils.degToRad(12), 0, 0]} castShadow>
-          <boxGeometry args={[0.05, 0.48, 0.16]} />
-          <meshStandardMaterial color={0x221a12} roughness={0.92} />
-        </mesh>
-        <mesh position={[-0.12, 0.72, -1.32]} rotation={[-THREE.MathUtils.degToRad(12), 0, 0]} castShadow>
-          <boxGeometry args={[0.05, 0.48, 0.16]} />
-          <meshStandardMaterial color={0x221a12} roughness={0.92} />
-        </mesh>
-        <mesh position={[0, 0.92, -1.38]} castShadow>
-          <boxGeometry args={[1.35, 0.04, 0.32]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-
-        {/* Dynamic DRS Flap */}
-        <mesh ref={drsFlapRef} position={[0, 1.04, -1.48]} castShadow>
-          <boxGeometry args={[1.35, 0.04, 0.22]} />
-          <meshStandardMaterial color={accentColor} roughness={0.65} />
-        </mesh>
-
-        {/* Endplates */}
-        <mesh position={[0.68, 0.86, -1.4]} castShadow>
-          <boxGeometry args={[0.04, 0.52, 0.48]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-        <mesh position={[-0.68, 0.86, -1.4]} castShadow>
-          <boxGeometry args={[0.04, 0.52, 0.48]} />
-          <meshStandardMaterial map={bodyTexture} roughness={0.78} />
-        </mesh>
-
-        {/* Rear Safety Rain / Brake Light LED */}
-        <mesh position={[0, 0.28, -1.46]}>
-          <boxGeometry args={[0.18, 0.12, 0.08]} />
-          <meshStandardMaterial ref={brakeLightMatRef} color={0x330000} roughness={0.2} emissive={0x000000} />
-        </mesh>
-      </group>
-
-      {/* 4 Low-Poly F1 Wheels */}
-      {/* Front Left Wheel */}
-      <group ref={frontLeftWheelPivotRef} position={[0.82, 0.32, 0.9]}>
-        <group ref={frontLeftWheelSpinRef}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.32, 0.32, 0.3, 12]} />
-            <meshStandardMaterial color={0x18181b} roughness={0.9} />
-          </mesh>
-          <mesh rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.18, 0.18, 0.34, 12]} />
-            <meshStandardMaterial color={rimColor} roughness={0.65} />
-          </mesh>
         </group>
-      </group>
-
-      {/* Front Right Wheel */}
-      <group ref={frontRightWheelPivotRef} position={[-0.82, 0.32, 0.9]}>
-        <group ref={frontRightWheelSpinRef}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.32, 0.32, 0.3, 12]} />
-            <meshStandardMaterial color={0x18181b} roughness={0.9} />
-          </mesh>
-          <mesh rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.18, 0.18, 0.34, 12]} />
-            <meshStandardMaterial color={rimColor} roughness={0.65} />
-          </mesh>
-        </group>
-      </group>
-
-      {/* Rear Left Wheel */}
-      <group position={[0.86, 0.36, -0.98]}>
-        <group ref={rearLeftWheelSpinRef}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.36, 0.36, 0.38, 12]} />
-            <meshStandardMaterial color={0x18181b} roughness={0.9} />
-          </mesh>
-          <mesh rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.2, 0.2, 0.42, 12]} />
-            <meshStandardMaterial color={rimColor} roughness={0.65} />
-          </mesh>
-        </group>
-      </group>
-
-      {/* Rear Right Wheel */}
-      <group position={[-0.86, 0.36, -0.98]}>
-        <group ref={rearRightWheelSpinRef}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.36, 0.36, 0.38, 12]} />
-            <meshStandardMaterial color={0x18181b} roughness={0.9} />
-          </mesh>
-          <mesh rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.2, 0.2, 0.42, 12]} />
-            <meshStandardMaterial color={rimColor} roughness={0.65} />
-          </mesh>
-        </group>
-      </group>
+      ))}
     </group>
   );
 }

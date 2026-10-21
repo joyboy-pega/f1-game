@@ -40,7 +40,7 @@ const GRID_HOLD = 1.0; // seconds on the grid before the first light
 const LIGHT_INTERVAL = 1.0;
 const POSITION_DEBOUNCE = 0.5;
 
-function makeCar(id: number, isPlayer: boolean, idx: number, lateral: number, compound: TyreCompound): WorldCar {
+export function makeCar(id: number, isPlayer: boolean, idx: number, lateral: number, compound: TyreCompound): WorldCar {
   const phys = createInitialCarState(idx, lateral);
   const { s } = arcPosition(phys);
   return {
