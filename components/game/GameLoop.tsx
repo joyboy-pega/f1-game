@@ -14,6 +14,14 @@ import type { SimEvent } from '@/lib/game/sim/events';
 const HUD_INTERVAL = 0.1;
 const RESULTS_DELAY_MS = 2500;
 
+/** Pending results popup; module-level so a restart (or unmount) can cancel it. */
+let resultsTimer: ReturnType<typeof setTimeout> | null = null;
+
+function cancelResultsTimer() {
+  if (resultsTimer !== null) clearTimeout(resultsTimer);
+  resultsTimer = null;
+}
+
 /** Bridges simulation events to toasts, audio and records. */
 function handleEvent(e: SimEvent) {
   const st = useGameStore.getState();
@@ -64,7 +72,12 @@ function handleEvent(e: SimEvent) {
       break;
     case 'finish':
       if (e.carId === pid) {
-        setTimeout(() => {
+        cancelResultsTimer();
+        const raceIdAtFinish = world.raceId;
+        resultsTimer = setTimeout(() => {
+          resultsTimer = null;
+          // A restart inside the delay must not show the previous race's results over the new one.
+          if (world.raceId !== raceIdAtFinish) return;
           const results = world.buildResults();
           const s = useGameStore.getState();
           s.recordRace(results.playerPosition, true);
@@ -82,7 +95,13 @@ export function GameLoop() {
   const hudTimer = useRef(0);
   const qualityTimer = useRef(0);
 
-  useEffect(() => world.events.subscribe(handleEvent), []);
+  useEffect(() => {
+    const unsubscribe = world.events.subscribe(handleEvent);
+    return () => {
+      unsubscribe();
+      cancelResultsTimer();
+    };
+  }, []);
 
   useFrame((state, delta) => {
     const dt = Math.min(0.1, delta);
