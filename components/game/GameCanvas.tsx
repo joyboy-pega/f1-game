@@ -8,6 +8,7 @@ import { useGameStore } from '@/lib/game/store';
 import { Track } from './Track';
 import { TrackProps } from './TrackProps';
 import { Cars } from './Cars';
+import { RacingLine } from './RacingLine';
 import { Camera } from './Camera';
 import { Environment } from './Environment';
 import { Effects } from './Effects';
@@ -43,6 +44,7 @@ export function GameCanvas() {
           <Track />
           <TrackProps />
           <Cars />
+          <RacingLine />
           <Effects />
           <Camera />
         </Suspense>
