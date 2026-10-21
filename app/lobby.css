@@ -151,6 +151,99 @@
   text-transform: uppercase;
   color: var(--ink-mute);
 }
+.l-showroom-toolbar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 20;
+  pointer-events: auto;
+}
+.l-showroom-btn {
+  appearance: none;
+  border: 1px solid var(--edge);
+  background: rgba(7, 8, 10, 0.88);
+  color: var(--ink-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+  transition: all 0.14s ease;
+  backdrop-filter: blur(8px);
+}
+.l-showroom-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.l-showroom-btn.on {
+  background: rgba(200, 255, 46, 0.2);
+  border-color: var(--lime);
+  color: var(--lime);
+  box-shadow: 0 0 12px rgba(200, 255, 46, 0.3);
+}
+.l-showroom-presets {
+  position: absolute;
+  top: 50px;
+  right: 14px;
+  display: flex;
+  gap: 6px;
+  z-index: 20;
+  pointer-events: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.l-showroom-preset-btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(11, 13, 17, 0.88);
+  color: var(--ink-mute);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 5px 9px;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+  transition: all 0.12s ease;
+  backdrop-filter: blur(8px);
+}
+.l-showroom-preset-btn:hover {
+  color: var(--ink-text);
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.12);
+}
+.l-showroom-preset-btn.on {
+  color: var(--lime);
+  border-color: var(--lime);
+  background: rgba(200, 255, 46, 0.12);
+}
+.l-showroom-hint {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(7, 8, 10, 0.82);
+  border: 1px solid var(--edge);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  pointer-events: none;
+  z-index: 20;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+  backdrop-filter: blur(8px);
+}
 .l-stage-cap {
   position: absolute;
   left: 14px;
