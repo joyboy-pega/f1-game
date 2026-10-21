@@ -13,7 +13,7 @@ const RacingGame = dynamic(
 
 export default function GamePage() {
   return (
-    <main className="w-screen h-screen overflow-hidden bg-slate-950">
+    <main className="w-screen h-screen overflow-hidden bg-black game-enter">
       <RacingGame />
     </main>
   );

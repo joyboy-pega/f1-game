@@ -12,8 +12,22 @@
   gap: 14px;
   padding: 16px clamp(14px, 3vw, 36px) 20px;
   background:
-    radial-gradient(1200px 520px at 18% -10%, rgba(200, 255, 46, 0.1), transparent 60%),
-    radial-gradient(900px 500px at 100% 100%, rgba(255, 107, 26, 0.08), transparent 60%),
+    radial-gradient(1200px 520px at 18% -10%, rgba(200, 255, 46, 0.13), transparent 60%),
+    radial-gradient(900px 500px at 100% 100%, rgba(255, 107, 26, 0.09), transparent 60%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.016) 0px,
+      rgba(255, 255, 255, 0.016) 1px,
+      transparent 1px,
+      transparent 32px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.016) 0px,
+      rgba(255, 255, 255, 0.016) 1px,
+      transparent 1px,
+      transparent 32px
+    ),
     #07080a;
   color: var(--ink-text);
   font-family: var(--font-ui);
@@ -200,8 +214,9 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--edge);
   border-bottom: 3px solid transparent;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background 0.14s ease, transform 0.12s ease, border-color 0.14s ease, box-shadow 0.14s ease;
 }
 .l-mode b {
   font-family: var(--font-display);
@@ -218,11 +233,14 @@
   color: var(--ink-mute);
 }
 .l-mode:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.09);
+  transform: translateY(-2px);
+  border-color: rgba(200, 255, 46, 0.4);
 }
 .l-mode.on {
-  background: rgba(200, 255, 46, 0.12);
+  background: rgba(200, 255, 46, 0.14);
   border-bottom-color: var(--lime);
+  box-shadow: 0 4px 14px rgba(200, 255, 46, 0.1);
 }
 .l-mode.on b {
   color: var(--lime);

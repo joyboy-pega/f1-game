@@ -723,6 +723,31 @@
   color: #fff;
   background: rgba(0, 0, 0, 0.7);
   padding: 4px 10px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+  transition: all 0.12s ease;
+}
+.h-lights-cap.brace {
+  background: rgba(255, 20, 8, 0.4);
+  border: 1px solid var(--red);
+  box-shadow: 0 0 16px rgba(255, 20, 8, 0.6);
+  animation: brace-pulse 0.36s ease-in-out infinite alternate;
+}
+.h-brace-text {
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  color: #fff;
+}
+@keyframes brace-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.92;
+  }
+  to {
+    transform: scale(1.04);
+    opacity: 1;
+    box-shadow: 0 0 26px rgba(255, 20, 8, 0.9);
+  }
 }
 
 /* ----------------------------------------------------------- controls hint */
@@ -954,9 +979,10 @@
   justify-content: center;
   gap: 2px;
   padding: 0;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
-  transition: background 0.06s ease, transform 0.06s ease;
+  transition: background 0.06s ease, transform 0.06s ease, border-color 0.06s ease;
 }
 .mc-btn.on {
   background: rgba(200, 255, 46, 0.55);

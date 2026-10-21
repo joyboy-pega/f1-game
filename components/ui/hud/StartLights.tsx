@@ -24,8 +24,15 @@ export function StartLights() {
           </div>
         ))}
       </div>
-      <div className="h-lights-cap">
-        {lit >= 5 ? 'HOLD' : lit === 0 ? 'FORMATION COMPLETE' : 'LIGHTS'} · {lap} LAPS
+      <div className={`h-lights-cap ${lit >= 5 ? 'brace' : ''}`}>
+        {lit >= 5 ? (
+          <span className="h-brace-text">⚡ BRACE · REVS UP</span>
+        ) : lit === 0 ? (
+          'FORMATION COMPLETE'
+        ) : (
+          'LIGHTS'
+        )}{' '}
+        · {lap} LAPS
       </div>
     </div>
   );

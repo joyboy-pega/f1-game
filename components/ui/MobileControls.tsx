@@ -1,15 +1,29 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { controls, ControlHold, ControlTrigger } from '@/lib/game/controls';
 
+/**
+ * Mobile touch driving controls using the unified `.mc-*` HUD CSS system.
+ * Matches Buddh GP & Simulart Tracks design tokens, with zero conflicting Tailwind styling.
+ */
 export function MobileControls() {
-  const bindControl = (action: ControlHold | ControlTrigger) => {
-    const isHold = (['throttle', 'brake', 'steerLeft', 'steerRight', 'handbrake', 'ersBoost', 'lookBack'] as string[]).includes(action);
+  const [activeControls, setActiveControls] = useState<Record<string, boolean>>({});
+
+  const bindControl = useCallback((action: ControlHold | ControlTrigger) => {
+    const isHold = (
+      ['throttle', 'brake', 'steerLeft', 'steerRight', 'handbrake', 'ersBoost', 'lookBack'] as string[]
+    ).includes(action);
+
     const set = (active: boolean) => {
-      if (isHold) controls.setVirtualHold(action as ControlHold, active);
-      else if (active) controls.fireTrigger(action as ControlTrigger);
+      setActiveControls((prev) => (prev[action] === active ? prev : { ...prev, [action]: active }));
+      if (isHold) {
+        controls.setVirtualHold(action as ControlHold, active);
+      } else if (active) {
+        controls.fireTrigger(action as ControlTrigger);
+      }
     };
+
     return {
       onPointerDown: (e: React.PointerEvent) => {
         e.preventDefault();
@@ -28,71 +42,91 @@ export function MobileControls() {
         set(false);
       },
     };
-  };
+  }, []);
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none select-none p-3 sm:p-5 flex justify-between items-end">
-      {/* Left Steering Pad: Steer Left & Steer Right */}
-      <div className="pointer-events-auto flex items-center gap-2 min-[430px]:gap-3">
+    <div className="mc" aria-label="Touch driving controls">
+      {/* Left: Steering Pad */}
+      <div className="mc-left">
         <button
+          type="button"
           {...bindControl('steerLeft')}
-          className="w-12 h-12 min-[430px]:w-16 min-[430px]:h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-900/80 active:bg-cyan-500/30 border border-slate-700/80 text-white font-black text-2xl flex items-center justify-center shadow-2xl backdrop-blur-md transition-transform active:scale-95 touch-none"
+          className={`mc-btn mc-steer ${activeControls['steerLeft'] ? 'on' : ''}`}
           aria-label="Steer Left"
         >
           ◀
         </button>
         <button
+          type="button"
           {...bindControl('steerRight')}
-          className="w-12 h-12 min-[430px]:w-16 min-[430px]:h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-900/80 active:bg-cyan-500/30 border border-slate-700/80 text-white font-black text-2xl flex items-center justify-center shadow-2xl backdrop-blur-md transition-transform active:scale-95 touch-none"
+          className={`mc-btn mc-steer ${activeControls['steerRight'] ? 'on' : ''}`}
           aria-label="Steer Right"
         >
           ▶
         </button>
       </div>
 
-      {/* Center Aux: Handbrake, DRS, ERS Boost */}
-      <div className="pointer-events-auto flex items-center gap-2 mb-1">
-        <button
-          {...bindControl('drsToggleRequested')}
-          className="w-10 h-10 min-[430px]:w-12 min-[430px]:h-12 rounded-xl bg-emerald-600/80 active:bg-emerald-500 border border-emerald-400 text-white font-mono font-bold text-xs flex items-center justify-center shadow-xl backdrop-blur-md active:scale-95 touch-none"
-          aria-label="DRS Flap Toggle"
-        >
-          DRS
-        </button>
-        <button
-          {...bindControl('ersBoost')}
-          className="w-10 h-10 min-[430px]:w-12 min-[430px]:h-12 rounded-xl bg-purple-600/80 active:bg-purple-500 border border-purple-400 text-white font-mono font-bold text-xs flex items-center justify-center shadow-xl backdrop-blur-md active:scale-95 touch-none"
-          aria-label="ERS Hybrid Boost"
-        >
-          ERS
-        </button>
-        <button
-          {...bindControl('handbrake')}
-          className="w-10 h-10 min-[430px]:w-12 min-[430px]:h-12 rounded-xl bg-amber-600/80 active:bg-amber-500 border border-amber-400 text-white font-mono font-bold text-xs flex items-center justify-center shadow-xl backdrop-blur-md active:scale-95 touch-none"
-          aria-label="Handbrake Drift"
-        >
-          DRIFT
-        </button>
-      </div>
+      {/* Right: Aux Row (DRS, ERS, Drift) + Pedals (Brake, Gas) */}
+      <div className="mc-right">
+        <div className="mc-aux">
+          <button
+            type="button"
+            {...bindControl('drsToggleRequested')}
+            className={`mc-btn mc-small ${activeControls['drsToggleRequested'] ? 'on' : ''}`}
+            aria-label="Toggle DRS"
+            style={{
+              borderColor: 'var(--green, #00d26a)',
+              color: activeControls['drsToggleRequested'] ? '#000' : 'var(--green, #00d26a)',
+            }}
+          >
+            DRS
+          </button>
+          <button
+            type="button"
+            {...bindControl('ersBoost')}
+            className={`mc-btn mc-small ${activeControls['ersBoost'] ? 'on' : ''}`}
+            aria-label="Deploy ERS"
+            style={{
+              borderColor: 'var(--purple, #b36bff)',
+              color: activeControls['ersBoost'] ? '#000' : 'var(--purple, #b36bff)',
+            }}
+          >
+            ERS
+          </button>
+          <button
+            type="button"
+            {...bindControl('handbrake')}
+            className={`mc-btn mc-small ${activeControls['handbrake'] ? 'on' : ''}`}
+            aria-label="Handbrake Drift"
+            style={{
+              borderColor: 'var(--orange, #ff6b1a)',
+              color: activeControls['handbrake'] ? '#000' : 'var(--orange, #ff6b1a)',
+            }}
+          >
+            DRIFT
+          </button>
+        </div>
 
-      {/* Right Pedals: Throttle & Brake/Reverse */}
-      <div className="pointer-events-auto flex items-center gap-2 min-[430px]:gap-3">
-        <button
-          {...bindControl('brake')}
-          className="w-12 h-12 min-[430px]:w-16 min-[430px]:h-16 sm:w-20 sm:h-20 rounded-2xl bg-red-600/80 active:bg-red-500 border border-red-400 text-white font-black text-xl flex flex-col items-center justify-center shadow-2xl backdrop-blur-md transition-transform active:scale-95 touch-none"
-          aria-label="Brake or Reverse"
-        >
-          <span>▼</span>
-          <span className="text-[9px] font-mono font-bold -mt-1">BRAKE</span>
-        </button>
-        <button
-          {...bindControl('throttle')}
-          className="w-12 h-16 min-[430px]:w-16 min-[430px]:h-20 sm:w-20 sm:h-24 rounded-2xl bg-emerald-600/85 active:bg-emerald-500 border border-emerald-400 text-white font-black text-2xl flex flex-col items-center justify-center shadow-2xl backdrop-blur-md transition-transform active:scale-95 touch-none"
-          aria-label="Throttle Accelerate"
-        >
-          <span>▲</span>
-          <span className="text-[10px] font-mono font-bold -mt-1">GAS</span>
-        </button>
+        <div className="mc-pedals">
+          <button
+            type="button"
+            {...bindControl('brake')}
+            className={`mc-btn mc-brake ${activeControls['brake'] ? 'on' : ''}`}
+            aria-label="Brake"
+          >
+            <span>▼</span>
+            <small>BRAKE</small>
+          </button>
+          <button
+            type="button"
+            {...bindControl('throttle')}
+            className={`mc-btn mc-gas ${activeControls['throttle'] ? 'on' : ''}`}
+            aria-label="Throttle"
+          >
+            <span>▲</span>
+            <small>GAS</small>
+          </button>
+        </div>
       </div>
     </div>
   );
