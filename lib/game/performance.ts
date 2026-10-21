@@ -9,6 +9,12 @@ export interface QualitySettings {
   maxDrawDistance: number;
   postProcessing: boolean;
   foliageDensity: number;
+  /** Post stack: 'off' = plain renderer, 'basic' = SMAA + bloom, 'full' = + vignette/grade/speed FX. */
+  postTier: 'off' | 'basic' | 'full';
+  /** Rain/snow instances around the camera (scaled further by weather). */
+  weatherParticles: number;
+  /** Ring-buffer length (quad segments) of the shared skid-mark ribbon. */
+  skidSegments: number;
 }
 
 export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
@@ -21,6 +27,9 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     maxDrawDistance: 6000,
     postProcessing: false,
     foliageDensity: 0.4,
+    postTier: 'off',
+    weatherParticles: 900,
+    skidSegments: 1200,
   },
   MEDIUM: {
     level: 'MEDIUM',
@@ -31,6 +40,9 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     maxDrawDistance: 9000,
     postProcessing: true,
     foliageDensity: 0.75,
+    postTier: 'basic',
+    weatherParticles: 1800,
+    skidSegments: 3000,
   },
   HIGH: {
     level: 'HIGH',
@@ -41,6 +53,9 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     maxDrawDistance: 14000,
     postProcessing: true,
     foliageDensity: 1.0,
+    postTier: 'full',
+    weatherParticles: 2800,
+    skidSegments: 6000,
   },
 };
 

@@ -3,9 +3,14 @@
 
 let trauma = 0;
 
-/** Add shake, 0..1 (0.15 kerb, 0.4 car contact, 0.8 heavy wall hit). */
-export function addCameraShake(amount: number) {
-  trauma = Math.min(1, trauma + amount);
+/**
+ * Add shake, 0..1 (0.15 kerb, 0.4 car contact, 0.8 heavy wall hit).
+ * `cap` (optional) stops a continuous source (kerb rumble) from pushing trauma above that level,
+ * without ever lowering shake that is already higher (e.g. from a wall hit).
+ */
+export function addCameraShake(amount: number, cap = 1) {
+  if (trauma >= cap) return;
+  trauma = Math.min(cap, trauma + amount);
 }
 
 /** Current shake magnitude (0..1, already squared) and decay; call once per frame from the camera. */
