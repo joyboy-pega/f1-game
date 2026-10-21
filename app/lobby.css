@@ -287,6 +287,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  max-height: clamp(520px, calc(100vh - 120px), 760px);
   background: var(--ink-2);
   border: 1px solid var(--edge);
   border-top: 5px solid var(--lime);
@@ -420,6 +421,12 @@
   gap: 14px;
   padding: 12px 16px 16px;
   border-top: 1px solid var(--edge);
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  background: rgba(17, 18, 20, 0.98);
+  backdrop-filter: blur(10px);
+  z-index: 10;
 }
 .l-start-info {
   flex: 1;

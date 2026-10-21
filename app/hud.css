@@ -921,18 +921,17 @@
   color: var(--green);
 }
 
-/* ------------------------------------------------------------ mobile controls */
+/* ------------------------------------------------------------ mobile touch controls */
 .mc {
-  display: none;
+  display: block;
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: var(--mc-h);
-  z-index: 30;
+  height: 0;
+  z-index: 35;
   pointer-events: none;
   touch-action: none;
-  padding: 0 10px calc(10px + env(safe-area-inset-bottom));
 }
 .mc * {
   touch-action: none;
@@ -942,15 +941,20 @@
 }
 .mc-left {
   position: absolute;
-  left: 10px;
-  bottom: calc(10px + env(safe-area-inset-bottom));
+  left: max(14px, env(safe-area-inset-left));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mc-steer-row {
   display: flex;
   gap: 8px;
 }
 .mc-right {
   position: absolute;
-  right: 10px;
-  bottom: calc(10px + env(safe-area-inset-bottom));
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -958,18 +962,18 @@
 }
 .mc-aux {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 .mc-pedals {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 10px;
 }
 .mc-btn {
   pointer-events: auto;
   appearance: none;
   border: 2px solid rgba(255, 255, 255, 0.35);
-  background: rgba(8, 9, 11, 0.62);
+  background: rgba(8, 9, 11, 0.78);
   color: #fff;
   font-family: var(--font-display);
   letter-spacing: 0.08em;
@@ -977,71 +981,95 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   padding: 0;
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   transition: background 0.06s ease, transform 0.06s ease, border-color 0.06s ease;
 }
+.mc-btn:active,
 .mc-btn.on {
-  background: rgba(200, 255, 46, 0.55);
-  border-color: var(--lime);
-  color: #000;
-  transform: scale(0.97);
+  transform: scale(0.96);
+}
+.mc-arrow {
+  font-size: 26px;
+  line-height: 1;
 }
 .mc-steer {
-  width: 22vw;
-  max-width: 108px;
-  height: 126px;
-  font-size: 34px;
+  width: clamp(72px, 14vw, 92px);
+  height: clamp(86px, 14vh, 104px);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.mc-steer:active,
+.mc-steer.on {
+  background: rgba(200, 255, 46, 0.45);
+  border-color: var(--lime);
+  color: #000;
+  box-shadow: 0 0 16px rgba(200, 255, 46, 0.4);
 }
 .mc-gas {
-  width: 92px;
-  height: 148px;
-  font-size: 22px;
+  width: clamp(80px, 15vw, 100px);
+  height: clamp(100px, 18vh, 126px);
   border-color: var(--green);
+  background: rgba(0, 210, 106, 0.16);
 }
+.mc-gas:active,
 .mc-gas.on {
-  background: rgba(0, 210, 106, 0.6);
-  border-color: var(--green);
+  background: rgba(0, 210, 106, 0.7);
+  border-color: #fff;
+  color: #000;
+  box-shadow: 0 0 18px rgba(0, 210, 106, 0.6);
 }
 .mc-brake {
-  width: 70px;
-  height: 108px;
-  font-size: 18px;
+  width: clamp(74px, 13vw, 92px);
+  height: clamp(100px, 18vh, 126px); /* MATCHED to gas! */
   border-color: var(--red);
+  background: rgba(255, 59, 48, 0.16);
 }
+.mc-brake:active,
 .mc-brake.on {
-  background: rgba(255, 59, 48, 0.6);
-  border-color: var(--red);
+  background: rgba(255, 59, 48, 0.7);
+  border-color: #fff;
   color: #000;
+  box-shadow: 0 0 18px rgba(255, 59, 48, 0.6);
 }
 .mc-small {
-  width: 52px;
+  min-width: 58px;
   height: 36px;
-  font-size: 15px;
+  font-size: 13px;
+  padding: 0 8px;
+  border-width: 1.5px;
 }
 .mc-btn small {
   font-family: var(--font-mono);
   font-weight: 800;
   font-size: 9px;
   letter-spacing: 0.1em;
+  opacity: 0.85;
 }
 
 /* ================================================================ responsive */
-/* Touch layouts: controls appear, bottom HUD lifts above them. */
-@media (max-width: 640px), (max-height: 480px), (pointer: coarse) {
-  .h-root,
-  .h-root ~ .mc {
-    --mc-h: 170px;
-  }
+/* Touch layouts: controls appear, digital cluster centers between thumbs */
+@media (max-width: 900px), (max-height: 520px), (pointer: coarse) {
   .mc {
     display: block;
   }
-  .h-cluster,
+  .h-cluster {
+    position: absolute;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: clamp(180px, 28vw, 216px);
+    padding: 4px 8px 5px;
+    z-index: 30;
+    backdrop-filter: blur(8px);
+    background: rgba(7, 8, 10, 0.88);
+    border: 1px solid var(--edge);
+  }
   .h-minimap {
-    bottom: calc(var(--mc-h) + 6px);
+    display: none;
   }
   .h-hint .desk {
     display: none;
@@ -1139,11 +1167,6 @@
     height: 30px;
   }
 
-  .h-cluster {
-    right: 8px;
-    width: 206px;
-    padding: 5px 8px 6px;
-  }
   .h-leds span {
     height: 5px;
   }
@@ -1227,10 +1250,6 @@
     width: 28px;
     height: 28px;
   }
-  .h-minimap {
-    left: 8px;
-    padding: 4px;
-  }
   .h-tele {
     right: 8px;
     width: 220px;
@@ -1239,22 +1258,6 @@
   }
   .h-tt .temp {
     font-size: 19px;
-  }
-  .mc-steer {
-    width: 21vw;
-    height: 112px;
-  }
-  .mc-gas {
-    width: 84px;
-    height: 132px;
-  }
-  .mc-brake {
-    width: 62px;
-    height: 96px;
-  }
-  .h-root,
-  .h-root ~ .mc {
-    --mc-h: 158px;
   }
 }
 
