@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Buddh GP',
-    short_name: 'Buddh GP',
-    description: 'F1 racing at the Buddh International Circuit',
+    name: 'Simulart Tracks',
+    short_name: 'Simulart Tracks',
+    description: 'Simulart Tracks by Arigatoo Club — Browser Racing Simulation',
     start_url: '/',
     display: 'fullscreen',
     orientation: 'landscape',
