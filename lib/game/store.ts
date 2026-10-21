@@ -48,6 +48,8 @@ interface GameStore {
   telemetryOpen: boolean;
   /** Increments on restart so the scene rebuilds. */
   sessionId: number;
+  /** Post-race replay playback is active (owned by the replay workstream). */
+  replayActive: boolean;
 
   setPhase: (p: RacePhase) => void;
   setLightsLit: (n: number) => void;
@@ -60,6 +62,7 @@ interface GameStore {
   toggleTelemetry: () => void;
   cycleCamera: () => void;
   newSession: () => void;
+  setReplayActive: (on: boolean) => void;
 }
 
 const CAMERA_CYCLE: CameraViewMode[] = ['chase', 'tcam', 'cockpit', 'hood'];
@@ -97,6 +100,7 @@ export const useGameStore = create<GameStore>()(
       quality: 'HIGH',
       telemetryOpen: false,
       sessionId: 0,
+      replayActive: false,
 
       setPhase: (phase) => set({ phase }),
       setLightsLit: (lightsLit) => set({ lightsLit }),
@@ -123,8 +127,10 @@ export const useGameStore = create<GameStore>()(
           toasts: [],
           hud: EMPTY_HUD,
           lightsLit: 0,
+          replayActive: false,
           records: { ...s.records, racesStarted: s.records.racesStarted + 1 },
         })),
+      setReplayActive: (replayActive) => set({ replayActive }),
     }),
     {
       name: 'buddh-gp',

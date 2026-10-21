@@ -148,6 +148,7 @@ export interface GameSettings {
   quality: QualityChoice;
   showTelemetry: boolean;
   showMinimap: boolean;
+  showGhost: boolean;
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
@@ -174,6 +175,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   quality: 'AUTO',
   showTelemetry: false,
   showMinimap: true,
+  showGhost: true,
 };
 
 export function formatLapTime(seconds: number | null): string {
