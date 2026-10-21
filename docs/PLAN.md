@@ -22,7 +22,7 @@ workstream row in §4 before writing code. The lead updates §1 and §10 as work
 | WS-E | HUD, lobby, menus, results | 🟡 in progress |
 | WS-F | Audio | 🟡 in progress |
 | WS-G | Cameras, replay, ghost | 🟡 in progress |
-| WS-H | Repo hygiene (legacy/, favicon, manifest, README) | 🟡 in progress |
+| WS-H | Repo hygiene (legacy/, favicon, manifest, README) | ✅ merged |
 | INT | Integration of A–H into `main` (§5) | ⏳ next |
 | QA | Release-candidate QA pass (§6) | ⏳ |
 | P2+ | Roadmap (§7) | ⏳ planned |
