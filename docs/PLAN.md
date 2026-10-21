@@ -18,7 +18,7 @@ workstream row in §4 before writing code. The lead updates §1 and §10 as work
 | WS-A | Car model & liveries | 🟡 in progress (worktree) |
 | WS-B | World, track dressing, lighting | 🟡 in progress |
 | WS-C | FX & post-processing | 🟡 in progress |
-| WS-D | Race logic & AI | 🟡 in progress (relaunched after a spawn failure) |
+| WS-D | Race logic & AI | ✅ merged (19 tests) |
 | WS-E | HUD, lobby, menus, results | 🟡 in progress |
 | WS-F | Audio | 🟡 in progress |
 | WS-G | Cameras, replay, ghost | 🟡 in progress |
