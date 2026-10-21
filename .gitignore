@@ -28,3 +28,6 @@ next-env.d.ts
 
 # playtest screenshots
 /shots/
+
+# agent worktrees
+/.claude/worktrees/
