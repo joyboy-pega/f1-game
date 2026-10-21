@@ -32,7 +32,7 @@ function place(f: number, d: number): [number, number, number, number] {
   return [x + nx * d, z + nz * d, tx, tz];
 }
 
-interface Stand {
+export interface Stand {
   from: number;
   count: number;
   side: 1 | -1;
@@ -44,7 +44,7 @@ const TIER_D = 9;
 const TIER_H = 5.5;
 
 /** Where the grandstands go: the whole main straight opposite the pits, plus outside key corners. */
-function standPlan(): Stand[] {
+export function standPlan(): Stand[] {
   const out: Stand[] = [{ from: 1815, count: 190, side: (-PIT_SIDE) as 1 | -1, d0: WALL + 28 }];
   const pick = (apexIdx: number, span: number) => {
     const c = corners.reduce((best, k) => (Math.abs(wrapIdx(k.apex) - apexIdx) < Math.abs(wrapIdx(best.apex) - apexIdx) ? k : best), corners[0]);

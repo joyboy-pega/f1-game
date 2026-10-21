@@ -8,6 +8,8 @@ import { performanceGovernor } from '@/lib/game/performance';
 import { formatLapTime } from '@/lib/game/gameState';
 import { useGameStore, recordKey } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
+import { recorder } from '@/lib/game/sim/recorder';
+import { ghostRecorder } from '@/lib/game/replay/ghost';
 import type { SimEvent } from '@/lib/game/sim/events';
 
 const HUD_INTERVAL = 0.1;
@@ -29,6 +31,7 @@ function handleEvent(e: SimEvent) {
     case 'lap':
       if (e.carId === pid) {
         if (world.settings.mode !== 'race') st.submitLap(recordKey(world.settings.mode, world.settings.weather), e.time);
+        if (world.settings.mode === 'timetrial' && e.personalBest) ghostRecorder.commit(world.settings.weather);
         toast({
           id: `lap-${e.lap}`,
           type: e.overallBest ? 'fastest' : 'lap',
@@ -97,12 +100,20 @@ export function GameLoop() {
     const st = useGameStore.getState();
     const input = controls.poll();
 
+    // Replay: the director owns the cars and camera; nothing else steps or reacts to input.
+    if (st.replayActive) {
+      world.paused = true;
+      return;
+    }
+
     if (input.menuToggleRequested && !st.results) st.setPaused(!st.paused);
     if (input.cameraCycleRequested) st.cycleCamera();
     if (input.telemetryToggleRequested) st.toggleTelemetry();
 
     world.paused = st.paused || !!st.results;
     world.step(dt, input);
+    recorder.capture(world);
+    ghostRecorder.capture(world);
 
     const p = world.player.phys;
     const tireSlip = Math.min(

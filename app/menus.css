@@ -328,3 +328,138 @@
     margin-left: 0;
   }
 }
+
+/* ------------------------------------------------------------- replay */
+.r-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 55;
+  padding: 10px clamp(12px, 3vw, 28px) 14px;
+  background: linear-gradient(0deg, rgba(5, 6, 8, 0.92), rgba(5, 6, 8, 0.55) 70%, transparent);
+  font-family: var(--font-ui);
+  color: var(--ink-text);
+  display: grid;
+  gap: 8px;
+}
+.r-top,
+.r-follow,
+.r-transport {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.r-top {
+  justify-content: space-between;
+}
+.r-tag {
+  padding: 3px 12px 4px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #000;
+  background: var(--lime);
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+.r-cam {
+  margin-right: auto;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--ink-mute);
+}
+.r-follow {
+  justify-content: center;
+}
+.r-driver {
+  min-width: 220px;
+  text-align: center;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.r-driver i {
+  display: inline-block;
+  width: 5px;
+  height: 16px;
+  margin-right: 8px;
+  vertical-align: -3px;
+}
+.r-btn {
+  padding: 7px 12px;
+  background: rgba(30, 33, 38, 0.92);
+  border: 1px solid var(--edge);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-text);
+  cursor: pointer;
+}
+.r-btn:hover {
+  background: #343841;
+}
+.r-btn.on {
+  background: var(--lime);
+  border-color: var(--lime);
+  color: #000;
+}
+.r-btn:focus-visible,
+.r-scrub input:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+.r-btn kbd {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  margin-left: 4px;
+  opacity: 0.7;
+}
+.r-play .icon-play {
+  display: none;
+}
+.r-play.paused .icon-play {
+  display: block;
+}
+.r-play.paused .icon-pause {
+  display: none;
+}
+.r-scrub {
+  position: relative;
+  flex: 1;
+  min-width: 160px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+}
+.r-scrub input {
+  width: 100%;
+  accent-color: var(--lime);
+}
+.r-mark {
+  position: absolute;
+  top: 3px;
+  width: 2px;
+  height: 22px;
+  background: var(--purple);
+  pointer-events: none;
+}
+.r-time {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: #d4d7dd;
+}
+.r-speed {
+  display: flex;
+  gap: 2px;
+}
+.r-sp {
+  padding: 7px 9px;
+}

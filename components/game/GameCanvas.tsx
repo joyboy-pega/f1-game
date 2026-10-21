@@ -14,6 +14,8 @@ import { Environment } from './Environment';
 import { Effects } from './Effects';
 import { GameLoop } from './GameLoop';
 import { PostFX } from './fx/PostFX';
+import { Ghost } from './Ghost';
+import { ReplayDirector } from './replay/ReplayDirector';
 
 /**
  * Scene composition root. Each workstream mounts its components here:
@@ -50,8 +52,10 @@ export function GameCanvas() {
           <TrackProps />
           <Cars />
           <RacingLine />
+          <Ghost />
           <Effects />
           <Camera />
+          <ReplayDirector />
           <PostFX />
         </Suspense>
         <GameLoop />

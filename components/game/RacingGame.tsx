@@ -7,8 +7,11 @@ import { controls } from '@/lib/game/controls';
 import { performanceGovernor } from '@/lib/game/performance';
 import { useGameStore } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
+import { ghostStore, loadGhost } from '@/lib/game/replay/ghost';
+import { ReplayControls } from '@/components/ui/ReplayControls';
 import { GameCanvas } from './GameCanvas';
 import { HUD } from '@/components/ui/HUD';
+import { TimingTower } from '@/components/ui/hud/TimingTower';
 import { Minimap } from '@/components/ui/Minimap';
 import { TelemetryPods } from '@/components/ui/TelemetryPods';
 import { MobileControls } from '@/components/ui/MobileControls';
@@ -17,7 +20,9 @@ import { GameOver } from '@/components/ui/GameOver';
 
 /** Build the world from current settings, then bump the session so the scene remounts against it. */
 export function startSession() {
-  world.setup(useGameStore.getState().settings);
+  const settings = useGameStore.getState().settings;
+  world.setup(settings);
+  ghostStore.set(settings.mode === 'timetrial' ? loadGhost(settings.weather) : null);
   useGameStore.getState().newSession();
 }
 
@@ -27,6 +32,7 @@ export function RacingGame() {
   const sessionId = useGameStore((s) => s.sessionId);
   const results = useGameStore((s) => s.results);
   const paused = useGameStore((s) => s.paused);
+  const replayActive = useGameStore((s) => s.replayActive);
   const telemetryOpen = useGameStore((s) => s.telemetryOpen);
   const showMinimap = useGameStore((s) => s.settings.showMinimap);
   const quality = useGameStore((s) => s.settings.quality);
@@ -74,15 +80,25 @@ export function RacingGame() {
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black select-none font-sans">
       <GameCanvas key={sessionId} />
-      <HUD />
-      {showMinimap && <Minimap />}
-      {telemetryOpen && <TelemetryPods />}
-      <div className="block sm:hidden">
-        <MobileControls />
-      </div>
+      {replayActive ? (
+        // Replay keeps only the timing tower; the transport bar owns the rest of the screen.
+        <div className="h-root">
+          <TimingTower />
+        </div>
+      ) : (
+        <>
+          <HUD />
+          {showMinimap && <Minimap />}
+          {telemetryOpen && <TelemetryPods />}
+          <div className="block sm:hidden">
+            <MobileControls />
+          </div>
+        </>
+      )}
       {paused && !results && (
         <PauseMenu onResume={() => useGameStore.getState().setPaused(false)} onRestart={restart} onExitToMenu={exit} />
       )}
+      {replayActive && <ReplayControls />}
       {results && <GameOver results={results} onRestart={restart} onExitToMenu={exit} />}
     </div>
   );
