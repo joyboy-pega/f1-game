@@ -5,7 +5,9 @@
 // Usage:
 //   node scripts/shoot.mjs --url http://localhost:3000/game --out shots/run \
 //     [--wait 6000] [--hold ArrowUp:4000] [--press KeyC] [--shots 3] [--interval 1500]
-//     [--width 1440] [--height 900] [--mobile]
+//     [--width 1440] [--height 900] [--mobile] [--settings '<json patch of GameSettings>']
+//   e.g. --settings '{"quality":"LOW"}' pins a tier (the governor is otherwise AUTO and adapts at runtime).
+//   Add ?stats=1 to the URL on a production build to get window.__BUDDH_STATS__ (always on in `npm run dev`).
 //
 // Steps run in order: wait -> (hold/press actions) -> shots.
 // Exit code 1 if any page error / console.error occurred.
@@ -103,6 +105,9 @@ const fps = await page.evaluate(
     })
 );
 
+// Renderer/sim stats published once per second by components/game/DevStats.tsx (null when not enabled).
+const stats = await page.evaluate(() => window.__BUDDH_STATS__ ?? null);
+
 const files = [];
 for (let s = 0; s < shots; s++) {
   const f = `${out}${shots > 1 ? `-${s + 1}` : ''}.png`;
@@ -111,6 +116,6 @@ for (let s = 0; s < shots; s++) {
   if (s < shots - 1) await page.waitForTimeout(interval);
 }
 
-console.log(JSON.stringify({ url, fps, screenshots: files, errors }, null, 2));
+console.log(JSON.stringify({ url, fps, stats, screenshots: files, errors }, null, 2));
 await browser.close();
 process.exit(errors.length ? 1 : 0);

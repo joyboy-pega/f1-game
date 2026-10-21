@@ -82,3 +82,91 @@ comes up on **3001**; all `shoot.mjs` runs use `--url http://localhost:3001/game
   returns a fresh object and calls `findNearestTrackPoint` which returns a tuple; `aiCtx`/`pitCtx` literals per step
   (240 objects/s); `buildHud` (10 Hz, accepted); lap-completion `slice()`/array literals (once per lap). Left for T1/V2 which
   rewrite those call sites anyway.
+
+---
+
+## 2026-10-22 — S6 measurement harness + baseline (branch `v3/S6-measurement`)
+
+**Files:** new `lib/game/devStats.ts`, new `components/game/DevStats.tsx`, `components/game/GameCanvas.tsx` (one additive
+line), `components/game/GameLoop.tsx` (sim timer around `world.step`), `scripts/shoot.mjs` (prints `stats`), new
+`scripts/probe-physics.ts`, `package.json` (`"probe": "vite-node scripts/probe-physics.ts"`; vite-node is already installed
+as a vitest dependency, nothing added to package.json dependencies).
+
+**Mistake I made, corrected:** I told the human `shoot.mjs --settings` did not exist (my grep looked for the literal
+`--settings`; the script reads it via `opt('settings')`). It exists. I did not add it; PLAN-v3 §12.2 now says so.
+I also first added a `--quality` flag writing `formula_v_quality`; it was ineffective because `RacingGame.tsx:63` resets the
+governor to `settings.quality` (AUTO) on mount, so I removed it. Pin a tier with `--settings '{"quality":"LOW"}'`.
+
+**Harness**
+- `window.__BUDDH_STATS__ = { drawCalls, triangles, geometries, textures, programs, simMsAvg, frameMsAvg, dpr, quality, frames }`,
+  once per second, when `NODE_ENV !== 'production'` or the URL has `?stats=1`. `DevStats` sets `gl.info.autoReset = false`
+  and resets once per frame (priority −1000) so the totals cover every composer pass and the shadow pass. Draw calls therefore
+  INCLUDE shadow + post passes. `simMsAvg` = wall ms inside `world.step` per rendered frame. Disabled = zero overhead beyond
+  one boolean check.
+- `shoot.mjs` JSON now has a `stats` field (null if not enabled). Verified on dev (no query) and prod (`?stats=1`).
+- Verified symbols first (R1): `WebGLInfo.autoReset/reset()/programs/render.calls/render.triangles/memory.*`,
+  `WebGLRenderer.getPixelRatio` exist in @types/three 0.186.
+
+**Physics probe baseline** (`npm run probe`; car on a treadmill along the longest straight, idx 1864, 425 m; DRS zone
+requirement lifted for the probe only; lateral g = |course-angle rate| × speed at full lock, window 0.15–0.30 s after steering
+is set, speed held by a P controller; 1 unit = 0.10278 m from `kmh = vf × 0.37`):
+
+| Metric | Measured | §11.1 target | Verdict |
+|---|---|---|---|
+| Track length | 4739 m | 5125 | below |
+| 0–100 km/h | 0.44 s | 2.4–3.0 | below (6× too quick) |
+| 0–200 km/h | 1.22 s | 4.5–5.5 | below |
+| 0–300 km/h | not reached | — | |
+| Top speed no DRS / DRS / DRS+ERS | 289 / 353 / 377 km/h | 315–330 / 325–340 / 330–350 | below / above / above |
+| 288→80 km/h braking (top speed < 300, so 288 used) | 0.30 s, 16 m | 1.6–2.2 s, 80–120 m | far below |
+| Peak braking decel | 24.6 g | 4.5–6 | far above |
+| Lateral g at 100 / 200 / 300 km/h | 5.07 / 9.64 / 11.80 | 2.0–2.6 / 3.5–4.5 / 4.5–5.5 | far above |
+| Gears / max rpm | 7 reached / 10 979 | 8 / ~15 000 | below |
+| Downforce at 250 km/h | n/a (no force model) | 1.5–2.2 × weight | — |
+| Racing-line lap estimate | 66.4 s | 84–92 | below |
+
+- The probe reproduces the audit §2.3 straight-line numbers (0.44 / 1.22 s, 289 km/h, 0.31 s / 17 m, 66.4 s, 4 740 m).
+- **Lateral g differs from the audit** (§2.3 says 4.4 / 7.5 / 9.3 g; probe says 5.1 / 9.6 / 11.8). I checked the probe with
+  a throwaway time series: yaw-rate g and course-rate g are steady at ≈5.1 g (100 km/h) and ≈9 g (200 km/h) before the car
+  reaches the wall at ~0.6 s, so the probe value is the model's instantaneous limit. I do not know how §2.3 was measured;
+  both are far above target. The probe's definition is the one to keep for before/after comparisons.
+- DRS top speed 353 km/h and DRS+ERS 377 km/h are above band because the model's ceiling is `maxSpeedDRS 995 × 0.37`
+  and ERS adds a speed bonus; the no-DRS value is below band — the "aero" is an asymptote, as the audit said.
+
+**Renderer baseline** — production build (`next start`, `?stats=1`), Chrome headless with software WebGL, 1440×900, chase cam,
+10 cars (default settings), tier pinned with `--settings`. FPS is capped at ~60 by the harness and is NOT a performance
+signal here (every row reads 60); draw calls / triangles / memory are the baseline.
+
+| Tier | Scenario | draws | tris | geom | tex | progs | sim ms/frame | dpr |
+|---|---|---|---|---|---|---|---|---|
+| LOW | grid (6 s) | 183 | 195 k | 87 | 31 | 30 | 0.007 | 0.85 |
+| LOW | 3 s after start | 157 | 193 k | 87 | 31 | 30 | 0.23 | 0.85 |
+| LOW | "mid-lap" (player stuck in T1 gravel, no cars in view) | 37 | 111 k | 87 | 31 | 30 | 0.19 | 0.85 |
+| MEDIUM | grid (6 s) | 244 | 294 k | 88 | 57 | 66 | 0.003 | 1.0 |
+| MEDIUM | 3 s after start | 189 | 264 k | 88 | 57 | 66 | 0.32 | 1.0 |
+| MEDIUM | "mid-lap" (as above) | 68 | 177 k | 88 | 57 | 66 | 0.09 | 1.0 |
+| HIGH | grid (6 s) | 244 | 312 k | 88 | 57 | 66 | 0.003 | 1.3 |
+| HIGH | 3 s after start | 189 | 283 k | 88 | 57 | 66 | 0.22 | 1.3 |
+| HIGH | "mid-lap" (as above) | 68 | 194 k | 88 | 57 | 66 | 0.08 | 1.3 |
+
+- All nine runs: `errors: []`. Worst case is the grid (all cars in view): **244 draws at 10 cars**, already at the §11.3
+  budget of ≤ 250 for 20 cars → G6 instancing is required before R4. "Mid-lap" is NOT representative: holding ArrowUp drives
+  the player into the T1 gravel (screenshot `shots/S6-HIGH-midlap.png`); treat it as a lower bound. The 3.5 s "grid" shots were
+  taken before the lazy PostFX chunk loaded (tex 29–55, draws 60–126), so I re-took the grid at 6 s; use those.
+- Dev-server run of the same scene reads 189 draws at HIGH vs 244 on the production grid: different scenario (race already
+  running), not a dev/prod difference.
+- **`/game` first-load JS: 177 104 bytes gzip** over the 8 script chunks the HTML references (`gzip -9` of each served chunk).
+  Budget §11.3: ≤ 450 kB. Lazy chunks (PostFX / postprocessing, audio) are excluded; the plan's all-chunks figure (P6 ≈ 707 kB gz)
+  is unchanged and was not re-measured.
+- Texture count is 31 at LOW and 57 at MEDIUM/HIGH; programs 30 vs 66 (post-processing).
+- Gates: `npm run typecheck` clean, `npm test` 44/44, `npm run build` OK. Screenshot `shots/S6-HIGH-start3s.png` viewed
+  (chase cam at 210 km/h, gear 6, P10/10, smoke ahead, tower and minimap fine).
+
+**Process lesson (zsh):** in this shell an unquoted `$a` is NOT word-split, so my first baseline loop passed
+`--wait 9000 --hold ArrowUp:3000` as one argument; the harness silently used its defaults (6 s wait, no key) and every shot
+showed the start lights. I noticed because the numbers were identical across scenarios, discarded that batch and re-ran with `${=a}`.
+
+**NOT VERIFIED**
+- Any real-GPU or real-refresh-rate number (headless software GL).
+- Total JS across all chunks after this change (only first-load measured).
+- GPU time per frame (`frameMsAvg` is the frame interval, capped by rAF).

@@ -9,6 +9,7 @@ import { useGameStore, recordKey } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
 import { recorder } from '@/lib/game/sim/recorder';
 import { ghostRecorder } from '@/lib/game/replay/ghost';
+import { devStats } from '@/lib/game/devStats';
 import type { SimEvent } from '@/lib/game/sim/events';
 
 const HUD_INTERVAL = 0.1;
@@ -121,7 +122,9 @@ export function GameLoop() {
     if (input.telemetryToggleRequested) st.toggleTelemetry();
 
     world.paused = st.paused || !!st.results;
+    const simT0 = devStats.enabled ? performance.now() : 0;
     world.step(dt, input);
+    if (devStats.enabled) devStats.addSim(performance.now() - simT0);
     recorder.capture(world);
     ghostRecorder.capture(world);
 

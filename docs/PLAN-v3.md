@@ -696,7 +696,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 |---|---|---|---|---|
 | 1 | S1 input triggers + result timer | — | S | ✅ 687cc4b |
 | 2 | S5 allocation-free + golden + determinism tests | — | M | ✅ 1e9e9ee |
-| 3 | S6 measurement harness + baseline | — | M | ⏳ |
+| 3 | S6 measurement harness + baseline | — | M | ✅ (hash filled after commit) |
 | 4 | S2 render interpolation | S1 | S | ⏳ |
 | 5 | S3 governor / DPR / leaks | S6 | M | ⏳ |
 | 6 | S4 camera anchors | — | S | ⏳ |
@@ -864,7 +864,11 @@ Decisions from the human, 2026-10-22 (answers to §12.3 and session setup):
 - **R6 clarification:** `Math.random` is allowed only in `GameWorld.setup` to pick a fresh seed when `seed` is null
   (`world.ts:111`), with a comment. No other `Math.random` in sim/physics/vehicle code. `world.ts:92`
   (`rand` default) must be replaced by a deterministic placeholder.
-- **shoot.mjs:** S6 adds a `--settings '<json>'` flag (seeds localStorage before load) so R12 before/after views match.
+- **shoot.mjs:** CORRECTION (S6, 2026-10-22): `--settings '<json>'` ALREADY existed (it seeds the persisted `buddh-gp` store key); the
+  earlier "flag missing" claim came from a bad grep and the question to the human rested on it. Nothing was added. Use
+  `--settings '{"quality":"LOW"}'` to pin a tier: a separate `formula_v_quality` localStorage key does NOT work because
+  `RacingGame.tsx:63` resets the governor to `settings.quality` (default AUTO) on mount (this is the two-sources-of-truth bug S3 removes).
+  Note for T1: the script writes the persisted store at `version: 1`; update it when T1 bumps the persist version to 2.
 
 ### 12.3 Open questions for the human (answer before the related task)
 1. Keep "Buddh GP" branding with real circuit names for new tracks (Monza, Spa…), or rename everything
