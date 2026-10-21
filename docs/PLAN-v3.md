@@ -695,7 +695,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 | # | Task | Depends on | Est. size | Status |
 |---|---|---|---|---|
 | 1 | S1 input triggers + result timer | — | S | ✅ 687cc4b |
-| 2 | S5 allocation-free + golden + determinism tests | — | M | ⏳ |
+| 2 | S5 allocation-free + golden + determinism tests | — | M | ✅ 1e9e9ee |
 | 3 | S6 measurement harness + baseline | — | M | ⏳ |
 | 4 | S2 render interpolation | S1 | S | ⏳ |
 | 5 | S3 governor / DPR / leaks | S6 | M | ⏳ |
