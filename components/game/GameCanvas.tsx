@@ -14,6 +14,7 @@ import { Camera } from './Camera';
 import { Environment } from './Environment';
 import { Effects } from './Effects';
 import { GameLoop } from './GameLoop';
+import { DevStats } from './DevStats';
 import { AudioBridge } from './AudioBridge';
 // The composer pulls in the whole postprocessing library: load it after the scene is up.
 const PostFX = dynamic(() => import('./fx/PostFX').then((m) => m.PostFX), { ssr: false });
@@ -62,6 +63,7 @@ export function GameCanvas() {
           <PostFX />
         </Suspense>
         <GameLoop />
+        <DevStats />
         <AudioBridge />
       </Canvas>
     </div>
