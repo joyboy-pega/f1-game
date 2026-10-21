@@ -170,3 +170,52 @@ showed the start lights. I noticed because the numbers were identical across sce
 - Any real-GPU or real-refresh-rate number (headless software GL).
 - Total JS across all chunks after this change (only first-load measured).
 - GPU time per frame (`frameMsAvg` is the frame interval, capped by rAF).
+
+---
+
+## 2026-10-22 — S2 render interpolation (branch `v3/S2-interpolation`)
+
+**Files:** new `lib/game/sim/interp.ts` + `interp.test.ts`; `lib/game/sim/types.ts` (`prevX/prevY/prevA` on `WorldCar`);
+`lib/game/sim/world.ts` (`alpha`, prev capture, snap on reset); `lib/game/sim/ai.ts` (snap in `respawnOnLine`);
+`components/game/car/F1Car.tsx` (`interpolate` prop), `components/game/Cars.tsx`, `components/game/Camera.tsx`,
+`components/game/fx/CarFx.ts` (emitters), `components/game/GameLoop.tsx` (alpha = 1 during replay).
+
+**Design**
+- `world.step()` ends with `alpha = acc / FIXED_DT`. Before each car's physics step its pose is saved to `prevX/Y/A`.
+- `renderPose(car, alpha, out)` (pure, no allocation): lerp x/y, shortest-arc lerp of the angle (`%` 2π then ±π fold), alpha
+  clamped to [0,1]; a jump > 60 units between prev and current is treated as a teleport and returns the current pose
+  (one step is ≤ ~10 units even at 400 km/h). `snapRenderPose(car)` sets prev = current: called in `resetPlayer` and
+  `respawnOnLine` (plan step 5); the teleport guard is the safety net for anything I missed.
+- Consumers: live world cars (`<F1Car interpolate>` from `Cars.tsx`), the camera rig (it gets an interpolated x/y/a in a reused
+  `RigCar`, so its yaw-rate estimate is also smooth), and CarFx wheel emitters (so smoke/spray spawn where the car is drawn).
+  NOT interpolated on purpose: ghost and showroom cars (they write `phys` directly and are never stepped), `Environment` shadow
+  target, minimap (10 Hz), audio, sparks `burst()` (random ±7 unit jitter), sim logic (still reads `phys`).
+- Replay: the director writes `phys` directly while `world.step` is not called, so `GameLoop` sets `world.alpha = 1` during
+  replay; the blend then returns the current pose.
+- Decision: interpolation is opt-in per `F1Car` rather than always on, because ghost/showroom `WorldCar`s keep a stale `prev`.
+
+**Evidence**
+- Tests: `interp.test.ts` — 10 tests (alpha 0/1/0.5, ±π wrap both directions, alpha clamp, teleport guard, write-into-out,
+  snap, world alpha fraction over 3 frames, prev = pose before the last step and untouched on a zero-step frame, resetPlayer
+  does not smear, 144 Hz stutter measurement). `npm test` **54/54** (was 44). **Golden hash unchanged** (`golden.test.ts`
+  passes, sim untouched).
+- **Stutter measured** (144 Hz display, 120 Hz sim, car at speed, 288 frames; per-frame on-screen displacement in sim units,
+  1 unit = 0.103 m):
+
+  | | mean | sd | min | max |
+  |---|---|---|---|---|
+  | raw `phys` (before) | 5.375 | 2.434 | **0.000** | 6.491 |
+  | `renderPose` (after) | 5.397 | **0.010** | 5.375 | 5.410 |
+
+  Before, some frames show no movement at all and the others jump ~1.2× the mean; after, frame-to-frame motion varies by
+  0.2 %. (This is the model of B2, not a camera capture.)
+- Gates: typecheck clean; `npm run build` OK.
+- Screenshots (all `errors: []`): `shots/S2.png` (race, 210 km/h gear 5, P10, cars ahead, tower/minimap OK, fps 60),
+  `shots/S2-autopilot.png` (`/dev/replay?t=-1`, 278 km/h gear 7, tight pack in front, fps 53), `shots/S2-replay-tv.png`
+  (`/dev/replay?t=12&cam=tv`, replay UI, two cars placed correctly on track, fps 60).
+
+**NOT VERIFIED**
+- Perceived smoothness on a real 144/240 Hz display (headless runs ~60 Hz; only the numeric model above).
+- Camera feel change: the rig now receives smoother yaw input; I looked at stills only, not motion.
+- The ghost car and the pit-lane takeover path have no dedicated test (ghost is non-interpolated by construction; the teleport
+  guard covers pit takeover if it jumps > 6 m).

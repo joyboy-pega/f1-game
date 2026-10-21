@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import { CAR_SCALE, type TyreCompound } from '@/lib/game/constants';
 import { useGameStore } from '@/lib/game/store';
 import type { WorldCar } from '@/lib/game/sim/types';
+import { world } from '@/lib/game/sim/world';
+import { renderPose, type Pose } from '@/lib/game/sim/interp';
 import { F1_WHEELS, STREET_WHEELS, type WheelSpec } from './dimensions';
 import { getF1Geometries } from './f1Geometry';
 import { getStreetGeometries } from './streetGeometry';
@@ -15,6 +17,8 @@ import { getRimGeometry, getTyreGeometry } from './wheels';
 
 export interface F1CarProps {
   car: WorldCar;
+  /** Blend between the last two fixed steps (live sim cars). Off for ghost / showroom cars that write `phys` directly. */
+  interpolate?: boolean;
 }
 
 /**
@@ -22,11 +26,14 @@ export interface F1CarProps {
  * Contract: root group placed at (phys.x, 0.05, phys.y), rotation.y = PI/2 - phys.a,
  * uniform CAR_SCALE. The player's car becomes a road supercar when settings.carModel === 'street'.
  */
-export function F1Car({ car }: F1CarProps) {
+export function F1Car({ car, interpolate = false }: F1CarProps) {
   const carModel = useGameStore((s) => s.settings.carModel);
   const street = car.isPlayer && carModel === 'street';
-  return <CarRig key={street ? 'street' : 'f1'} car={car} street={street} />;
+  return <CarRig key={street ? 'street' : 'f1'} car={car} street={street} interpolate={interpolate} />;
 }
+
+// Scratch for the per-frame render pose (cars update one after another, so one shared object is enough).
+const scratchPose: Pose = { x: 0, y: 0, a: 0 };
 
 // Max visual wheel spin per frame (rad): keeps 6-spoke rims from strobing backwards.
 const MAX_SPIN_STEP = 0.5;
@@ -34,7 +41,7 @@ const DEG = Math.PI / 180;
 const FLAP_CLOSED = 25 * DEG;
 const FLAP_OPEN = -3 * DEG;
 
-function CarRig({ car, street }: { car: WorldCar; street: boolean }) {
+function CarRig({ car, street, interpolate }: { car: WorldCar; street: boolean; interpolate: boolean }) {
   const livery = car.driver.livery;
   const wheels: WheelSpec[] = street ? STREET_WHEELS : F1_WHEELS;
 
@@ -71,8 +78,15 @@ function CarRig({ car, street }: { car: WorldCar; street: boolean }) {
     const a = s.current;
     a.t += dt;
 
-    g.position.set(p.x, 0.05, p.y);
-    g.rotation.y = Math.PI / 2 - p.a;
+    // Live sim cars blend between the last two fixed steps; ghost / showroom cars are written directly.
+    if (interpolate) {
+      const q = renderPose(car, world.alpha, scratchPose);
+      g.position.set(q.x, 0.05, q.y);
+      g.rotation.y = Math.PI / 2 - q.a;
+    } else {
+      g.position.set(p.x, 0.05, p.y);
+      g.rotation.y = Math.PI / 2 - p.a;
+    }
 
     // Body attitude + ride-height drop with speed (aero squat).
     const speedN = Math.min(1, Math.abs(p.vf) / 900);
