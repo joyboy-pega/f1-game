@@ -105,3 +105,66 @@ describe('GameWorld race session', () => {
     expect(w.player.timing.bestLapTrace).not.toBeNull();
   });
 });
+
+describe('GameWorld edge-triggered input', () => {
+  type Trigger = 'drsToggleRequested' | 'resetRequested' | 'pitStopRequested' | 'compoundCycleRequested' | 'brakeBiasUp';
+
+  /** Records the player's trigger flag as each fixed step sees it. */
+  function spyOnSteps(w: GameWorld, key: Trigger): boolean[] {
+    const seen: boolean[] = [];
+    const priv = w as unknown as { fixedStep: (dt: number) => void };
+    const orig = priv.fixedStep.bind(w);
+    priv.fixedStep = (dt: number) => {
+      seen.push(w.player.ctrl[key]);
+      orig(dt);
+    };
+    return seen;
+  }
+
+  const triggers: Trigger[] = ['drsToggleRequested', 'resetRequested', 'pitStopRequested', 'compoundCycleRequested', 'brakeBiasUp'];
+
+  for (const key of triggers) {
+    it(`${key} pressed on a zero-step frame is applied exactly once`, () => {
+      const w = new GameWorld();
+      w.setup({ ...DEFAULT_SETTINGS, mode: 'timetrial' });
+      const seen = spyOnSteps(w, key);
+      // 4 ms is less than one 8.33 ms fixed step, so this frame runs no step.
+      w.step(0.004, { ...NEUTRAL_CONTROLS, [key]: true });
+      expect(seen).toHaveLength(0);
+      // 5 ms later the accumulator crosses one step; the latched press must arrive now.
+      w.step(0.005, NEUTRAL_CONTROLS);
+      expect(seen).toEqual([true]);
+      for (let i = 0; i < 5; i++) w.step(FIXED_DT, NEUTRAL_CONTROLS);
+      expect(seen.slice(1).every((v) => v === false)).toBe(true);
+    });
+  }
+
+  it('a press on a multi-step frame reaches only the first step', () => {
+    const w = new GameWorld();
+    w.setup({ ...DEFAULT_SETTINGS, mode: 'timetrial' });
+    const seen = spyOnSteps(w, 'drsToggleRequested');
+    w.step(FIXED_DT * 3 + 0.0001, { ...NEUTRAL_CONTROLS, drsToggleRequested: true });
+    expect(seen).toEqual([true, false, false]);
+  });
+
+  it('presses made while paused are dropped, not replayed on resume', () => {
+    const w = new GameWorld();
+    w.setup({ ...DEFAULT_SETTINGS, mode: 'timetrial' });
+    const seen = spyOnSteps(w, 'resetRequested');
+    w.paused = true;
+    w.step(0.004, { ...NEUTRAL_CONTROLS, resetRequested: true });
+    w.paused = false;
+    w.step(FIXED_DT, NEUTRAL_CONTROLS);
+    expect(seen).toEqual([false]);
+  });
+
+  it('a press latched before setup() does not leak into the next session', () => {
+    const w = new GameWorld();
+    w.setup({ ...DEFAULT_SETTINGS, mode: 'timetrial' });
+    w.step(0.004, { ...NEUTRAL_CONTROLS, pitStopRequested: true });
+    w.setup({ ...DEFAULT_SETTINGS, mode: 'timetrial' });
+    const seen = spyOnSteps(w, 'pitStopRequested');
+    w.step(FIXED_DT, NEUTRAL_CONTROLS);
+    expect(seen).toEqual([false]);
+  });
+});

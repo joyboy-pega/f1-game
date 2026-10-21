@@ -93,6 +93,12 @@ export class GameWorld {
 
   private collisions = new CollisionSystem();
   private acc = 0;
+  private pendingDrs = false;
+  private pendingBiasUp = false;
+  private pendingBiasDown = false;
+  private pendingPit = false;
+  private pendingReset = false;
+  private pendingCompound = false;
   private lightsHold = 1.2;
   private shownPosition = 1;
   private candidatePosition = 1;
@@ -119,6 +125,7 @@ export class GameWorld {
     this.chequered = false;
     this.finishCount = 0;
     this.acc = 0;
+    this.clearPending();
     this.paused = false;
     this.collisions.reset();
 
@@ -166,21 +173,47 @@ export class GameWorld {
     }
   }
 
-  /** Advance by one rendered frame. Splits into fixed steps; triggers apply on the first step only. */
+  /**
+   * Advance by one rendered frame. Splits into fixed steps; edge-triggered requests apply on the first step only.
+   * A frame can run zero steps (refresh rate above 120 Hz), so triggers are latched in `pending*` until a step
+   * actually consumes them; otherwise those presses would be lost.
+   */
   step(frameDt: number, input: ControlState) {
-    if (this.paused) return;
+    if (this.paused) {
+      this.clearPending();
+      return;
+    }
+    this.latchTriggers(input);
     this.acc = Math.min(this.acc + frameDt, FIXED_DT * MAX_SUBSTEPS);
     let first = true;
     while (this.acc >= FIXED_DT) {
       this.acc -= FIXED_DT;
       const c = this.player.ctrl;
       Object.assign(c, input);
-      if (!first) {
-        c.drsToggleRequested = c.brakeBiasUp = c.brakeBiasDown = c.pitStopRequested = c.resetRequested = c.compoundCycleRequested = false;
-      }
+      c.drsToggleRequested = first && this.pendingDrs;
+      c.brakeBiasUp = first && this.pendingBiasUp;
+      c.brakeBiasDown = first && this.pendingBiasDown;
+      c.pitStopRequested = first && this.pendingPit;
+      c.resetRequested = first && this.pendingReset;
+      c.compoundCycleRequested = first && this.pendingCompound;
+      if (first) this.clearPending();
       first = false;
       this.fixedStep(FIXED_DT);
     }
+  }
+
+  private latchTriggers(input: ControlState) {
+    this.pendingDrs ||= input.drsToggleRequested;
+    this.pendingBiasUp ||= input.brakeBiasUp;
+    this.pendingBiasDown ||= input.brakeBiasDown;
+    this.pendingPit ||= input.pitStopRequested;
+    this.pendingReset ||= input.resetRequested;
+    this.pendingCompound ||= input.compoundCycleRequested;
+  }
+
+  private clearPending() {
+    this.pendingDrs = this.pendingBiasUp = this.pendingBiasDown = false;
+    this.pendingPit = this.pendingReset = this.pendingCompound = false;
   }
 
   private fixedStep(dt: number) {
