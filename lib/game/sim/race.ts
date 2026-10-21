@@ -18,8 +18,16 @@ export function createOverallBests(): OverallBests {
   return { bestLap: null, bestLapCarId: null, bestSectors: [null, null, null] };
 }
 
-/** Arc-length position along the lap and signed lateral offset for a car. */
-export function arcPosition(phys: CarPhysicsState): { s: number; lateral: number } {
+export interface ArcPos {
+  s: number;
+  lateral: number;
+}
+
+/**
+ * Arc-length position along the lap and signed lateral offset for a car. Writes into the caller-owned `out`
+ * (and returns it) so the 120 Hz step allocates nothing (R7).
+ */
+export function arcPosition(phys: CarPhysicsState, out: ArcPos): ArcPos {
   const i = phys.idx;
   const p = trackSplinePoints[i];
   const dx = phys.x - p[0];
@@ -27,7 +35,9 @@ export function arcPosition(phys: CarPhysicsState): { s: number; lateral: number
   let s = cumulativeS[i] + dx * tangents[i][0] + dy * tangents[i][1];
   if (s < 0) s += L;
   else if (s >= L) s -= L;
-  return { s, lateral: dx * normals[i][0] + dy * normals[i][1] };
+  out.s = s;
+  out.lateral = dx * normals[i][0] + dy * normals[i][1];
+  return out;
 }
 
 export function sectorOf(s: number): number {
@@ -96,10 +106,18 @@ function completeSector(car: WorldCar, sector: number, at: number, ctx: TimingCo
   ctx.events.emit({ type: 'sector', carId: car.id, sector, time, status });
 }
 
-/** Advance a car's timing state to arc position `s`. Call once per fixed step, after physics. */
+/** Shared by every advanceTiming call (R7). Read it before the next call; never keep a reference. */
+const timingResult: TimingResult = { lapCompleted: false, crossTime: 0 };
+
+/**
+ * Advance a car's timing state to arc position `s`. Call once per fixed step, after physics.
+ * The returned object is reused: consume `lapCompleted` / `crossTime` immediately.
+ */
 export function advanceTiming(car: WorldCar, s: number, ctx: TimingContext): TimingResult {
   const t = car.timing;
-  const result: TimingResult = { lapCompleted: false, crossTime: ctx.raceTime };
+  const result = timingResult;
+  result.lapCompleted = false;
+  result.crossTime = ctx.raceTime;
   const prevProgress = t.progress;
   let delta = s - t.lastS;
   if (delta < -L / 2) delta += L;
@@ -109,13 +127,13 @@ export function advanceTiming(car: WorldCar, s: number, ctx: TimingContext): Tim
   if (delta <= 0) return result;
 
   const t0 = ctx.raceTime - ctx.dt;
-  const timeAt = (prog: number) => t0 + ((prog - prevProgress) / delta) * ctx.dt;
 
   const gNow = Math.floor(t.progress / CP_LEN) + CP;
   for (let g = t.lastCheckpoint + 1; g <= gNow; g++) {
     if (g < 0) continue;
     const cpProgress = (g - CP) * CP_LEN;
-    const tCross = timeAt(cpProgress);
+    // Interpolated crossing time within this step.
+    const tCross = t0 + ((cpProgress - prevProgress) / delta) * ctx.dt;
     if (g < t.checkpointTimes.length) t.checkpointTimes[g] = tCross;
     t.lastCheckpoint = g;
     const cpInLap = g % CP;
@@ -198,15 +216,33 @@ export function liveDelta(t: CarTiming): number | null {
   return cur - best;
 }
 
-/** Running order: finished cars by finish time, then by distance covered. */
-export function sortRunningOrder(cars: WorldCar[]): WorldCar[] {
-  return [...cars].sort((a, b) => {
-    const fa = a.timing.finished;
-    const fb = b.timing.finished;
-    if (fa && fb) return (a.timing.finishTime ?? 0) - (b.timing.finishTime ?? 0);
-    if (fa !== fb) return fa ? -1 : 1;
-    return b.timing.progress - a.timing.progress;
-  });
+/** > 0 when `b` should be ahead of `a`: finished cars by finish time, then by distance covered, then by id. */
+function compareRunning(a: WorldCar, b: WorldCar): number {
+  const fa = a.timing.finished;
+  const fb = b.timing.finished;
+  let d: number;
+  if (fa && fb) d = (a.timing.finishTime ?? 0) - (b.timing.finishTime ?? 0);
+  else if (fa !== fb) d = fa ? -1 : 1;
+  else d = b.timing.progress - a.timing.progress;
+  // Id tie-break reproduces the previous stable sort of the id-ordered car list.
+  return d !== 0 ? d : a.id - b.id;
+}
+
+/**
+ * Running order, sorted IN PLACE. The order is almost sorted every step, so insertion sort is ~O(n) and, unlike
+ * `[...cars].sort(...)`, allocates nothing (R7). Returns the same array.
+ */
+export function sortRunningOrder(order: WorldCar[]): WorldCar[] {
+  for (let i = 1; i < order.length; i++) {
+    const x = order[i];
+    let j = i - 1;
+    while (j >= 0 && compareRunning(order[j], x) > 0) {
+      order[j + 1] = order[j];
+      j--;
+    }
+    order[j + 1] = x;
+  }
+  return order;
 }
 
 /** Spline index `k` slots behind the start line (grid). */

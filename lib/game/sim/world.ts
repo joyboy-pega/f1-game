@@ -11,19 +11,21 @@ import {
   type SectorStatus,
   type TimingRow,
 } from '../gameState';
-import { createInitialCarState, findNearestTrackPoint, updateCarPhysics } from '../physics';
+import { createInitialCarState, findNearestTrackPoint, updateCarPhysics, type PhysicsExtras } from '../physics';
 import { createBrain, driveAI } from './ai';
 import { applyAssists } from './assists';
 import { CollisionSystem } from './collisions';
 import { updateDrsAvailability, updateSlipstream } from './drs';
 import { aiPitStrategy, checkPitEntry, cycleNextCompound, driveInPit, togglePitRequest, type PitContext } from './pit';
-import { updateTrackLimits } from './penalties';
+import { updateTrackLimits, type LimitsContext } from './penalties';
 import { wetnessFor } from './tyres';
 import { EventBus } from './events';
 import { gaussian, makeRng } from './rng';
 import {
   advanceTiming,
   arcPosition,
+  type ArcPos,
+  type TimingContext,
   createOverallBests,
   createTiming,
   formatGap,
@@ -40,9 +42,12 @@ const GRID_HOLD = 1.0; // seconds on the grid before the first light
 const LIGHT_INTERVAL = 1.0;
 const POSITION_DEBOUNCE = 0.5;
 
+/** Scratch for makeCar (setup-time only). */
+const scratchArc: ArcPos = { s: 0, lateral: 0 };
+
 export function makeCar(id: number, isPlayer: boolean, idx: number, lateral: number, compound: TyreCompound): WorldCar {
   const phys = createInitialCarState(idx, lateral);
-  const { s } = arcPosition(phys);
+  const { s } = arcPosition(phys, scratchArc);
   return {
     id,
     isPlayer,
@@ -89,9 +94,21 @@ export class GameWorld {
   readonly events = new EventBus();
   /** Set before setup() to make a race reproducible (tests); null = random. */
   seed: number | null = null;
-  rand: () => number = Math.random;
+  /** Replaced by a seeded generator in setup(); the constructor runs setup() before anything can read it. */
+  rand: () => number = makeRng(0);
 
   private collisions = new CollisionSystem();
+  // Reused every fixed step so the hot loop allocates nothing (R7). Filled in place before each use.
+  private readonly arc: ArcPos = { s: 0, lateral: 0 };
+  private readonly extras: PhysicsExtras = {};
+  private readonly timingCtx: TimingContext = {
+    raceTime: 0,
+    dt: FIXED_DT,
+    standingStart: false,
+    overall: createOverallBests(),
+    events: this.events,
+  };
+  private readonly limitsCtx: LimitsContext = { raceTime: 0, dt: FIXED_DT, events: this.events, enabled: false };
   private acc = 0;
   private pendingDrs = false;
   private pendingBiasUp = false;
@@ -114,6 +131,7 @@ export class GameWorld {
 
   setup(settings: GameSettings) {
     this.settings = settings;
+    // The ONLY Math.random in sim code (R6): picks a fresh seed when the caller did not supply one.
     this.rand = makeRng(this.seed ?? Math.floor(Math.random() * 4294967296));
     this.raceId++;
     this.events.clear();
@@ -254,6 +272,12 @@ export class GameWorld {
 
     updateSlipstream(this.cars, dt);
 
+    const tctx = this.timingCtx;
+    tctx.raceTime = this.raceTime;
+    tctx.dt = dt;
+    tctx.standingStart = this.isRace;
+    tctx.overall = this.overall;
+
     for (const car of this.cars) {
       const p = car.phys;
       const idxBefore = p.idx;
@@ -269,14 +293,13 @@ export class GameWorld {
       const wasErs = p.isBoosting;
       const biasBefore = p.brakeBias;
 
-      const extras = {
-        compound: car.compound,
-        wetness,
-        drsAvailable: car.drsAvailable,
-        draft: car.draft,
-        inPit: !!car.pit,
-        frontDamage: car.damage,
-      };
+      const extras = this.extras;
+      extras.compound = car.compound;
+      extras.wetness = wetness;
+      extras.drsAvailable = car.drsAvailable;
+      extras.draft = car.draft;
+      extras.inPit = !!car.pit;
+      extras.frontDamage = car.damage;
       const r = car.isPlayer
         ? updateCarPhysics(p, car.ctrl, dt, s.weather, s.steeringSensitivity, s.brakeForce, s.tireWearRate, extras)
         : updateCarPhysics(p, car.ctrl, dt, s.weather, 1, 1, s.tireWearRate, extras);
@@ -294,15 +317,9 @@ export class GameWorld {
         if (p.brakeBias !== biasBefore) this.events.emit({ type: 'bias', carId: car.id, bias: p.brakeBias });
       }
 
-      const { s: arcS, lateral } = arcPosition(p);
-      car.lateral = lateral;
-      const res = advanceTiming(car, arcS, {
-        raceTime: this.raceTime,
-        dt,
-        standingStart: this.isRace,
-        overall: this.overall,
-        events: this.events,
-      });
+      const arc = arcPosition(p, this.arc);
+      car.lateral = arc.lateral;
+      const res = advanceTiming(car, arc.s, tctx);
       if (res.lapCompleted && this.isRace && !car.timing.finished) {
         if (car.timing.lapsCompleted >= s.totalLaps || this.chequered) this.finishCar(car, res.crossTime);
       }
@@ -312,9 +329,11 @@ export class GameWorld {
 
     // Car-to-car contact, then judge track limits on the corrected positions
     this.collisions.resolve(this.cars, this.raceTime, this.events, s.damage);
-    for (const car of this.cars) {
-      updateTrackLimits(car, { raceTime: this.raceTime, dt, events: this.events, enabled: this.isRace });
-    }
+    const lctx = this.limitsCtx;
+    lctx.raceTime = this.raceTime;
+    lctx.dt = dt;
+    lctx.enabled = this.isRace;
+    for (const car of this.cars) updateTrackLimits(car, lctx);
 
     this.updateOrder(dt);
     updateDrsAvailability(this.cars, { isRace: this.isRace, order: this.order });
@@ -366,8 +385,8 @@ export class GameWorld {
   }
 
   private updateOrder(dt: number) {
-    this.order = sortRunningOrder(this.cars);
-    this.order.forEach((c, i) => (c.position = i + 1));
+    sortRunningOrder(this.order);
+    for (let i = 0; i < this.order.length; i++) this.order[i].position = i + 1;
     const pos = this.player.position;
     if (pos !== this.candidatePosition) {
       this.candidatePosition = pos;
