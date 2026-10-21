@@ -463,3 +463,43 @@
 .r-sp {
   padding: 7px 9px;
 }
+
+.r-order {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 132px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-top: 3px solid var(--lime);
+}
+.r-order li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px;
+  font-size: 13px;
+}
+.r-order li span {
+  width: 14px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 11px;
+  color: var(--ink-mute);
+}
+.r-order li i {
+  width: 4px;
+  height: 14px;
+}
+.r-order li b {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+.r-order li.on {
+  background: rgba(200, 255, 46, 0.16);
+  color: var(--lime);
+}

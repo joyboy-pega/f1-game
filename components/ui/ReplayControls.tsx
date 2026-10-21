@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { REPLAY_CAM_MODES, REPLAY_SPEEDS, cycleCamMode, replay, seekReplay, stepSpeed, togglePlay } from '@/lib/game/replay/state';
-import { recorder } from '@/lib/game/sim/recorder';
+import { makeCarSample, recorder } from '@/lib/game/sim/recorder';
 import { useGameStore } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
 import { useRefreshRate, useTicker } from '@/lib/game/useTicker';
@@ -15,6 +15,27 @@ function stepCar(dir: 1 | -1) {
   const n = world.cars.length;
   replay.followId = (replay.followId + dir + n) % n;
   replay.seekSerial++;
+}
+
+/** Running order at the replay's current time, built from the recorded per-car positions. */
+function ReplayOrder() {
+  useRefreshRate(6);
+  const out = React.useMemo(() => makeCarSample(), []);
+  const loc = recorder.locate(replay.time);
+  const rows = world.cars
+    .map((c, k) => ({ c, pos: recorder.readCar(loc, k, out).position }))
+    .sort((a, b) => a.pos - b.pos);
+  return (
+    <ol className="r-order" aria-label="Order at this moment">
+      {rows.map(({ c }, i) => (
+        <li key={c.id} className={c.id === replay.followId ? 'on' : ''}>
+          <span>{i + 1}</span>
+          <i style={{ background: c.driver.livery.body }} />
+          <b>{c.driver.code}</b>
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 /** Replay transport bar. The director owns playback; this only reads `replay` and nudges it. */
@@ -71,6 +92,7 @@ export function ReplayControls() {
 
   return (
     <div className="r-bar" role="region" aria-label="Replay controls">
+      <ReplayOrder />
       <div className="r-top">
         <span className="r-tag">Replay</span>
         <span className="r-cam" ref={w.ref('cam')}>

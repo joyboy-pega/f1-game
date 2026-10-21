@@ -11,7 +11,6 @@ import { ghostStore, loadGhost } from '@/lib/game/replay/ghost';
 import { ReplayControls } from '@/components/ui/ReplayControls';
 import { GameCanvas } from './GameCanvas';
 import { HUD } from '@/components/ui/HUD';
-import { TimingTower } from '@/components/ui/hud/TimingTower';
 import { Minimap } from '@/components/ui/Minimap';
 import { TelemetryPods } from '@/components/ui/TelemetryPods';
 import { MobileControls } from '@/components/ui/MobileControls';
@@ -39,6 +38,7 @@ export function RacingGame() {
   const audioEnabled = useGameStore((s) => s.settings.audioEnabled);
   const volume = useGameStore((s) => s.settings.volume);
   const [ready, setReady] = useState(false);
+  const [touch, setTouch] = useState(false);
 
   // Wait for persisted settings to hydrate, then start the first session.
   useEffect(() => {
@@ -48,6 +48,15 @@ export function RacingGame() {
     };
     if (useGameStore.persist.hasHydrated()) start();
     else return useGameStore.persist.onFinishHydration(start);
+  }, []);
+
+  // Touch controls for any coarse-pointer device (phones in landscape are wider than 640 px).
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)');
+    setTouch(mq.matches);
+    const on = (e: MediaQueryListEvent) => setTouch(e.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
   }, []);
 
   useEffect(() => {
@@ -80,19 +89,12 @@ export function RacingGame() {
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black select-none font-sans">
       <GameCanvas key={sessionId} />
-      {replayActive ? (
-        // Replay keeps only the timing tower; the transport bar owns the rest of the screen.
-        <div className="h-root">
-          <TimingTower />
-        </div>
-      ) : (
+      {replayActive ? null : (
         <>
           <HUD />
           {showMinimap && <Minimap />}
           {telemetryOpen && <TelemetryPods />}
-          <div className="block sm:hidden">
-            <MobileControls />
-          </div>
+          {touch && <MobileControls />}
         </>
       )}
       {paused && !results && (

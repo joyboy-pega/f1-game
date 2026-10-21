@@ -11,7 +11,7 @@ const RacingGame = dynamic(() => import('@/components/game/RacingGame').then((m)
 
 /**
  * Replay test bench: an autopilot drives the player so a recording builds up on its own, then the
- * replay opens after `?t=` seconds (default 25). Add `?cam=tv|heli|onboard|chase` to force a camera.
+ * replay opens after `?t=` seconds (default 25; negative = never, just autopilot). Add `?cam=tv|heli|onboard|chase` to force a camera.
  */
 export default function Page() {
   useEffect(() => {
@@ -26,6 +26,7 @@ export default function Page() {
       }
       armed = true;
       clearInterval(arm);
+      if (delay < 0) return; // autopilot only: let the race finish normally
       setTimeout(() => {
         useGameStore.getState().setReplayActive(true);
         const cam = q.get('cam');

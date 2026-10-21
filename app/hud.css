@@ -1231,3 +1231,16 @@
     --mc-h: 158px;
   }
 }
+
+/* Small screens: the minimap would collide with the timing tower and touch controls. */
+@media (max-height: 480px) {
+  .h-minimap {
+    display: none;
+  }
+}
+@media (max-width: 640px) and (min-height: 481px) {
+  .h-minimap {
+    transform: scale(0.55);
+    transform-origin: left bottom;
+  }
+}
