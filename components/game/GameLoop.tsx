@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { controls } from '@/lib/game/controls';
-import { audio } from '@/lib/game/audio';
 import { performanceGovernor } from '@/lib/game/performance';
 import { formatLapTime } from '@/lib/game/gameState';
 import { useGameStore, recordKey } from '@/lib/game/store';
@@ -22,9 +21,6 @@ function handleEvent(e: SimEvent) {
   const pid = world.player.id;
 
   switch (e.type) {
-    case 'lightsOn':
-      audio.playBiasTick();
-      break;
     case 'lightsOut':
       toast({ id: 'go', type: 'info', title: 'LIGHTS OUT', subtitle: 'AWAY WE GO', duration: 1.6 });
       break;
@@ -47,18 +43,13 @@ function handleEvent(e: SimEvent) {
     case 'positionChange':
       if (e.to < e.from) toast({ id: 'pos', type: 'overtake', title: `P${e.to}`, subtitle: 'POSITION GAINED', duration: 1.8 });
       break;
-    case 'drs':
-      audio.playDrsTone(e.open);
-      break;
     case 'bias': {
-      audio.playBiasTick();
       const f = Math.round(e.bias * 100);
       toast({ id: 'bias', type: 'bias', title: `BRAKE BIAS ${f}:${100 - f}`, duration: 1.2 });
       break;
     }
     case 'pitExit':
       if (e.carId === pid) {
-        audio.playPitSound();
         toast({ id: 'pit', type: 'pit', title: 'FRESH TYRES', subtitle: e.compound.toUpperCase(), duration: 2 });
       }
       break;
@@ -114,14 +105,6 @@ export function GameLoop() {
     world.step(dt, input);
     recorder.capture(world);
     ghostRecorder.capture(world);
-
-    const p = world.player.phys;
-    const tireSlip = Math.min(
-      1,
-      (Math.abs(p.vl) / Math.max(70, Math.abs(p.vf))) * 2.6 + p.driftIntensity * 0.72 + (Math.abs(p.steer) > 0.5 ? 0.2 : 0)
-    );
-    audio.updateEngine(p.rpm, world.player.ctrl.throttle > 0.1, p.gear, !world.paused, p.kmh / 330, world.paused ? 0 : tireSlip);
-    audio.updateErs(p.isBoosting && !world.paused);
 
     world.events.flush();
 

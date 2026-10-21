@@ -13,6 +13,7 @@ import { Camera } from './Camera';
 import { Environment } from './Environment';
 import { Effects } from './Effects';
 import { GameLoop } from './GameLoop';
+import { AudioBridge } from './AudioBridge';
 import { PostFX } from './fx/PostFX';
 import { Ghost } from './Ghost';
 import { ReplayDirector } from './replay/ReplayDirector';
@@ -59,6 +60,7 @@ export function GameCanvas() {
           <PostFX />
         </Suspense>
         <GameLoop />
+        <AudioBridge />
       </Canvas>
     </div>
   );
