@@ -1,105 +1,88 @@
 'use client';
 
-import React, { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useEffect, useRef } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
+import { Environment as DreiEnvironment, Lightformer } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
 import { QUALITY_PRESETS } from '@/lib/game/performance';
+import { useLighting, type Lighting } from '@/lib/game/visuals/lighting';
+import { SkyDome } from './world/SkyDome';
+
+/** Procedural image-based lighting: the sky dome plus a few softboxes. No network. */
+function Ibl({ L }: { L: Lighting }) {
+  const sun = L.sunDir;
+  const night = L.nightFactor;
+  const k = 1 - L.cloudCover * 0.6;
+  return (
+    <DreiEnvironment
+      key={`${L.tod}-${L.weather}`}
+      resolution={256}
+      frames={1}
+      environmentIntensity={L.envIntensity}
+    >
+      <SkyDome lighting={L} follow={false} />
+      {/* big overhead softbox */}
+      <Lightformer form="rect" intensity={(1.2 - night * 0.8) * (0.6 + 0.4 * k)} color={L.skyHorizon} position={[0, 40, 0]} rotation-x={Math.PI / 2} scale={[80, 80, 1]} />
+      {/* key light as a hot spot in the sun direction */}
+      <Lightformer form="circle" intensity={(L.sunVisible ? 14 : 3) * k * (L.weather === 'rain' ? 0.3 : 1)} color={L.sunColor} position={[sun[0] * 40, sun[1] * 40, sun[2] * 40]} scale={[18, 18, 1]} target={[0, 0, 0]} />
+      {/* side strips for crisp bodywork highlights */}
+      <Lightformer form="rect" intensity={1.8 - night} color={L.skyHorizon} position={[-45, 8, 0]} rotation-y={Math.PI / 2} scale={[60, 10, 1]} />
+      <Lightformer form="rect" intensity={1.8 - night} color={L.skyHorizon} position={[45, 8, 0]} rotation-y={-Math.PI / 2} scale={[60, 10, 1]} />
+      {/* warm bounce from the ground */}
+      <Lightformer form="rect" intensity={0.6} color={L.hemiGround} position={[0, -30, 0]} rotation-x={-Math.PI / 2} scale={[100, 100, 1]} />
+    </DreiEnvironment>
+  );
+}
 
 export function Environment() {
-  const weather = useGameStore((s) => s.settings.weather);
+  const L = useLighting();
   const { shadows, shadowMapSize } = QUALITY_PRESETS[useGameStore((s) => s.quality)];
   const sunLightRef = useRef<THREE.DirectionalLight>(null);
   const sunTargetRef = useRef<THREE.Object3D>(null);
+  const gl = useThree((s) => s.gl);
 
-  // Weather lighting presets
-  const weatherConfig = React.useMemo(() => {
-    switch (weather) {
-      case 'cloudy':
-        return {
-          bgColor: '#6b7c8f',
-          fogColor: '#7d8e9f',
-          fogDensity: 0.00055,
-          hemiSky: 0xced7e0,
-          hemiGround: 0x3d4856,
-          hemiIntensity: 0.65,
-          sunColor: 0xffffff,
-          sunIntensity: 0.65,
-        };
-      case 'rain':
-        return {
-          bgColor: '#1c2430',
-          fogColor: '#283240',
-          fogDensity: 0.00095,
-          hemiSky: 0x5a6d85,
-          hemiGround: 0x222b38,
-          hemiIntensity: 0.5,
-          sunColor: 0xaec6e0,
-          sunIntensity: 0.45,
-        };
-      case 'snow':
-        return {
-          bgColor: '#dde8f4',
-          fogColor: '#cfdde8',
-          fogDensity: 0.0008,
-          hemiSky: 0xf0f6ff,
-          hemiGround: 0xd8e4f0,
-          hemiIntensity: 0.85,
-          sunColor: 0xffffff,
-          sunIntensity: 0.95,
-        };
-      case 'sunny':
-      default:
-        return {
-          bgColor: '#5ca7e8',
-          fogColor: '#8ec3f8',
-          fogDensity: 0.00035,
-          hemiSky: 0xfff8ed,
-          hemiGround: 0x3d4856,
-          hemiIntensity: 0.8,
-          sunColor: 0xfff3de,
-          sunIntensity: 1.35,
-        };
-    }
-  }, [weather]);
+  useEffect(() => {
+    gl.toneMappingExposure = L.exposure;
+  }, [gl, L.exposure]);
 
-  // Keep sunlight and shadow frustum centered near player car
+  // Keep the sun and its shadow frustum centred on the player.
   useFrame(() => {
-    const carState = world.player.phys;
-    if (sunLightRef.current && sunTargetRef.current) {
-      sunLightRef.current.target = sunTargetRef.current;
-      sunLightRef.current.position.set(carState.x + 180, 280, carState.y + 120);
-      sunTargetRef.current.position.set(carState.x, 0, carState.y);
-    }
+    const p = world.player.phys;
+    const light = sunLightRef.current;
+    const target = sunTargetRef.current;
+    if (!light || !target) return;
+    light.target = target;
+    target.position.set(p.x, 0, p.y);
+    light.position.set(p.x + L.sunDir[0] * 500, L.sunDir[1] * 500, p.y + L.sunDir[2] * 500);
   });
 
   return (
     <>
-      <color attach="background" args={[weatherConfig.bgColor]} />
-      <fogExp2 attach="fog" args={[weatherConfig.fogColor, weatherConfig.fogDensity]} />
+      <color attach="background" args={[L.skyHorizon]} />
+      <fogExp2 attach="fog" args={[L.fogColor, L.fogDensity]} />
+      <SkyDome lighting={L} />
+      <Ibl L={L} />
 
-      <hemisphereLight
-        color={weatherConfig.hemiSky}
-        groundColor={weatherConfig.hemiGround}
-        intensity={weatherConfig.hemiIntensity}
-      />
+      <hemisphereLight color={L.hemiSky} groundColor={L.hemiGround} intensity={L.hemiIntensity} />
 
       <object3D ref={sunTargetRef} />
       <directionalLight
         ref={sunLightRef}
-        color={weatherConfig.sunColor}
-        intensity={weatherConfig.sunIntensity}
+        color={L.sunColor}
+        intensity={L.sunIntensity}
         castShadow={shadows}
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
         shadow-camera-near={5}
-        shadow-camera-far={1200}
-        shadow-camera-left={-260}
-        shadow-camera-right={260}
-        shadow-camera-top={260}
-        shadow-camera-bottom={-260}
+        shadow-camera-far={1400}
+        shadow-camera-left={-300}
+        shadow-camera-right={300}
+        shadow-camera-top={300}
+        shadow-camera-bottom={-300}
         shadow-bias={-0.0004}
+        shadow-normalBias={0.6}
       />
     </>
   );

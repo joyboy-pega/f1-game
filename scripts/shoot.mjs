@@ -46,6 +46,16 @@ const context = await browser.newContext({
   isMobile: flag('mobile'),
   hasTouch: flag('mobile'),
 });
+// Persisted game settings (zustand 'buddh-gp' key) injected before the page boots.
+const settingsJson = opt('settings', null);
+if (settingsJson) {
+  const patch = JSON.parse(settingsJson);
+  await context.addInitScript((p) => {
+    try {
+      localStorage.setItem('buddh-gp', JSON.stringify({ state: { settings: p }, version: 1 }));
+    } catch {}
+  }, patch);
+}
 const page = await context.newPage();
 
 const errors = [];
