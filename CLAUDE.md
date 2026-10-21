@@ -1,7 +1,8 @@
 # Buddh GP — contributor notes
 
 Browser F1 game: Next.js 16 (App Router, client-only game) + React Three Fiber 9 + three r186 (WebGL2) + zustand.
-Full plan, audit and workstream ownership: `docs/PLAN.md`.
+**Active plan: `docs/PLAN-v3.md`** — read its §0 (protocol) and §1 (quality rules) before any task; log evidence in `docs/WORKLOG.md`.
+History of how the current game was built: `docs/PLAN.md` (v2).
 
 ## Commands
 - `npm run dev` — dev server (Turbopack). `npm run build` — production build.

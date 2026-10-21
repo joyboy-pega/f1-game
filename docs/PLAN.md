@@ -1,5 +1,8 @@
 # Buddh GP — Plan v2
 
+> **Superseded for new work by [`PLAN-v3.md`](PLAN-v3.md) (2026-10-22).** This file remains the record of the v2 build
+> and its pinned contracts (§3.2), which v3 keeps unless a v3 task explicitly replaces one.
+
 Last updated 2026-10-21 (all workstreams merged). v1 (pre-foundation intentions) is superseded: this version reflects what is
 built, the contracts every workstream codes against, how parallel work gets integrated, the bars it
 must clear, and what comes after.
