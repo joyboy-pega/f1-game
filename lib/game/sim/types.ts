@@ -54,11 +54,29 @@ export interface SurfaceInfo {
   dist: number;
 }
 
-/** Per-car AI memory. Owned by sim/ai.ts — extend freely there. */
+/** Per-car AI memory. Owned by sim/ai.ts. */
 export interface AIBrain {
-  lane: number; // desired lateral offset from centreline (world units)
+  lane: number; // legacy: desired lateral offset from centreline (unused by the racing-line driver)
   targetSpeed: number;
   noisePhase: number;
+  /** Seeded random source (deterministic per race seed). */
+  rng: () => number;
+  /** Lateral shift away from the racing line (overtake / defend / mistakes), smoothed. */
+  shift: number;
+  passSide: -1 | 0 | 1;
+  passStart: number;
+  decisionTimer: number;
+  defendUntil: number;
+  defendCooldown: number;
+  defendShift: number;
+  /** Active driver error: 0 none, 1 lock-up (late braking), 2 running wide. */
+  mistakeKind: 0 | 1 | 2;
+  mistakeUntil: number;
+  mistakeShift: number;
+  wasBraking: boolean;
+  ersOn: boolean;
+  stuckTime: number;
+  prevOffsetTarget: number;
   [key: string]: unknown;
 }
 
@@ -91,4 +109,46 @@ export interface WorldCar {
   /** 1-based race position (updated every step). */
   position: number;
   stats: CarStats;
+  /** Pit stop state machine; null when on track. */
+  pit: PitState | null;
+  /** 0..1 accumulated front-end damage from collisions (settings.damage). */
+  damage: number;
+  /** Race time of the most recent collision (for track-limit grace). */
+  lastCollisionTime: number;
+  /** Slipstream strength applied this step (0..1). */
+  draft: number;
+  /** Track-limit incident tracking. */
+  limits: LimitsState;
+  /** DRS detection bookkeeping. */
+  drsDetect: { lastG: number; zoneActive: number };
+  /** Seconds spent off the asphalt (outside the pit lane); diagnostics and tests. */
+  offTrackTime: number;
+}
+
+export type PitStage = 'enter' | 'approach' | 'service' | 'depart' | 'exit';
+
+export interface PitState {
+  stage: PitStage;
+  /** Spline index of the car's box. */
+  boxIdx: number;
+  /** Lateral offset (signed, world) when the car was taken over at the pit entry. */
+  entryLateral: number;
+  /** Seconds left in the stationary service. */
+  serviceLeft: number;
+  /** Total stationary time of this stop. */
+  serviceTime: number;
+  /** Compound that will be fitted. */
+  fit: TyreCompound;
+  /** Time spent stationary in the box (for the event). */
+  stationary: number;
+  /** Race time at pit entry. */
+  enteredAt: number;
+}
+
+export interface LimitsState {
+  offTime: number;
+  counted: boolean;
+  /** Corner id in which the last warning was issued (-1 none). */
+  lastCornerId: number;
+  exempt: boolean;
 }

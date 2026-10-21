@@ -10,9 +10,13 @@ import {
   DRS_CONFIG,
   BRAKE_CONFIG,
   TIRE_CONFIG,
+  TYRE_COMPOUNDS,
+  inPitBand,
   WeatherType,
+  type TyreCompound,
 } from './constants';
 import { ControlState } from './controls';
+import { dryMisuse, tempGrip, wearGrip, wetGripFactor, wetnessFor } from './sim/tyres';
 
 export interface SingleTireState {
   temp: number;
@@ -92,29 +96,12 @@ export interface CarPhysicsState {
 }
 
 
-export function calculateTireTempGrip(temp: number): number {
-  if (temp < TIRE_CONFIG.optimalTireTemperature) {
-    if (temp >= TIRE_CONFIG.coldThresholdTemperature) return 1.0;
-    const coldFraction = Math.min(
-      1.0,
-      (TIRE_CONFIG.coldThresholdTemperature - temp) /
-        Math.max(1, TIRE_CONFIG.coldThresholdTemperature - TIRE_CONFIG.minTireTemperature)
-    );
-    return 1.0 - (1.0 - TIRE_CONFIG.coldGripMultiplier) * (coldFraction * coldFraction);
-  } else {
-    if (temp <= TIRE_CONFIG.overheatThresholdTemperature) return 1.0;
-    const hotFraction = Math.min(
-      1.0,
-      (temp - TIRE_CONFIG.overheatThresholdTemperature) /
-        Math.max(1, TIRE_CONFIG.maxTireTemperature - TIRE_CONFIG.overheatThresholdTemperature)
-    );
-    return 1.0 - (1.0 - TIRE_CONFIG.overheatGripMultiplier) * Math.sqrt(hotFraction);
-  }
+export function calculateTireTempGrip(temp: number, window: [number, number] = TYRE_COMPOUNDS.soft.tempWindow): number {
+  return tempGrip(temp, window);
 }
 
 export function calculateTireWearGrip(wear: number): number {
-  const w = Math.min(1.0, Math.max(0.0, wear));
-  return 1.0 - (1.0 - TIRE_CONFIG.minimumGripMultiplier) * Math.pow(w, 1.6);
+  return wearGrip(wear);
 }
 
 /** Create a stationary car at spline index `idx`, offset `lateral` units along the track normal. */
@@ -123,7 +110,7 @@ export function createInitialCarState(idx: number = 0, lateral: number = 0): Car
   const p0 = trackSplinePoints[i];
   const p1 = trackSplinePoints[(i + 1) % N];
   const initAngle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
-  const initialTemp = 85.0;
+  const initialTemp = TIRE_CONFIG.startTemperature;
   const initialWear = 0.0;
   const initGrip = calculateTireTempGrip(initialTemp) * calculateTireWearGrip(initialWear);
 
@@ -189,8 +176,8 @@ export function createInitialCarState(idx: number = 0, lateral: number = 0): Car
   };
 }
 
-export function fitFreshTires(car: CarPhysicsState) {
-  const startingTemp = 85.0;
+/** New tyres: zero wear, cool (they warm up on track). */
+export function fitFreshTires(car: CarPhysicsState, startingTemp: number = TIRE_CONFIG.startTemperature) {
   const keys: (keyof Pick<TiresState, 'fl' | 'fr' | 'rl' | 'rr'>)[] = ['fl', 'fr', 'rl', 'rr'];
   for (const k of keys) {
     const t = car.tires[k];
@@ -245,6 +232,21 @@ export function findNearestTrackPoint(x: number, y: number, currentIdx: number):
   return [bi, Math.sqrt(bd)];
 }
 
+/** Optional per-step inputs from the sim (everything defaults to the legacy behaviour). */
+export interface PhysicsExtras {
+  compound?: TyreCompound;
+  /** Track wetness 0..1; defaults from weather. */
+  wetness?: number;
+  /** DRS may be opened (rules computed by the sim). Undefined = always allowed. */
+  drsAvailable?: boolean;
+  /** 0..1 slipstream strength (reduces drag). */
+  draft?: number;
+  /** Car is driving through the pit lane. */
+  inPit?: boolean;
+  /** 0..1 front-end damage (reduces front grip). */
+  frontDamage?: number;
+}
+
 export function updateCarPhysics(
   car: CarPhysicsState,
   ctrl: ControlState,
@@ -252,17 +254,24 @@ export function updateCarPhysics(
   weather: WeatherType,
   steeringSensitivity: number = 1.0,
   brakeForceMultiplier: number = 1.0,
-  tireWearMultiplier: number = 1.0
+  tireWearMultiplier: number = 1.0,
+  extra: PhysicsExtras = {}
 ): {
   onTrack: boolean;
   gravel: boolean;
   nearestIdx: number;
   nearestDist: number;
+  inPitLane: boolean;
   drsClosedReason?: string;
 } {
   const [ni, d] = findNearestTrackPoint(car.x, car.y, car.idx);
-  const onTrack = d < HW + 6;
-  const gravel = d > HW + 40;
+  // Pit-lane band counts as asphalt, as does the whole stretch while a car is driving through the pits.
+  const np = trackSplinePoints[ni];
+  const nn = normals[ni];
+  const signedLat = (car.x - np[0]) * nn[0] + (car.y - np[1]) * nn[1];
+  const inPitLane = !!extra.inPit || inPitBand(ni, signedLat);
+  const onTrack = inPitLane || d < HW + 6;
+  const gravel = !inPitLane && d > HW + 40;
   let drsClosedReason: string | undefined;
 
   // Steering target (sticks respond faster than digital keys)
@@ -284,14 +293,18 @@ export function updateCarPhysics(
       drsClosedReason = 'MANUAL';
     } else {
       const inZone = isCarInDrsZone(ni);
-      if (DRS_CONFIG.drsEnabled && (!DRS_CONFIG.requireDrsZones || inZone) && vf >= DRS_CONFIG.minActivationSpeed) {
+      const allowed = extra.drsAvailable !== false && !inPitLane;
+      if (allowed && DRS_CONFIG.drsEnabled && (!DRS_CONFIG.requireDrsZones || inZone) && vf >= DRS_CONFIG.minActivationSpeed) {
         car.drsOpen = true;
       }
     }
   }
 
   if (car.drsOpen) {
-    if (ctrl.brake > 0.1 || car.brakeInput > 0.1) {
+    if (extra.drsAvailable === false || inPitLane) {
+      car.drsOpen = false;
+      drsClosedReason = 'NOT_AVAILABLE';
+    } else if (ctrl.brake > 0.1 || car.brakeInput > 0.1) {
       car.drsOpen = false;
       drsClosedReason = 'BRAKE';
     } else if (DRS_CONFIG.requireDrsZones && !isCarInDrsZone(ni)) {
@@ -367,12 +380,18 @@ export function updateCarPhysics(
 
   const aeroBrakeMult = 1.0 + BRAKE_CONFIG.highSpeedAeroFactor * Math.min(1.2, Math.max(0, vf) / 600);
 
-  // Tire thermodynamics
+  // Tire thermodynamics (see TIRE_CONFIG for the model)
+  const cmp = TYRE_COMPOUNDS[extra.compound ?? 'soft'];
+  const wetness = extra.wetness ?? wetnessFor(weather);
+  const wetRel = wetGripFactor(cmp.wetClass, wetness);
+  const misuse = dryMisuse(cmp.wetClass, wetness);
+  const heatMul = cmp.warmup * (1 + (cmp.dryHeatMul - 1) * misuse);
+  const wearMul = cmp.wearRate * (1 + (cmp.dryWearMul - 1) * misuse);
   const ambientTemp =
     weather === 'snow' ? 4.0 : weather === 'rain' ? 17.0 : weather === 'cloudy' ? 22.0 : TIRE_CONFIG.ambientTemperature;
+  const speedAbs = Math.abs(vf);
   const coolingRate =
-    TIRE_CONFIG.temperatureCoolingRate *
-    (1.0 + Math.min(1.5, Math.abs(vf) / 220)) *
+    (TIRE_CONFIG.coolBase + TIRE_CONFIG.coolAir * Math.min(1, speedAbs / TIRE_CONFIG.coolingFullSpeed)) *
     (weather === 'rain'
       ? TIRE_CONFIG.rainCoolingMultiplier
       : weather === 'snow'
@@ -388,31 +407,44 @@ export function updateCarPhysics(
   const rlLoad = Math.max(0.4, Math.min(1.6, 1.0 - longLoadTransfer - latLoadTransfer));
   const rrLoad = Math.max(0.4, Math.min(1.6, 1.0 - longLoadTransfer + latLoadTransfer));
 
-  const frontBrakeHeat = car.brakeInput * TIRE_CONFIG.brakeHeatingScalar * car.brakeBias * Math.min(1.5, Math.abs(vf) / 220);
-  const rearBrakeHeat = car.brakeInput * TIRE_CONFIG.brakeHeatingScalar * (1 - car.brakeBias) * Math.min(1.5, Math.abs(vf) / 220);
-  const steerScrubHeat = absSteer * TIRE_CONFIG.corneringHeatingScalar * Math.min(1.4, Math.abs(vf) / 200);
-  const driveWheelspinHeat = ctrl.throttle > 0.3 && Math.abs(vf) < 140 ? ctrl.throttle * (1 - Math.abs(vf) / 140) * TIRE_CONFIG.wheelspinHeatingScalar : 0;
-  const driftSlipHeat = car.isDrifting ? car.driftIntensity * TIRE_CONFIG.driftHeatingScalar : 0;
+  const speedStress = Math.min(1.3, speedAbs / 260);
+  const cornerStress = absSteer * speedStress;
+  const brakeStress = car.brakeInput * speedStress;
+  const tractionStress = ctrl.throttle > 0.3 && speedAbs < 160 ? ctrl.throttle * (1 - speedAbs / 160) : 0;
+  const rolling = TIRE_CONFIG.heatRolling * Math.min(1, speedAbs / 400);
+  const frontBrakeHeat = brakeStress * TIRE_CONFIG.heatBrake * car.brakeBias * 2;
+  const rearBrakeHeat = brakeStress * TIRE_CONFIG.heatBrake * (1 - car.brakeBias) * 2;
+  const driftSlipHeat = car.isDrifting ? car.driftIntensity * TIRE_CONFIG.heatDrift : 0;
+  const lockup = Math.max(car.wheelSlipFront, car.wheelSlipRear) > 0.92 ? TIRE_CONFIG.lockupWearMultiplier : 1.0;
+  const driftWear = car.isDrifting ? 1 + (TIRE_CONFIG.driftWearMultiplier - 1) * car.driftIntensity : 1.0;
+  const hotLimit = cmp.tempWindow[1] + 6;
 
-  const updateSingleTire = (tire: SingleTireState, load: number, heatGen: number, slipWork: number) => {
-    const netHeat = (heatGen * offTrackHeatMult - (tire.temp - ambientTemp) * coolingRate) * TIRE_CONFIG.temperatureGainRate;
+  const updateSingleTire = (tire: SingleTireState, load: number, brakeHeat: number, driveStress: number, slipWork: number, damage: number) => {
+    const heatIn =
+      (TIRE_CONFIG.heatCorner * cornerStress * load + brakeHeat + rolling + driveStress * TIRE_CONFIG.heatWheelspin + driftSlipHeat) *
+      heatMul *
+      offTrackHeatMult;
+    const netHeat = heatIn - (tire.temp - ambientTemp) * coolingRate;
     tire.temp = Math.max(TIRE_CONFIG.minTireTemperature, Math.min(TIRE_CONFIG.maxTireTemperature, tire.temp + netHeat * dt));
 
-    const wearWork = (slipWork + heatGen * 0.12) * load * (car.isDrifting ? TIRE_CONFIG.driftWearMultiplier : 1.0) * (!onTrack ? 1.5 : 1.0);
-    const wearDelta = wearWork * TIRE_CONFIG.tireWearRate * tireWearMultiplier * dt;
+    const overheat = tire.temp > hotLimit ? 1 + (tire.temp - hotLimit) / 30 : 1;
+    const stress = 0.08 + 0.6 * cornerStress * load + 0.5 * brakeStress * load + 0.35 * driveStress + slipWork * 0.4;
+    const wearDelta = stress * driftWear * lockup * overheat * (!onTrack ? 1.5 : 1.0) * wearMul * TIRE_CONFIG.tireWearRate * tireWearMultiplier * dt;
     tire.wear = Math.min(1.0, tire.wear + wearDelta);
 
-    const targetTempGrip = calculateTireTempGrip(tire.temp);
-    const targetWearGrip = calculateTireWearGrip(tire.wear);
-    const targetGrip = Math.max(TIRE_CONFIG.minimumGripMultiplier, Math.min(1.05, targetTempGrip * targetWearGrip));
+    const targetGrip = Math.max(
+      TIRE_CONFIG.minimumGripMultiplier,
+      Math.min(1.12, tempGrip(tire.temp, cmp.tempWindow) * wearGrip(tire.wear) * cmp.baseGrip * wetRel * (1 - damage))
+    );
     tire.grip += (targetGrip - tire.grip) * Math.min(1.0, 10.0 * dt);
     tire.load = load;
   };
 
-  updateSingleTire(car.tires.fl, flLoad, frontBrakeHeat + steerScrubHeat * 1.1, (car.wheelSlipFront || 0) + absSteer * 0.4);
-  updateSingleTire(car.tires.fr, frLoad, frontBrakeHeat + steerScrubHeat * 1.1, (car.wheelSlipFront || 0) + absSteer * 0.4);
-  updateSingleTire(car.tires.rl, rlLoad, rearBrakeHeat + driveWheelspinHeat + driftSlipHeat, (car.wheelSlipRear || 0) + car.driftIntensity * 0.8);
-  updateSingleTire(car.tires.rr, rrLoad, rearBrakeHeat + driveWheelspinHeat + driftSlipHeat, (car.wheelSlipRear || 0) + car.driftIntensity * 0.8);
+  const fd = Math.max(0, Math.min(0.4, extra.frontDamage ?? 0));
+  updateSingleTire(car.tires.fl, flLoad, frontBrakeHeat, 0, car.wheelSlipFront || 0, fd);
+  updateSingleTire(car.tires.fr, frLoad, frontBrakeHeat, 0, car.wheelSlipFront || 0, fd);
+  updateSingleTire(car.tires.rl, rlLoad, rearBrakeHeat, tractionStress, (car.wheelSlipRear || 0) + car.driftIntensity * 0.8, 0);
+  updateSingleTire(car.tires.rr, rrLoad, rearBrakeHeat, tractionStress, (car.wheelSlipRear || 0) + car.driftIntensity * 0.8, 0);
 
   car.tires.frontGrip = (car.tires.fl.grip + car.tires.fr.grip) * 0.5;
   car.tires.rearGrip = (car.tires.rl.grip + car.tires.rr.grip) * 0.5;
@@ -540,7 +572,8 @@ export function updateCarPhysics(
 
   // Forward drag
   const driftScrubDrag = car.driftIntensity * 0.16;
-  vf -= vf * (car.currentDrag + driftScrubDrag) * dt;
+  const draftScale = 1 - 0.4 * Math.max(0, Math.min(1, extra.draft ?? 0));
+  vf -= vf * (car.currentDrag * draftScale + driftScrubDrag) * dt;
   if (!onTrack) vf -= vf * (gravel ? 4 : 1.6) * dt;
 
   // Yaw rotation
@@ -629,5 +662,5 @@ export function updateCarPhysics(
   car.pitch = (car.brakeInput * 0.04) - ctrl.throttle * 0.025;
   car.roll = -(car.steer * 0.05) - (vl * 0.0003);
 
-  return { onTrack, gravel, nearestIdx: ni, nearestDist: d, drsClosedReason };
+  return { onTrack, gravel, nearestIdx: ni, nearestDist: d, inPitLane, drsClosedReason };
 }

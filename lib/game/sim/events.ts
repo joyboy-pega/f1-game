@@ -15,6 +15,8 @@ export type SimEvent =
   | { type: 'penalty'; carId: number; seconds: number; reason: string }
   | { type: 'trackLimits'; carId: number; warnings: number }
   | { type: 'pitEnter'; carId: number }
+  /** The driver changed the box request or the tyre planned for the next stop. */
+  | { type: 'pitPlan'; carId: number; box: boolean; compound: TyreCompound }
   | { type: 'pitExit'; carId: number; compound: TyreCompound; stationaryTime: number }
   | { type: 'collision'; carId: number; otherId: number | null; intensity: number }
   | { type: 'reset'; carId: number };

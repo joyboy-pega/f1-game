@@ -11,9 +11,16 @@ import {
   type SectorStatus,
   type TimingRow,
 } from '../gameState';
-import { createInitialCarState, findNearestTrackPoint, fitFreshTires, updateCarPhysics } from '../physics';
+import { createInitialCarState, findNearestTrackPoint, updateCarPhysics } from '../physics';
 import { createBrain, driveAI } from './ai';
+import { applyAssists } from './assists';
+import { CollisionSystem } from './collisions';
+import { updateDrsAvailability, updateSlipstream } from './drs';
+import { aiPitStrategy, checkPitEntry, cycleNextCompound, driveInPit, togglePitRequest, type PitContext } from './pit';
+import { updateTrackLimits } from './penalties';
+import { wetnessFor } from './tyres';
 import { EventBus } from './events';
+import { gaussian, makeRng } from './rng';
 import {
   advanceTiming,
   arcPosition,
@@ -54,6 +61,13 @@ function makeCar(id: number, isPlayer: boolean, idx: number, lateral: number, co
     nextCompound: compound === 'soft' ? 'medium' : 'soft',
     position: 1,
     stats: { topSpeedKmh: 0, drsUses: 0, ersUses: 0, overtakes: 0 },
+    pit: null,
+    damage: 0,
+    lastCollisionTime: -99,
+    draft: 0,
+    limits: { offTime: 0, counted: false, lastCornerId: -1, exempt: false },
+    drsDetect: { lastG: -1, zoneActive: -1 },
+    offTrackTime: 0,
   };
 }
 
@@ -73,7 +87,11 @@ export class GameWorld {
   finishCount = 0;
   overall: OverallBests = createOverallBests();
   readonly events = new EventBus();
+  /** Set before setup() to make a race reproducible (tests); null = random. */
+  seed: number | null = null;
+  rand: () => number = Math.random;
 
+  private collisions = new CollisionSystem();
   private acc = 0;
   private lightsHold = 1.2;
   private shownPosition = 1;
@@ -90,23 +108,30 @@ export class GameWorld {
 
   setup(settings: GameSettings) {
     this.settings = settings;
+    this.rand = makeRng(this.seed ?? Math.floor(Math.random() * 4294967296));
     this.raceId++;
     this.events.clear();
     this.overall = createOverallBests();
     this.phaseTime = 0;
     this.raceTime = 0;
     this.lightsLit = 0;
-    this.lightsHold = 0.6 + Math.random() * 1.6;
+    this.lightsHold = 0.6 + this.rand() * 1.6;
     this.chequered = false;
     this.finishCount = 0;
     this.acc = 0;
     this.paused = false;
+    this.collisions.reset();
 
     const race = settings.mode === 'race';
     const aiCount = race ? Math.max(0, Math.min(MAX_AI_CARS, settings.aiCount)) : 0;
     const carCount = aiCount + 1;
     const playerSlot = race ? Math.max(0, Math.min(carCount - 1, settings.gridPosition - 1)) : 0;
 
+    // "Qualifying": the fastest drivers usually, but not always, start at the front.
+    const grid = DRIVER_ROSTER.slice(0, aiCount)
+      .map((d) => ({ d, key: d.skill.pace + gaussian(this.rand) * 0.03 }))
+      .sort((a, b) => b.key - a.key)
+      .map((e) => e.d);
     const cars: WorldCar[] = [];
     let aiIdx = 0;
     for (let slot = 0; slot < carCount; slot++) {
@@ -119,10 +144,10 @@ export class GameWorld {
       if (isPlayer) {
         car.driver = { name: settings.driverName, code: settings.driverCode, team: 'Player', livery: settings.livery };
       } else {
-        const d = DRIVER_ROSTER[aiIdx++];
+        const d = grid[aiIdx++];
         car.driver = { name: d.name, code: d.code, team: d.team, livery: d.livery };
         car.skill = d.skill;
-        car.ai = createBrain(slot);
+        car.ai = createBrain(slot, Math.floor(this.rand() * 4294967296));
       }
       car.position = slot + 1;
       cars.push(car);
@@ -168,27 +193,64 @@ export class GameWorld {
 
     this.raceTime += dt;
     const s = this.settings;
-    const pc = this.player.ctrl;
+    const pl = this.player;
+    const pc = pl.ctrl;
+    const wetness = wetnessFor(s.weather);
 
-    if (pc.resetRequested) this.resetPlayer();
-    if (pc.pitStopRequested && s.mode === 'practice') {
-      fitFreshTires(this.player.phys);
-      this.events.emit({ type: 'pitExit', carId: this.player.id, compound: this.player.compound, stationaryTime: 0 });
+    if (pc.resetRequested && !pl.pit) this.resetPlayer();
+    if (pc.pitStopRequested && !pl.pit && !pl.timing.finished) {
+      togglePitRequest(pl);
+      this.events.emit({ type: 'pitPlan', carId: pl.id, box: pl.pitRequest, compound: pl.nextCompound });
+    }
+    if (pc.compoundCycleRequested && !pl.pit) {
+      cycleNextCompound(pl);
+      this.events.emit({ type: 'pitPlan', carId: pl.id, box: pl.pitRequest, compound: pl.nextCompound });
     }
 
+    const aiCtx = { cars: this.cars, difficulty: s.difficulty, raceTime: this.raceTime, weather: s.weather, isRace: this.isRace };
+    const pitCtx: PitContext = {
+      cars: this.cars,
+      raceTime: this.raceTime,
+      events: this.events,
+      rand: this.rand,
+      wetness,
+      isRace: this.isRace,
+      totalLaps: s.totalLaps,
+    };
+    const strategyTick = Math.floor(this.raceTime) !== Math.floor(this.raceTime - dt);
+
+    updateSlipstream(this.cars, dt);
+
     for (const car of this.cars) {
-      if (car.ai) driveAI(car, dt, s.difficulty, this.raceTime);
       const p = car.phys;
+      const idxBefore = p.idx;
+
+      // Who is driving: pit-lane controller, AI, or the human (with optional assists)
+      if (car.pit) driveInPit(car, pitCtx, dt);
+      else if (car.ai) {
+        if (strategyTick) aiPitStrategy(car, pitCtx);
+        driveAI(car, aiCtx, dt);
+      } else if (car.isPlayer) applyAssists(car, s.assists, s.weather);
+
       const wasDrs = p.drsOpen;
       const wasErs = p.isBoosting;
       const biasBefore = p.brakeBias;
 
+      const extras = {
+        compound: car.compound,
+        wetness,
+        drsAvailable: car.drsAvailable,
+        draft: car.draft,
+        inPit: !!car.pit,
+        frontDamage: car.damage,
+      };
       const r = car.isPlayer
-        ? updateCarPhysics(p, car.ctrl, dt, s.weather, s.steeringSensitivity, s.brakeForce, s.tireWearRate)
-        : updateCarPhysics(p, car.ctrl, dt, s.weather, 1, 1, s.tireWearRate);
+        ? updateCarPhysics(p, car.ctrl, dt, s.weather, s.steeringSensitivity, s.brakeForce, s.tireWearRate, extras)
+        : updateCarPhysics(p, car.ctrl, dt, s.weather, 1, 1, s.tireWearRate, extras);
       car.surface.onTrack = r.onTrack;
       car.surface.gravel = r.gravel;
       car.surface.dist = r.nearestDist;
+      if (!r.onTrack) car.offTrackTime += dt;
 
       if (p.drsOpen && !wasDrs) car.stats.drsUses++;
       if (p.isBoosting && !wasErs) car.stats.ersUses++;
@@ -211,9 +273,18 @@ export class GameWorld {
       if (res.lapCompleted && this.isRace && !car.timing.finished) {
         if (car.timing.lapsCompleted >= s.totalLaps || this.chequered) this.finishCar(car, res.crossTime);
       }
+
+      checkPitEntry(car, idxBefore, pitCtx);
+    }
+
+    // Car-to-car contact, then judge track limits on the corrected positions
+    this.collisions.resolve(this.cars, this.raceTime, this.events, s.damage);
+    for (const car of this.cars) {
+      updateTrackLimits(car, { raceTime: this.raceTime, dt, events: this.events, enabled: this.isRace });
     }
 
     this.updateOrder(dt);
+    updateDrsAvailability(this.cars, { isRace: this.isRace, order: this.order });
   }
 
   private updateStart(dt: number) {

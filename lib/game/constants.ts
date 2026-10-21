@@ -139,6 +139,12 @@ export const DRS_CONFIG = {
   flapClosedAngle: 25 * (Math.PI / 180),
   flapOpenAngle: -3 * (Math.PI / 180),
   flapTransitionSpeed: 16.0,
+  /** Race rules: DRS is enabled once a car has completed this many laps (lap 2 onwards). */
+  enabledAfterLaps: 1,
+  /** A car within this time gap of the car ahead at a detection point gets DRS for that zone. */
+  detectionGapSec: 1.0,
+  /** Detection point sits this many spline indices before the zone start. */
+  detectionLeadIdx: 40,
   zones: [
     { id: 1, name: 'ZONE 1 · MAIN STRAIGHT', start: 1760, end: 80, wraps: true },
     { id: 2, name: 'ZONE 2 · BACK STRAIGHT', start: 330, end: 710, wraps: false },
@@ -162,6 +168,9 @@ export const BRAKE_CONFIG = {
 };
 
 // 4-Tire Thermodynamics & Degradation
+// Thermal model (deg C per second): heat in from cornering / braking / wheelspin / drift,
+// heat out proportional to (temp - ambient) with a speed-dependent airflow term.
+// Tuned so tyres sit ~85-105 C when pushing and cool ~1-3 C/s when coasting (audit G6).
 export const TIRE_CONFIG = {
   ambientTemperature: 28.0,
   optimalTireTemperature: 95.0,
@@ -169,21 +178,70 @@ export const TIRE_CONFIG = {
   overheatThresholdTemperature: 112.0,
   maxTireTemperature: 145.0,
   minTireTemperature: 20.0,
-  coldGripMultiplier: 0.78,
+  coldGripMultiplier: 0.72,
   overheatGripMultiplier: 0.72,
-  minimumGripMultiplier: 0.60,
-  temperatureGainRate: 1.35,
-  temperatureCoolingRate: 0.15,
-  tireWearRate: 0.00060,
-  brakeHeatingScalar: 30.0,
-  corneringHeatingScalar: 25.0,
-  driftHeatingScalar: 38.0,
-  wheelspinHeatingScalar: 26.0,
-  offTrackHeatingBonus: 1.40,
+  minimumGripMultiplier: 0.5,
+  /** Max fraction of grip lost to wear (at 100 % worn); loss = wearGripLoss * wear^wearGripExponent. */
+  wearGripLoss: 0.3,
+  wearGripExponent: 1.8,
+  startTemperature: 72.0,
+  /** Cooling coefficient (1/s): idle value plus airflow part reached at coolingFullSpeed. */
+  coolBase: 0.022,
+  coolAir: 0.022,
+  coolingFullSpeed: 600,
+  heatCorner: 5.0,
+  heatBrake: 10.0,
+  heatRolling: 0.6,
+  heatWheelspin: 4.0,
+  heatDrift: 4.0,
+  /** Base wear fraction per second at stress 1.0 for the baseline (soft) compound. */
+  tireWearRate: 0.0040,
   rainCoolingMultiplier: 2.2,
   snowCoolingMultiplier: 2.8,
-  driftWearMultiplier: 2.6,
+  driftWearMultiplier: 1.5,
   lockupWearMultiplier: 2.2,
+  offTrackHeatingBonus: 1.40,
+  // Legacy keys (kept for UI/legacy readers)
+  temperatureGainRate: 1.0,
+  temperatureCoolingRate: 0.03,
+  brakeHeatingScalar: 14.0,
+  corneringHeatingScalar: 7.0,
+  driftHeatingScalar: 6.0,
+  wheelspinHeatingScalar: 5.0,
+};
+
+export type WetClass = 'slick' | 'inter' | 'wet';
+
+export interface CompoundConfig {
+  label: string;
+  /** Peak dry grip multiplier. */
+  baseGrip: number;
+  /** Wear rate relative to the soft. */
+  wearRate: number;
+  /** Grip is full inside this window (deg C). */
+  tempWindow: [number, number];
+  /** Multiplier on heat generation (warm-up speed). */
+  warmup: number;
+  /** Extra heat / wear when run on a dry track (inters & wets overheat). */
+  dryHeatMul: number;
+  dryWearMul: number;
+  wetClass: WetClass;
+}
+
+export const TYRE_COMPOUNDS: Record<TyreCompound, CompoundConfig> = {
+  soft: { label: 'SOFT', baseGrip: 1.0, wearRate: 1.0, tempWindow: [86, 108], warmup: 1.1, dryHeatMul: 1, dryWearMul: 1, wetClass: 'slick' },
+  medium: { label: 'MEDIUM', baseGrip: 0.975, wearRate: 0.62, tempWindow: [84, 106], warmup: 1.0, dryHeatMul: 1, dryWearMul: 1, wetClass: 'slick' },
+  hard: { label: 'HARD', baseGrip: 0.95, wearRate: 0.4, tempWindow: [82, 104], warmup: 0.9, dryHeatMul: 1, dryWearMul: 1, wetClass: 'slick' },
+  inter: { label: 'INTER', baseGrip: 0.9, wearRate: 0.6, tempWindow: [68, 90], warmup: 1.0, dryHeatMul: 1.9, dryWearMul: 3.5, wetClass: 'inter' },
+  wet: { label: 'WET', baseGrip: 0.86, wearRate: 0.5, tempWindow: [58, 80], warmup: 1.0, dryHeatMul: 2.6, dryWearMul: 5.0, wetClass: 'wet' },
+};
+
+/** Track wetness (0 dry .. 1 flooded) implied by each weather type. 'rain' = light/medium rain. */
+export const WEATHER_WETNESS: Record<'sunny' | 'cloudy' | 'rain' | 'snow', number> = {
+  sunny: 0,
+  cloudy: 0,
+  rain: 0.55,
+  snow: 0.5,
 };
 
 // Driver roster (fictional teams & drivers). `skill` feeds the AI controller.
@@ -277,4 +335,43 @@ export const PIT_LANE = {
   wallOffset: HW + 22, // pit wall between track and pit lane (cosmetic)
   garageOffset: HW + 96, // garage fronts, beyond the physics wall at HW + 82
   speedLimitKmh: 80,
+};
+
+/** DRS detection point (spline index) for a zone: just before the zone start. */
+export function drsDetectionIdx(zone: DrsZone): number {
+  return (zone.start - DRS_CONFIG.detectionLeadIdx + N) % N;
+}
+
+/** True when spline index i lies on the stretch between pit entry and pit exit. */
+export function inPitIdxRange(i: number): boolean {
+  return i >= PIT_LANE.entryIdx || i <= PIT_LANE.exitIdx;
+}
+
+/** True when a point (spline index, signed lateral) lies on the pit-lane asphalt band. */
+export function inPitBand(i: number, lateral: number): boolean {
+  if (!inPitIdxRange(i)) return false;
+  const l = lateral * PIT_LANE.side;
+  return l >= PIT_LANE.laneOffset - PIT_LANE.laneHalfWidth && l <= PIT_LANE.laneOffset + PIT_LANE.laneHalfWidth;
+}
+
+// Car-to-car collision shape: three circles along the heading.
+export const COLLISION_CONFIG = {
+  offsets: [-1.2, 0.2, 1.5].map((k) => k * CAR_SCALE),
+  radius: 0.75 * CAR_SCALE,
+  restitution: 0.2,
+  friction: 0.25,
+  yawGain: 0.0016,
+  maxYawKick: 0.1,
+  broadphase: 90,
+  eventCooldown: 0.4,
+  minEventSpeed: 12,
+};
+
+// Track limits: centre beyond this distance means all four wheels are over the white line.
+export const TRACK_LIMITS = {
+  warnDist: HW + 12,
+  minDuration: 0.2,
+  warningsBeforePenalty: 3,
+  penaltySec: 5,
+  collisionGrace: 2.5,
 };
