@@ -21,7 +21,7 @@ workstream row in §4 before writing code. The lead updates §1 and §10 as work
 | WS-D | Race logic & AI | ✅ merged (19 tests) |
 | WS-E | HUD, lobby, menus, results | ✅ merged |
 | WS-F | Audio | 🟡 in progress |
-| WS-G | Cameras, replay, ghost | 🟡 in progress |
+| WS-G | Cameras, replay, ghost | ✅ merged |
 | WS-H | Repo hygiene (legacy/, favicon, manifest, README) | ✅ merged |
 | INT | Integration of A–H into `main` (§5) | ⏳ next |
 | QA | Release-candidate QA pass (§6) | ⏳ |
