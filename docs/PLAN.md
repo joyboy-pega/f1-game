@@ -16,7 +16,7 @@ workstream row in §4 before writing code. The lead updates §1 and §10 as work
 | WS-0 | Foundation: world singleton, fixed 120 Hz sim, zustand store, checkpoint timing, analog + gamepad input, Next 16, Rapier removed, vitest, playtest harness | ✅ on `main` (`32257cd`) |
 | WS-0 | Shared contracts: replay/ghost flags, pit-lane geometry, camera-shake API, pit/DRS HUD fields, compound-cycle input | ✅ on `main` (`2085200`, `343001f`) |
 | WS-A | Car model & liveries | ✅ merged |
-| WS-B | World, track dressing, lighting | 🟡 in progress |
+| WS-B | World, track dressing, lighting | ✅ merged |
 | WS-C | FX & post-processing | 🟡 in progress |
 | WS-D | Race logic & AI | ✅ merged (19 tests) |
 | WS-E | HUD, lobby, menus, results | 🟡 in progress |
