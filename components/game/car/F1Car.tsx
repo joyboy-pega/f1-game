@@ -12,6 +12,7 @@ import { getStreetGeometries } from './streetGeometry';
 import { getLiveryMaterial } from './livery';
 import { createCarMaterials, getSharedMaterials } from './materials';
 import { getRimGeometry, getTyreGeometry } from './wheels';
+import { PegasusCar } from './PegasusCar';
 
 export interface F1CarProps {
   car: WorldCar;
@@ -20,10 +21,14 @@ export interface F1CarProps {
 /**
  * Renders one world car. Reads `car.phys` every frame; never re-renders from sim state.
  * Contract: root group placed at (phys.x, 0.05, phys.y), rotation.y = PI/2 - phys.a,
- * uniform CAR_SCALE. The player's car becomes a road supercar when settings.carModel === 'street'.
+ * uniform CAR_SCALE. Supports modern F1, street supercar, and Formula Student Pegasus #53.
  */
 export function F1Car({ car }: F1CarProps) {
   const carModel = useGameStore((s) => s.settings.carModel);
+  const isPegasus = (car.isPlayer && carModel === 'pegasus') || car.driver.team === 'Pegasus';
+  if (isPegasus) {
+    return <PegasusCar car={car} />;
+  }
   const street = car.isPlayer && carModel === 'street';
   return <CarRig key={street ? 'street' : 'f1'} car={car} street={street} />;
 }

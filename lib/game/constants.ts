@@ -306,7 +306,7 @@ export type TimeOfDay = 'day' | 'sunset' | 'night';
 
 export type WeatherType = 'sunny' | 'cloudy' | 'rain' | 'snow';
 export type CameraViewMode = 'chase' | 'cockpit' | 'tcam' | 'hood';
-export type VehicleModelType = 'f1' | 'street';
+export type VehicleModelType = 'f1' | 'street' | 'pegasus';
 
 export const WEATHER_NAMES: Record<WeatherType, string> = {
   sunny: 'SUNNY',

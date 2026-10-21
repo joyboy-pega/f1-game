@@ -33,6 +33,14 @@ export const STREET_WHEELS: WheelSpec[] = [
   { x: -0.8, y: 0.34, z: -0.98, radius: 0.34, width: 0.32, front: false, left: false },
 ];
 
+/** Formula Student Pegasus #53 wheels (13" rims, wide racing slicks). */
+export const PEGASUS_WHEELS: WheelSpec[] = [
+  { x: 0.65, y: 0.265, z: 0.82, radius: 0.265, width: 0.21, front: true, left: true },
+  { x: -0.65, y: 0.265, z: 0.82, radius: 0.265, width: 0.21, front: true, left: false },
+  { x: 0.67, y: 0.285, z: -0.98, radius: 0.285, width: 0.25, front: false, left: true },
+  { x: -0.67, y: 0.285, z: -0.98, radius: 0.285, width: 0.25, front: false, left: false },
+];
+
 // --- Camera anchors (car-local, unscaled) ---------------------------------
 /** Driver eye point, just behind/above the helmet visor, under the halo's front arch. */
 export const COCKPIT_EYE: [number, number, number] = [0, 0.74, 0.12];
@@ -45,5 +53,10 @@ export const TCAM: [number, number, number] = [0, 1.02, -0.3];
 export const STREET_COCKPIT_EYE: [number, number, number] = [0.2, 0.62, -0.05];
 export const STREET_NOSE_CAM: [number, number, number] = [0, 0.5, 1.45];
 export const STREET_TCAM: [number, number, number] = [0, 0.84, -0.25];
+
+/** Pegasus #53 camera anchors */
+export const PEGASUS_COCKPIT_EYE: [number, number, number] = [0, 0.82, -0.02];
+export const PEGASUS_NOSE_CAM: [number, number, number] = [0, 0.44, 1.45];
+export const PEGASUS_TCAM: [number, number, number] = [0, 1.28, -0.36];
 
 export const CAR_HEIGHT = 1.05;
