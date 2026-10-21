@@ -12,10 +12,10 @@ import {
   createHelicalSpringGeometry,
   createTubeGeometry,
   getCarbonTexture,
-  getHelmetTexture,
-  getNoseConeTexture,
-  getPegasusBronzeRimGeometry,
-  getSidepodTexture,
+  getPegasusHelmetTexture,
+  getPegasusNoseConeTexture,
+  getPegasusRimGeometry,
+  getPegasusSidepodTexture,
   toGamePt,
 } from './pegasusGeometry';
 import { createCarMaterials, getSharedMaterials } from './materials';
@@ -31,6 +31,7 @@ const FLAP_CLOSED = 25 * DEG;
 const FLAP_OPEN = -3 * DEG;
 
 export function PegasusCar({ car }: PegasusCarProps) {
+  const livery = car.driver.livery;
   const shared = getSharedMaterials();
   const mats = useMemo(() => createCarMaterials(), []);
   useEffect(() => () => {
@@ -39,36 +40,49 @@ export function PegasusCar({ car }: PegasusCarProps) {
     mats.brakeLight.dispose();
   }, [mats]);
 
+  // Dynamic livery textures updating live when livery changes
+  const noseTex = useMemo(() => {
+    return getPegasusNoseConeTexture(livery, car.driver.code || 'PEG');
+  }, [livery.body, livery.accent, livery.number, car.driver.code]);
+
+  const sidepodTex = useMemo(() => {
+    return getPegasusSidepodTexture(livery);
+  }, [livery.body, livery.accent, livery.number]);
+
+  const helmetTex = useMemo(() => {
+    return getPegasusHelmetTexture(livery);
+  }, [livery.body, livery.accent]);
+
   // Pegasus-specific materials
   const noseMat = useMemo(() => {
     return new THREE.MeshPhysicalMaterial({
-      map: getNoseConeTexture(),
+      map: noseTex,
       clearcoat: 1.0,
       clearcoatRoughness: 0.08,
       roughness: 0.18,
       metalness: 0.05,
       side: THREE.DoubleSide,
     });
-  }, []);
+  }, [noseTex]);
 
   const sidepodMat = useMemo(() => {
     return new THREE.MeshPhysicalMaterial({
-      map: getSidepodTexture(),
+      map: sidepodTex,
       clearcoat: 1.0,
       clearcoatRoughness: 0.08,
       roughness: 0.18,
       metalness: 0.05,
     });
-  }, []);
+  }, [sidepodTex]);
 
   const helmetMat = useMemo(() => {
     return new THREE.MeshPhysicalMaterial({
-      map: getHelmetTexture(),
+      map: helmetTex,
       clearcoat: 1.0,
       clearcoatRoughness: 0.06,
       roughness: 0.15,
     });
-  }, []);
+  }, [helmetTex]);
 
   const carbonMat = useMemo(() => {
     return new THREE.MeshStandardMaterial({
@@ -78,14 +92,22 @@ export function PegasusCar({ car }: PegasusCarProps) {
     });
   }, []);
 
-  const whiteBodyMat = useMemo(() => {
+  const bodyColorMat = useMemo(() => {
     return new THREE.MeshPhysicalMaterial({
-      color: 0xf8fafc,
+      color: new THREE.Color(livery.body || '#f8fafc'),
       clearcoat: 1.0,
       clearcoatRoughness: 0.08,
       roughness: 0.18,
     });
-  }, []);
+  }, [livery.body]);
+
+  const accentColorMat = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: new THREE.Color(livery.accent || '#dc2626'),
+      metalness: 0.5,
+      roughness: 0.25,
+    });
+  }, [livery.accent]);
 
   const frameTubeMat = useMemo(() => {
     return new THREE.MeshStandardMaterial({
@@ -119,14 +141,6 @@ export function PegasusCar({ car }: PegasusCarProps) {
     });
   }, []);
 
-  const redAccentMat = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
-      color: 0xdc2626,
-      metalness: 0.5,
-      roughness: 0.25,
-    });
-  }, []);
-
   const orangeCoilMat = useMemo(() => {
     return new THREE.MeshStandardMaterial({
       color: 0xea580c,
@@ -135,19 +149,11 @@ export function PegasusCar({ car }: PegasusCarProps) {
     });
   }, []);
 
-  const redCoilMat = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
-      color: 0xdc2626,
-      metalness: 0.35,
-      roughness: 0.3,
-    });
-  }, []);
-
   const noseGeom = useMemo(() => buildSculptedNoseCone(), []);
-  const rimGeo = useMemo(() => getPegasusBronzeRimGeometry(), []);
+  const rimGeo = useMemo(() => getPegasusRimGeometry(livery.rim, livery.accent), [livery.rim, livery.accent]);
   const tyreGeo0 = useMemo(() => getTyreGeometry(car.compound), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Frame tube segments (converted from user space [xu, yu, zu] to game [-zu, yu, xu])
+  // Frame tube segments
   const tubes = useMemo(() => {
     const rawTubes: [number, number, number, number, number, number, number][] = [
       // Main roll hoop
@@ -349,12 +355,10 @@ export function PegasusCar({ car }: PegasusCarProps) {
           <boxGeometry args={[0.66, 0.025, 2.15]} />
         </mesh>
 
-        {/* 2. Sidepods with #53 livery */}
-        {/* Right sidepod (-X in game) */}
+        {/* 2. Sidepods with customizable livery & number */}
         <mesh position={[-0.44, 0.26, -0.08]} material={sidepodMat} castShadow receiveShadow>
           <boxGeometry args={[0.24, 0.33, 0.72]} />
         </mesh>
-        {/* Left sidepod (+X in game) */}
         <mesh position={[0.44, 0.26, -0.08]} material={sidepodMat} castShadow receiveShadow>
           <boxGeometry args={[0.24, 0.33, 0.72]} />
         </mesh>
@@ -394,13 +398,13 @@ export function PegasusCar({ car }: PegasusCarProps) {
           <meshStandardMaterial color={0x121316} roughness={0.75} />
         </mesh>
 
-        {/* Harness & Shoulders */}
+        {/* Harness & Shoulders (matching accent color) */}
         {[-0.14, 0.14].map((xPos, idx) => (
           <group key={idx}>
-            <mesh position={[xPos, 0.64, -0.08]} rotation={[0.25, 0, 0]} material={redAccentMat}>
+            <mesh position={[xPos, 0.64, -0.08]} rotation={[0.25, 0, 0]} material={accentColorMat}>
               <boxGeometry args={[0.09, 0.04, 0.16]} />
             </mesh>
-            <mesh position={[xPos * 0.65, 0.54, -0.02]} rotation={[1.12, 0, 0]} material={redAccentMat}>
+            <mesh position={[xPos * 0.65, 0.54, -0.02]} rotation={[1.12, 0, 0]} material={accentColorMat}>
               <boxGeometry args={[0.045, 0.025, 0.28]} />
             </mesh>
           </group>
@@ -419,7 +423,7 @@ export function PegasusCar({ car }: PegasusCarProps) {
           </group>
         </group>
 
-        {/* Driver Helmet (tracks corner apex) */}
+        {/* Driver Helmet (tracks corner apex & customized with body/accent) */}
         <group ref={headRef} position={[0, 0.83, -0.03]}>
           <mesh material={helmetMat} scale={[0.96, 1.04, 1.18]} castShadow>
             <sphereGeometry args={[0.155, 32, 24]} />
@@ -460,19 +464,19 @@ export function PegasusCar({ car }: PegasusCarProps) {
           <cylinderGeometry args={[0.068, 0.068, 0.34, 20]} />
         </mesh>
 
-        {/* Angled Upper Orange Shocks */}
+        {/* Angled Upper Shocks */}
         <mesh position={[-0.17, 0.61, -0.56]} rotation={[0.5, 0.3, 0]} geometry={upperSpring} material={orangeCoilMat} />
         <mesh position={[0.17, 0.61, -0.56]} rotation={[0.5, -0.3, 0]} geometry={upperSpring} material={orangeCoilMat} />
 
-        {/* Vertical Rear Red Shocks */}
-        <mesh position={[-0.26, 0.42, -0.74]} geometry={rearSpring} material={redCoilMat} />
-        <mesh position={[0.26, 0.42, -0.74]} geometry={rearSpring} material={redCoilMat} />
+        {/* Vertical Rear Shocks (accent color) */}
+        <mesh position={[-0.26, 0.42, -0.74]} geometry={rearSpring} material={accentColorMat} />
+        <mesh position={[0.26, 0.42, -0.74]} geometry={rearSpring} material={accentColorMat} />
 
-        {/* Rear DRS Wing & Brake Light */}
-        <mesh position={[0, 0.82, -1.18]} material={carbonMat} castShadow>
+        {/* Rear Wing & Flap (body & accent) */}
+        <mesh position={[0, 0.82, -1.18]} material={bodyColorMat} castShadow>
           <boxGeometry args={[0.88, 0.03, 0.26]} />
         </mesh>
-        <mesh ref={flapRef} position={[0, 0.86, -1.24]} material={whiteBodyMat} castShadow>
+        <mesh ref={flapRef} position={[0, 0.86, -1.24]} material={accentColorMat} castShadow>
           <boxGeometry args={[0.86, 0.02, 0.14]} />
         </mesh>
         <mesh position={[0, 0.44, -1.06]} material={mats.brakeLight}>
@@ -485,7 +489,7 @@ export function PegasusCar({ car }: PegasusCarProps) {
         ))}
       </group>
 
-      {/* 7. Wheels & Bronze 6-Spoke Rims */}
+      {/* 7. Wheels & Customizable 6-Spoke Rims */}
       {PEGASUS_WHEELS.map((w, i) => (
         <group key={i} ref={setPivot(i)} position={[w.x, w.y, w.z]}>
           <group ref={setSpin(i)}>

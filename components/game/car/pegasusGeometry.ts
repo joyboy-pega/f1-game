@@ -1,14 +1,36 @@
 import * as THREE from 'three';
+import type { Livery } from '@/lib/game/constants';
 
 // ---------------------------------------------------------------------------
-// PROCEDURAL TEXTURE GENERATORS (HIGH-RESOLUTION CANVAS TEXTURES)
+// COLOR & CONTRAST HELPERS
 // ---------------------------------------------------------------------------
 
-function drawPegasusSilhouette(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) {
+function luminance(hex: string): number {
+  try {
+    const c = new THREE.Color(hex);
+    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+  } catch {
+    return 0.5;
+  }
+}
+
+function contrastInk(bg: string): string {
+  return luminance(bg) > 0.4 ? '#090a0f' : '#f8fafc';
+}
+
+function secondaryInk(bg: string): string {
+  return luminance(bg) > 0.4 ? '#1f2937' : '#e2e8f0';
+}
+
+// ---------------------------------------------------------------------------
+// PROCEDURAL TEXTURE GENERATORS (CACHED PER LIVERY CONFIGURATION)
+// ---------------------------------------------------------------------------
+
+function drawPegasusSilhouette(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, color: string) {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(scale, scale);
-  ctx.fillStyle = '#090a0f';
+  ctx.fillStyle = color;
 
   // Muscular Horse Body & Rear
   ctx.beginPath();
@@ -63,23 +85,32 @@ function drawPegasusSilhouette(ctx: CanvasRenderingContext2D, x: number, y: numb
   ctx.restore();
 }
 
-let cachedNoseTex: THREE.CanvasTexture | null = null;
-let cachedSidepodTex: THREE.CanvasTexture | null = null;
-let cachedHelmetTex: THREE.CanvasTexture | null = null;
+const noseTexCache = new Map<string, THREE.CanvasTexture>();
+const sidepodTexCache = new Map<string, THREE.CanvasTexture>();
+const helmetTexCache = new Map<string, THREE.CanvasTexture>();
 let cachedCarbonTex: THREE.CanvasTexture | null = null;
 
-export function getNoseConeTexture(): THREE.CanvasTexture {
-  if (cachedNoseTex) return cachedNoseTex;
+export function getPegasusNoseConeTexture(livery: Livery, driverCode = 'PEG'): THREE.CanvasTexture {
+  const body = livery.body || '#f8fafc';
+  const accent = livery.accent || '#dc2626';
+  const num = String(livery.number || 53);
+  const key = `${body}_${accent}_${num}_${driverCode}`;
+
+  const hit = noseTexCache.get(key);
+  if (hit) return hit;
   if (typeof document === 'undefined') return new THREE.Texture() as unknown as THREE.CanvasTexture;
 
   const canvas = document.createElement('canvas');
   canvas.width = 2048;
   canvas.height = 2048;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.CanvasTexture(canvas);
+  if (!ctx) return new THREE.Texture() as unknown as THREE.CanvasTexture;
 
-  // Pure gloss white base
-  ctx.fillStyle = '#f8fafc';
+  const ink = contrastInk(body);
+  const secInk = secondaryInk(body);
+
+  // Base coat
+  ctx.fillStyle = body;
   ctx.fillRect(0, 0, 2048, 2048);
 
   function drawSideGraphics(isRightSide: boolean) {
@@ -90,17 +121,17 @@ export function getNoseConeTexture(): THREE.CanvasTexture {
       ctx.scale(1, -1);
     }
 
-    // Red swooping upper border stripe curving around the nose tip
+    // Upper accent stripe curving around the nose tip
     ctx.beginPath();
     ctx.moveTo(180, 560);
     ctx.bezierCurveTo(850, 590, 1550, 540, 1930, 240);
     ctx.lineTo(1860, 140);
     ctx.bezierCurveTo(1500, 440, 820, 510, 180, 510);
     ctx.closePath();
-    ctx.fillStyle = '#dc2626';
+    ctx.fillStyle = accent;
     ctx.fill();
 
-    // Bold Black swooping lower/front curve framing the white side panel
+    // Bold ink curve framing the side panel
     ctx.beginPath();
     ctx.moveTo(180, 195);
     ctx.bezierCurveTo(950, 150, 1520, 140, 1850, 195);
@@ -109,17 +140,17 @@ export function getNoseConeTexture(): THREE.CanvasTexture {
     ctx.bezierCurveTo(1180, 410, 1480, 355, 1690, 235);
     ctx.bezierCurveTo(1380, 215, 850, 225, 180, 255);
     ctx.closePath();
-    ctx.fillStyle = '#090a0f';
+    ctx.fillStyle = ink;
     ctx.fill();
 
-    // Lower Red accent along the chin
+    // Lower accent along the chin
     ctx.beginPath();
     ctx.moveTo(180, 155);
     ctx.quadraticCurveTo(950, 115, 1820, 165);
     ctx.lineTo(1850, 195);
     ctx.quadraticCurveTo(950, 150, 180, 195);
     ctx.closePath();
-    ctx.fillStyle = '#dc2626';
+    ctx.fillStyle = accent;
     ctx.fill();
 
     ctx.restore();
@@ -133,30 +164,28 @@ export function getNoseConeTexture(): THREE.CanvasTexture {
   ctx.translate(650, 350);
   ctx.scale(1, -1);
 
-  // "FORMULA TEAM"
-  ctx.fillStyle = '#111827';
+  ctx.fillStyle = secInk;
   ctx.font = 'bold 28px "Chakra Petch", "Archivo", sans-serif';
   ctx.fillText('FORMULA TEAM', -220, -78);
 
-  // "PEGASUS" with red stylized E
   ctx.font = 'italic bold 64px "Chakra Petch", "Archivo", sans-serif';
-  ctx.fillStyle = '#090a0f';
+  ctx.fillStyle = ink;
   ctx.fillText('P', -220, -20);
-  ctx.fillStyle = '#dc2626';
+  ctx.fillStyle = accent;
   ctx.fillText('E', -175, -20);
-  ctx.fillStyle = '#090a0f';
+  ctx.fillStyle = ink;
   ctx.fillText('GASUS', -130, -20);
 
-  // Red flame/wing icon above Pegasus
-  ctx.fillStyle = '#dc2626';
+  // Wing flame icon above Pegasus
+  ctx.fillStyle = accent;
   ctx.beginPath();
   ctx.moveTo(45, -75);
   ctx.quadraticCurveTo(65, -95, 55, -55);
   ctx.quadraticCurveTo(40, -65, 45, -75);
   ctx.fill();
 
-  // "SAE INDIA" Badge
-  ctx.fillStyle = '#dc2626';
+  // SAE INDIA Badge
+  ctx.fillStyle = accent;
   ctx.fillRect(-130, 25, 95, 42);
   ctx.fillStyle = '#1e3a8a';
   ctx.fillRect(-35, 25, 105, 42);
@@ -165,67 +194,70 @@ export function getNoseConeTexture(): THREE.CanvasTexture {
   ctx.fillText('SAE', -118, 56);
   ctx.fillText('INDIA', -25, 56);
 
-  // "FORMULA STUDENT"
-  ctx.fillStyle = '#1f2937';
+  ctx.fillStyle = secInk;
   ctx.font = 'bold 24px "Chakra Petch", sans-serif';
   ctx.fillText('FORMULA STUDENT', -150, 105);
 
-  // Winged Pegasus Silhouette
-  drawPegasusSilhouette(ctx, 430, 35, 2.55);
+  drawPegasusSilhouette(ctx, 430, 35, 2.55, ink);
 
-  // Sponsors
-  ctx.fillStyle = '#111827';
+  ctx.fillStyle = secInk;
   ctx.font = 'bold 22px "Chakra Petch", sans-serif';
-  ctx.fillText('BOSCH   MOTUL', -430, -45);
+  ctx.fillText(`⚙ ${driverCode}   BOSCH   MOTUL`, -430, -45);
 
   ctx.restore();
 
-  // Left Side Logos (mirrored cleanly)
+  // Left Side Logos (mirrored)
   ctx.save();
   ctx.translate(650, 2048 - 350);
-  ctx.fillStyle = '#111827';
+  ctx.fillStyle = secInk;
   ctx.font = 'bold 28px "Chakra Petch", "Archivo", sans-serif';
   ctx.fillText('FORMULA TEAM', -220, -78);
   ctx.font = 'italic bold 64px "Chakra Petch", "Archivo", sans-serif';
-  ctx.fillStyle = '#090a0f';
-  ctx.fillText('PEGASUS', -220, -20);
-  ctx.fillStyle = '#dc2626';
+  ctx.fillStyle = ink;
+  ctx.fillText('P', -220, -20);
+  ctx.fillStyle = accent;
+  ctx.fillText('E', -175, -20);
+  ctx.fillStyle = ink;
+  ctx.fillText('GASUS', -130, -20);
+  ctx.fillStyle = accent;
   ctx.fillRect(-130, 25, 95, 42);
   ctx.fillStyle = '#1e3a8a';
   ctx.fillRect(-35, 25, 105, 42);
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 30px "Chakra Petch", sans-serif';
   ctx.fillText('SAE INDIA', -118, 56);
-  ctx.fillStyle = '#1f2937';
+  ctx.fillStyle = secInk;
   ctx.font = 'bold 24px "Chakra Petch", sans-serif';
   ctx.fillText('FORMULA STUDENT', -150, 105);
-  drawPegasusSilhouette(ctx, 430, 35, 2.55);
+  drawPegasusSilhouette(ctx, 430, 35, 2.55, ink);
   ctx.restore();
 
-  // Top Hood Circle with #53
+  // Top Hood Circle with customizable number
   ctx.save();
   ctx.translate(1080, 1024);
   ctx.rotate(-Math.PI / 2);
   ctx.beginPath();
   ctx.arc(0, 0, 155, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffffff';
+  const roundelBg = luminance(body) > 0.4 ? '#ffffff' : '#18181b';
+  ctx.fillStyle = roundelBg;
   ctx.fill();
   ctx.lineWidth = 14;
-  ctx.strokeStyle = '#090a0f';
+  ctx.strokeStyle = accent;
   ctx.stroke();
 
-  ctx.fillStyle = '#090a0f';
-  ctx.font = 'bold 170px "Chakra Petch", "Archivo", sans-serif';
+  ctx.fillStyle = contrastInk(roundelBg);
+  const numFontSize = num.length > 2 ? 140 : 170;
+  ctx.font = `bold ${numFontSize}px "Chakra Petch", "Archivo", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('53', 0, 8);
+  ctx.fillText(num, 0, 8);
   ctx.restore();
 
   // Front nose tip decal
   ctx.save();
   ctx.translate(1680, 1024);
   ctx.rotate(-Math.PI / 2);
-  ctx.fillStyle = '#dc2626';
+  ctx.fillStyle = accent;
   ctx.fillRect(-90, -35, 180, 70);
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 36px "Chakra Petch", sans-serif';
@@ -235,88 +267,106 @@ export function getNoseConeTexture(): THREE.CanvasTexture {
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.anisotropy = 8;
-  cachedNoseTex = tex;
+  noseTexCache.set(key, tex);
   return tex;
 }
 
-export function getSidepodTexture(): THREE.CanvasTexture {
-  if (cachedSidepodTex) return cachedSidepodTex;
+export function getPegasusSidepodTexture(livery: Livery): THREE.CanvasTexture {
+  const body = livery.body || '#f8fafc';
+  const accent = livery.accent || '#dc2626';
+  const num = String(livery.number || 53);
+  const key = `${body}_${accent}_${num}`;
+
+  const hit = sidepodTexCache.get(key);
+  if (hit) return hit;
   if (typeof document === 'undefined') return new THREE.Texture() as unknown as THREE.CanvasTexture;
 
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 512;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.CanvasTexture(canvas);
+  if (!ctx) return new THREE.Texture() as unknown as THREE.CanvasTexture;
 
-  // Gloss white base
-  ctx.fillStyle = '#f8fafc';
+  const ink = contrastInk(body);
+
+  // Base coat
+  ctx.fillStyle = body;
   ctx.fillRect(0, 0, 1024, 512);
 
-  // Red diagonal slash
+  // Accent diagonal slash
   ctx.beginPath();
   ctx.moveTo(490, 512);
   ctx.lineTo(860, 45);
   ctx.lineTo(750, 45);
   ctx.lineTo(395, 512);
   ctx.closePath();
-  ctx.fillStyle = '#dc2626';
+  ctx.fillStyle = accent;
   ctx.fill();
 
-  // Black diagonal slash
+  // Ink diagonal slash
   ctx.beginPath();
   ctx.moveTo(590, 512);
   ctx.lineTo(910, 80);
   ctx.lineTo(830, 80);
   ctx.lineTo(500, 512);
   ctx.closePath();
-  ctx.fillStyle = '#090a0f';
+  ctx.fillStyle = ink;
   ctx.fill();
 
-  // Black Number Roundel Circle
+  // Roundel Circle
   ctx.beginPath();
   ctx.arc(360, 275, 175, 0, Math.PI * 2);
-  ctx.fillStyle = '#090a0f';
+  ctx.fillStyle = ink;
   ctx.fill();
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = accent;
+  ctx.stroke();
 
-  // Bold White "53"
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 215px "Chakra Petch", "Archivo", sans-serif';
+  // Bold number inside circle
+  ctx.fillStyle = contrastInk(ink);
+  const numSize = num.length > 2 ? 170 : 215;
+  ctx.font = `bold ${numSize}px "Chakra Petch", "Archivo", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('53', 358, 288);
+  ctx.fillText(num, 358, 288);
 
-  // Technical inspection stickers
-  ctx.fillStyle = '#dc2626';
+  // Tech stickers
+  ctx.fillStyle = accent;
   ctx.fillRect(65, 220, 75, 36);
-  ctx.fillStyle = '#090a0f';
+  ctx.fillStyle = ink;
   ctx.fillRect(55, 340, 115, 38);
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = contrastInk(ink);
   ctx.font = 'bold 20px "Chakra Petch", sans-serif';
   ctx.fillText('TECH OK', 112, 365);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.anisotropy = 8;
-  cachedSidepodTex = tex;
+  sidepodTexCache.set(key, tex);
   return tex;
 }
 
-export function getHelmetTexture(): THREE.CanvasTexture {
-  if (cachedHelmetTex) return cachedHelmetTex;
+export function getPegasusHelmetTexture(livery: Livery): THREE.CanvasTexture {
+  const body = livery.body || '#f8fafc';
+  const accent = livery.accent || '#dc2626';
+  const key = `${body}_${accent}`;
+
+  const hit = helmetTexCache.get(key);
+  if (hit) return hit;
   if (typeof document === 'undefined') return new THREE.Texture() as unknown as THREE.CanvasTexture;
 
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 512;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.CanvasTexture(canvas);
+  if (!ctx) return new THREE.Texture() as unknown as THREE.CanvasTexture;
 
-  // Gloss White Shell
-  ctx.fillStyle = '#f8fafc';
+  const ink = contrastInk(body);
+
+  ctx.fillStyle = body;
   ctx.fillRect(0, 0, 1024, 512);
 
-  // Red & Black Racing Swooshes
-  ctx.fillStyle = '#dc2626';
+  // Accent & Ink racing swooshes
+  ctx.fillStyle = accent;
   ctx.beginPath();
   ctx.moveTo(0, 360);
   ctx.quadraticCurveTo(350, 240, 1024, 390);
@@ -324,7 +374,7 @@ export function getHelmetTexture(): THREE.CanvasTexture {
   ctx.quadraticCurveTo(350, 320, 0, 440);
   ctx.fill();
 
-  ctx.fillStyle = '#090a0f';
+  ctx.fillStyle = ink;
   ctx.beginPath();
   ctx.moveTo(0, 140);
   ctx.quadraticCurveTo(480, 290, 1024, 130);
@@ -333,7 +383,7 @@ export function getHelmetTexture(): THREE.CanvasTexture {
   ctx.fill();
 
   // Crown stripes
-  ctx.fillStyle = '#dc2626';
+  ctx.fillStyle = accent;
   ctx.beginPath();
   ctx.moveTo(120, 80);
   ctx.quadraticCurveTo(512, 210, 900, 80);
@@ -342,7 +392,7 @@ export function getHelmetTexture(): THREE.CanvasTexture {
   ctx.fill();
 
   const tex = new THREE.CanvasTexture(canvas);
-  cachedHelmetTex = tex;
+  helmetTexCache.set(key, tex);
   return tex;
 }
 
@@ -354,7 +404,7 @@ export function getCarbonTexture(): THREE.CanvasTexture {
   canvas.width = 64;
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.CanvasTexture(canvas);
+  if (!ctx) return new THREE.Texture() as unknown as THREE.CanvasTexture;
 
   ctx.fillStyle = '#18181b';
   ctx.fillRect(0, 0, 64, 64);
@@ -380,8 +430,6 @@ export function getCarbonTexture(): THREE.CanvasTexture {
 // GEOMETRY GENERATORS (MATCHING GAME COORDINATE SYSTEM: +Z nose, +X left, +Y up)
 // ---------------------------------------------------------------------------
 
-// Helper to convert user coordinates [x_user, y_user, z_user] to game coordinates:
-// x_game = -z_user, y_game = y_user, z_game = x_user
 export const toGamePt = ([xu, yu, zu]: [number, number, number]): [number, number, number] => [-zu, yu, xu];
 
 export function buildSculptedNoseCone(): THREE.BufferGeometry {
@@ -414,7 +462,6 @@ export function buildSculptedNoseCone(): THREE.BufferGeometry {
 
       const signLat = Math.sign(sinA);
       const signY = Math.sign(cosA);
-      // In game coords: lateral width is along X. In user HTML, positive Z was right side (-X in game).
       const x = -signLat * Math.pow(Math.abs(sinA), 0.78) * halfWidth;
       let y = yCenter + signY * Math.pow(Math.abs(cosA), 0.82) * yHalf;
 
@@ -472,15 +519,17 @@ export function createHelicalSpringGeometry(radius: number, height: number, turn
   return new THREE.TubeGeometry(curve, steps, wireRadius, 6, false);
 }
 
-// Custom Bronze 6-Spoke Rim in unit frame (axis = +X, outer radius 1, total width 1)
-let cachedPegasusRim: THREE.BufferGeometry | null = null;
+// Custom 6-Spoke Rim in unit frame with customizable rim & accent colors
+const rimGeoCache = new Map<string, THREE.BufferGeometry>();
 
-export function getPegasusBronzeRimGeometry(): THREE.BufferGeometry {
-  if (cachedPegasusRim) return cachedPegasusRim;
+export function getPegasusRimGeometry(rimColorHex = '#9a6b26', accentColorHex = '#d91b24'): THREE.BufferGeometry {
+  const key = `${rimColorHex}_${accentColorHex}`;
+  const hit = rimGeoCache.get(key);
+  if (hit) return hit;
 
   const geometries: THREE.BufferGeometry[] = [];
-  const bronze = new THREE.Color('#9a6b26');
-  const redAnodized = new THREE.Color('#d91b24');
+  const rim = new THREE.Color(rimColorHex);
+  const accent = new THREE.Color(accentColorHex);
   const silver = new THREE.Color('#e4e4e7');
   const discCol = new THREE.Color('#5b5d63');
 
@@ -493,7 +542,6 @@ export function getPegasusBronzeRimGeometry(): THREE.BufferGeometry {
       colors[i * 3] = col.r;
       colors[i * 3 + 1] = col.g;
       colors[i * 3 + 2] = col.b;
-      // White texel at uv (0.9, 0.9) glows when emissive map is applied
       uvs[i * 2] = glow ? 0.9 : 0.1;
       uvs[i * 2 + 1] = glow ? 0.9 : 0.1;
     }
@@ -505,33 +553,32 @@ export function getPegasusBronzeRimGeometry(): THREE.BufferGeometry {
   // 1. Deep-dish rim barrel & outer lip
   const barrel = new THREE.CylinderGeometry(0.68, 0.65, 0.76, 24, 1, true);
   barrel.rotateZ(-Math.PI / 2);
-  tag(barrel, bronze);
+  tag(barrel, rim);
 
   const lip = new THREE.TorusGeometry(0.67, 0.04, 10, 24);
   lip.rotateY(Math.PI / 2);
   lip.translate(0.38, 0, 0);
-  tag(lip, bronze);
+  tag(lip, rim);
 
-  // 2. 6 Bronze spokes
+  // 2. 6 Spokes
   for (let i = 0; i < 6; i++) {
     const angle = (i / 6) * Math.PI * 2;
     const spoke = new THREE.BoxGeometry(0.06, 0.62, 0.07);
     spoke.translate(0.24, 0.31, 0);
     spoke.rotateX(angle);
-    tag(spoke, bronze);
+    tag(spoke, rim);
   }
 
-  // 3. Red center-lock hub plate
+  // 3. Center-lock hub plate (accent color)
   const hub = new THREE.CylinderGeometry(0.26, 0.28, 0.12, 18);
   hub.rotateZ(-Math.PI / 2);
   hub.translate(0.28, 0, 0);
-  tag(hub, redAnodized);
+  tag(hub, accent);
 
-  // Center spindle nut
   const nut = new THREE.CylinderGeometry(0.12, 0.14, 0.14, 12);
   nut.rotateZ(-Math.PI / 2);
   nut.translate(0.35, 0, 0);
-  tag(nut, redAnodized);
+  tag(nut, accent);
 
   // 4. Lug bolts
   for (let b = 0; b < 6; b++) {
@@ -548,7 +595,7 @@ export function getPegasusBronzeRimGeometry(): THREE.BufferGeometry {
   disc.translate(-0.05, 0, 0);
   tag(disc, discCol, true);
 
-  // Merge all into single geometry
+  // Merge into single buffer geometry
   const totalCount = geometries.reduce((acc, g) => acc + g.getAttribute('position').count, 0);
   const posArr = new Float32Array(totalCount * 3);
   const colArr = new Float32Array(totalCount * 3);
@@ -571,6 +618,6 @@ export function getPegasusBronzeRimGeometry(): THREE.BufferGeometry {
   merged.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
   merged.computeVertexNormals();
 
-  cachedPegasusRim = merged;
+  rimGeoCache.set(key, merged);
   return merged;
 }
