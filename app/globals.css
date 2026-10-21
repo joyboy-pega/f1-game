@@ -1,6 +1,6 @@
 @import './kit.css';
 @import './hud.css';
-@import './cockpit.css';
+@import './menus.css';
 @import './lobby.css';
 @tailwind base;
 @tailwind components;
