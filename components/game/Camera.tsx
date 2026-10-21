@@ -3,9 +3,16 @@
 import { useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CameraRig, type RigMode } from '@/lib/game/camera/rig';
+import { CameraRig, type RigCar, type RigMode } from '@/lib/game/camera/rig';
 import { useGameStore } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
+import { renderPose, type Pose } from '@/lib/game/sim/interp';
+
+// Scratch objects reused every frame (R7).
+const pose: Pose = { x: 0, y: 0, a: 0 };
+const rigCar: RigCar = {
+  x: 0, y: 0, a: 0, vf: 0, vl: 0, kmh: 0, steer: 0, isDrifting: false, driftAngle: 0, isBoosting: false, drsOpen: false,
+};
 
 /** Seconds of grid footage covered by the intro dolly (hold + five lights). */
 const INTRO_SECONDS = 6;
@@ -26,6 +33,19 @@ export function Camera() {
     if (!cam.isPerspectiveCamera) return;
 
     const p = world.player.phys;
+    // The camera follows the interpolated pose so it moves smoothly at any refresh rate.
+    renderPose(world.player, world.alpha, pose);
+    rigCar.x = pose.x;
+    rigCar.y = pose.y;
+    rigCar.a = pose.a;
+    rigCar.vf = p.vf;
+    rigCar.vl = p.vl;
+    rigCar.kmh = p.kmh;
+    rigCar.steer = p.steer;
+    rigCar.isDrifting = p.isDrifting;
+    rigCar.driftAngle = p.driftAngle;
+    rigCar.isBoosting = p.isBoosting;
+    rigCar.drsOpen = p.drsOpen;
     const intro = world.isRace && (world.phase === 'grid' || world.phase === 'lights');
     let mode: RigMode = viewMode;
     let introP = 0;
@@ -35,7 +55,7 @@ export function Camera() {
       introP = Math.min(1, t / INTRO_SECONDS);
     }
     const pole = world.order[0]?.phys;
-    rig.update(cam, p, mode, dt, {
+    rig.update(cam, rigCar, mode, dt, {
       lookBack: world.player.ctrl.lookBack,
       introP,
       pole: pole ? { x: pole.x, y: pole.y, a: pole.a } : undefined,

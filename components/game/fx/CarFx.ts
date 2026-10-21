@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { HW, trackSplinePoints } from '@/lib/game/constants';
 import { world } from '@/lib/game/sim/world';
+import { renderPose, type Pose } from '@/lib/game/sim/interp';
 import { addCameraShake } from '@/lib/game/fx/shake';
 import { frontSlip, rearSlip, sprayStrength } from '@/lib/game/fx/emission';
 import type { FxEnv } from '@/lib/game/fx/env';
@@ -25,6 +26,7 @@ const A_PREV_SPARKS = 13;
 const A_RUMBLE = 14;
 const SLOTS = 16;
 
+const scratchPose: Pose = { x: 0, y: 0, a: 0 };
 const SPAWN_CAP = 6; // per emitter per frame, protects against dt spikes
 const NEAR_SQ = 2200 * 2200; // only emit particles for cars within ~220 m of the camera
 
@@ -72,10 +74,12 @@ export class CarFx {
     for (let i = 0; i < this.n; i++) {
       const car = world.cars[i];
       const p = car.phys;
+      // Emit from where the car is DRAWN (interpolated), not from the last fixed step.
+      const q = renderPose(car, world.alpha, scratchPose);
       const a = this.acc;
       const o = i * SLOTS;
-      const cos = Math.cos(p.a);
-      const sin = Math.sin(p.a);
+      const cos = Math.cos(q.a);
+      const sin = Math.sin(q.a);
       // Ground plane is XZ: sim y -> world z. Forward = (cos, sin); left = (-sin, cos).
       const kmh = p.kmh;
       const onTrack = car.surface.onTrack;
@@ -89,8 +93,8 @@ export class CarFx {
       const frontMark = markable && fs > 0.22 && p.brakeInput > 0.5 ? Math.min(1, fs * 1.4) * 0.55 * wet : 0;
       for (let w = 0; w < 4; w++) {
         const W = WHEELS[w];
-        const wx = p.x + cos * W.f - sin * W.l;
-        const wz = p.y + sin * W.f + cos * W.l;
+        const wx = q.x + cos * W.f - sin * W.l;
+        const wz = q.y + sin * W.f + cos * W.l;
         this.skids.update(i * 4 + w, true, wx, wz, W.hw, w < 2 ? frontMark : rearMark);
       }
 
@@ -98,8 +102,8 @@ export class CarFx {
       if (car.isPlayer) this.playerShake(dt, a, o, car.surface.dist, onTrack, car.surface.gravel, p.guardRailSparks, kmh);
       else a[o + A_PREV_SPARKS] = p.guardRailSparks;
 
-      const dx = p.x - camX;
-      const dz = p.y - camZ;
+      const dx = q.x - camX;
+      const dz = q.y - camZ;
       if (dx * dx + dz * dz > NEAR_SQ) continue;
 
       const sv = rnd; // short alias: the emitters below are dense with random jitter
@@ -118,8 +122,8 @@ export class CarFx {
         const W = WHEELS[w];
         while (c-- > 0) {
           const t = sv() * dt;
-          const wx = p.x + cos * W.f - sin * W.l - vx * t + (sv() - 0.5) * 3;
-          const wz = p.y + sin * W.f + cos * W.l - vz * t + (sv() - 0.5) * 3;
+          const wx = q.x + cos * W.f - sin * W.l - vx * t + (sv() - 0.5) * 3;
+          const wz = q.y + sin * W.f + cos * W.l - vz * t + (sv() - 0.5) * 3;
           const sh = env.light;
           this.smoke.spawn(
             wx, 1 + sv() * 2, wz,
@@ -144,7 +148,7 @@ export class CarFx {
           while (c-- > 0) {
             const t = sv() * dt;
             this.dust.spawn(
-              p.x + cos * W.f - sin * W.l - vx * t, 1 + sv() * 2, p.y + sin * W.f + cos * W.l - vz * t,
+              q.x + cos * W.f - sin * W.l - vx * t, 1 + sv() * 2, q.y + sin * W.f + cos * W.l - vz * t,
               vx * 0.12 + (sv() - 0.5) * 22, 10 + sv() * 24, vz * 0.12 + (sv() - 0.5) * 22,
               0.9 + sv() * 0.9, 4 + sv() * 3, 20 + sv() * 14,
               0.42, sv(),
@@ -167,7 +171,7 @@ export class CarFx {
           while (c-- > 0) {
             const t = sv() * dt;
             this.spray.spawn(
-              p.x + cos * W.f - sin * W.l - vx * t, 1.5 + sv() * 2.5, p.y + sin * W.f + cos * W.l - vz * t,
+              q.x + cos * W.f - sin * W.l - vx * t, 1.5 + sv() * 2.5, q.y + sin * W.f + cos * W.l - vz * t,
               vx * 0.3 + (-sin * (w ? -1 : 1)) * (6 + sv() * 18) + (sv() - 0.5) * 8, 8 + sv() * 18,
               vz * 0.3 + cos * (w ? -1 : 1) * (6 + sv() * 18) + (sv() - 0.5) * 8,
               0.9 + sv() * 0.8, 7 + sv() * 3, 34 + sv() * 18,
@@ -186,7 +190,7 @@ export class CarFx {
           const lat = (sv() - 0.5) * 12;
           const fwd = -15;
           this.spray.spawn(
-            p.x + cos * fwd - sin * lat - vx * t, 4 + sv() * 6, p.y + sin * fwd + cos * lat - vz * t,
+            q.x + cos * fwd - sin * lat - vx * t, 4 + sv() * 6, q.y + sin * fwd + cos * lat - vz * t,
             vx * 0.55 + (sv() - 0.5) * 10, 14 + sv() * 26, vz * 0.55 + (sv() - 0.5) * 10,
             1.1 + sv() * 0.9, 10 + sv() * 4, 50 + sv() * 24,
             0.14 + sv() * 0.07, sv(),
@@ -204,8 +208,8 @@ export class CarFx {
         a[k] -= Math.floor(a[k]);
         // Wall is on the outside of the track: push sparks out along centreline -> car.
         const pt = trackSplinePoints[p.idx];
-        let ox = p.x - pt[0];
-        let oz = p.y - pt[1];
+        let ox = q.x - pt[0];
+        let oz = q.y - pt[1];
         const ol = Math.hypot(ox, oz) || 1;
         ox /= ol;
         oz /= ol;
@@ -213,7 +217,7 @@ export class CarFx {
           const t = sv() * dt;
           const fwd = (sv() - 0.5) * 22;
           this.emitSpark(
-            p.x + cos * fwd + ox * 9 - vx * t, 3 + sv() * 4, p.y + sin * fwd + oz * 9 - vz * t,
+            q.x + cos * fwd + ox * 9 - vx * t, 3 + sv() * 4, q.y + sin * fwd + oz * 9 - vz * t,
             vx * (0.45 + sv() * 0.5) + ox * (sv() * 30 - 12), 20 + sv() * 80, vz * (0.45 + sv() * 0.5) + oz * (sv() * 30 - 12),
             0.9,
           );
@@ -230,7 +234,7 @@ export class CarFx {
           const t = sv() * dt;
           const lat = (sv() - 0.5) * 16;
           this.emitSpark(
-            p.x + cos * -8 - sin * lat - vx * t, 1 + sv(), p.y + sin * -8 + cos * lat - vz * t,
+            q.x + cos * -8 - sin * lat - vx * t, 1 + sv(), q.y + sin * -8 + cos * lat - vz * t,
             vx * 0.1 + (sv() - 0.5) * 30, 10 + sv() * 36, vz * 0.1 + (sv() - 0.5) * 30,
             0.5,
           );

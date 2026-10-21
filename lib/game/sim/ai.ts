@@ -10,6 +10,7 @@ import {
 } from '../constants';
 import { isCarInDrsZone } from '../physics';
 import { makeRng } from './rng';
+import { snapRenderPose } from './interp';
 import type { WorldCar, AIBrain } from './types';
 import {
   lineOffset,
@@ -118,6 +119,7 @@ export function respawnOnLine(car: WorldCar, speed = 120) {
   p.isDrifting = false;
   p.driftIntensity = 0;
   p.drsOpen = false;
+  snapRenderPose(car);
 }
 
 /** Distance (spline indices) to the next sizeable corner on the racing line, and its direction. */

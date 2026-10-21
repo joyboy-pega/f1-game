@@ -93,6 +93,10 @@ export interface WorldCar {
   driver: DriverInfo;
   skill: AIConfig | null;
   phys: CarPhysicsState;
+  /** Pose before the last fixed step; renderPose() blends it with `phys` for smooth drawing (see interp.ts). */
+  prevX: number;
+  prevY: number;
+  prevA: number;
   ctrl: ControlState;
   compound: TyreCompound;
   timing: CarTiming;

@@ -21,6 +21,7 @@ import { updateTrackLimits, type LimitsContext } from './penalties';
 import { wetnessFor } from './tyres';
 import { EventBus } from './events';
 import { gaussian, makeRng } from './rng';
+import { snapRenderPose } from './interp';
 import {
   advanceTiming,
   arcPosition,
@@ -54,6 +55,9 @@ export function makeCar(id: number, isPlayer: boolean, idx: number, lateral: num
     driver: { name: '', code: '', team: '', livery: { body: '#fff', accent: '#000', rim: '#ccc', number: 0 } },
     skill: null,
     phys,
+    prevX: phys.x,
+    prevY: phys.y,
+    prevA: phys.a,
     ctrl: { ...NEUTRAL_CONTROLS },
     compound,
     timing: createTiming(s, true),
@@ -88,6 +92,8 @@ export class GameWorld {
   paused = false;
   /** Increments on every setup() so renderers can rebuild per-car objects. */
   raceId = 0;
+  /** Fraction of a fixed step left in the accumulator after the last step() (0..1); drives render interpolation. */
+  alpha = 0;
   chequered = false;
   finishCount = 0;
   overall: OverallBests = createOverallBests();
@@ -218,6 +224,7 @@ export class GameWorld {
       first = false;
       this.fixedStep(FIXED_DT);
     }
+    this.alpha = this.acc / FIXED_DT;
   }
 
   private latchTriggers(input: ControlState) {
@@ -281,6 +288,9 @@ export class GameWorld {
     for (const car of this.cars) {
       const p = car.phys;
       const idxBefore = p.idx;
+      car.prevX = p.x;
+      car.prevY = p.y;
+      car.prevA = p.a;
 
       // Who is driving: pit-lane controller, AI, or the human (with optional assists)
       if (car.pit) driveInPit(car, pitCtx, dt);
@@ -414,6 +424,7 @@ export class GameWorld {
     p.isDrifting = false;
     p.driftIntensity = 0;
     p.drsOpen = false;
+    snapRenderPose(this.player);
     this.events.emit({ type: 'reset', carId: this.player.id });
   }
 

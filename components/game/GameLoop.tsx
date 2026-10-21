@@ -114,6 +114,7 @@ export function GameLoop() {
     // Replay: the director owns the cars and camera; nothing else steps or reacts to input.
     if (st.replayActive) {
       world.paused = true;
+      world.alpha = 1; // the director writes `phys` directly; draw it as is, not blended with a stale previous pose
       return;
     }
 

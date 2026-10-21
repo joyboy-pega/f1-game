@@ -10,7 +10,7 @@ export function Cars() {
   return (
     <group name="cars" key={sessionId}>
       {world.cars.map((car) => (
-        <F1Car key={`${world.raceId}-${car.id}`} car={car} />
+        <F1Car key={`${world.raceId}-${car.id}`} car={car} interpolate />
       ))}
     </group>
   );
