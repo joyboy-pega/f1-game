@@ -247,6 +247,66 @@ export interface PhysicsExtras {
   frontDamage?: number;
 }
 
+/**
+ * Per-step inputs shared by the four tyres of a car. Module-scope scratch so the hot path allocates nothing (R7);
+ * updateCarPhysics fills it right before the four updateSingleTire calls and nothing reads it afterwards.
+ */
+interface TireStepCtx {
+  dt: number;
+  cornerStress: number;
+  brakeStress: number;
+  rolling: number;
+  driftSlipHeat: number;
+  heatMul: number;
+  offTrackHeatMult: number;
+  ambientTemp: number;
+  coolingRate: number;
+  hotLimit: number;
+  driftWear: number;
+  lockup: number;
+  onTrack: boolean;
+  wearMul: number;
+  tireWearMultiplier: number;
+  wetRel: number;
+  tempWindow: [number, number];
+  baseGrip: number;
+}
+
+const tireCtx: TireStepCtx = {
+  dt: 0, cornerStress: 0, brakeStress: 0, rolling: 0, driftSlipHeat: 0, heatMul: 1, offTrackHeatMult: 1, ambientTemp: 0,
+  coolingRate: 0, hotLimit: 0, driftWear: 1, lockup: 1, onTrack: true, wearMul: 1, tireWearMultiplier: 1, wetRel: 1,
+  tempWindow: [0, 0], baseGrip: 1,
+};
+
+function updateSingleTire(
+  tire: SingleTireState,
+  c: TireStepCtx,
+  load: number,
+  brakeHeat: number,
+  driveStress: number,
+  slipWork: number,
+  damage: number
+) {
+  const heatIn =
+    (TIRE_CONFIG.heatCorner * c.cornerStress * load + brakeHeat + c.rolling + driveStress * TIRE_CONFIG.heatWheelspin + c.driftSlipHeat) *
+    c.heatMul *
+    c.offTrackHeatMult;
+  const netHeat = heatIn - (tire.temp - c.ambientTemp) * c.coolingRate;
+  tire.temp = Math.max(TIRE_CONFIG.minTireTemperature, Math.min(TIRE_CONFIG.maxTireTemperature, tire.temp + netHeat * c.dt));
+
+  const overheat = tire.temp > c.hotLimit ? 1 + (tire.temp - c.hotLimit) / 30 : 1;
+  const stress = 0.08 + 0.6 * c.cornerStress * load + 0.5 * c.brakeStress * load + 0.35 * driveStress + slipWork * 0.4;
+  const wearDelta = stress * c.driftWear * c.lockup * overheat * (!c.onTrack ? 1.5 : 1.0) * c.wearMul * TIRE_CONFIG.tireWearRate * c.tireWearMultiplier * c.dt;
+  tire.wear = Math.min(1.0, tire.wear + wearDelta);
+
+  const targetGrip = Math.max(
+    TIRE_CONFIG.minimumGripMultiplier,
+    Math.min(1.12, tempGrip(tire.temp, c.tempWindow) * wearGrip(tire.wear) * c.baseGrip * c.wetRel * (1 - damage))
+  );
+  tire.grip += (targetGrip - tire.grip) * Math.min(1.0, 10.0 * c.dt);
+  tire.load = load;
+}
+
 export function updateCarPhysics(
   car: CarPhysicsState,
   ctrl: ControlState,
@@ -419,32 +479,31 @@ export function updateCarPhysics(
   const driftWear = car.isDrifting ? 1 + (TIRE_CONFIG.driftWearMultiplier - 1) * car.driftIntensity : 1.0;
   const hotLimit = cmp.tempWindow[1] + 6;
 
-  const updateSingleTire = (tire: SingleTireState, load: number, brakeHeat: number, driveStress: number, slipWork: number, damage: number) => {
-    const heatIn =
-      (TIRE_CONFIG.heatCorner * cornerStress * load + brakeHeat + rolling + driveStress * TIRE_CONFIG.heatWheelspin + driftSlipHeat) *
-      heatMul *
-      offTrackHeatMult;
-    const netHeat = heatIn - (tire.temp - ambientTemp) * coolingRate;
-    tire.temp = Math.max(TIRE_CONFIG.minTireTemperature, Math.min(TIRE_CONFIG.maxTireTemperature, tire.temp + netHeat * dt));
-
-    const overheat = tire.temp > hotLimit ? 1 + (tire.temp - hotLimit) / 30 : 1;
-    const stress = 0.08 + 0.6 * cornerStress * load + 0.5 * brakeStress * load + 0.35 * driveStress + slipWork * 0.4;
-    const wearDelta = stress * driftWear * lockup * overheat * (!onTrack ? 1.5 : 1.0) * wearMul * TIRE_CONFIG.tireWearRate * tireWearMultiplier * dt;
-    tire.wear = Math.min(1.0, tire.wear + wearDelta);
-
-    const targetGrip = Math.max(
-      TIRE_CONFIG.minimumGripMultiplier,
-      Math.min(1.12, tempGrip(tire.temp, cmp.tempWindow) * wearGrip(tire.wear) * cmp.baseGrip * wetRel * (1 - damage))
-    );
-    tire.grip += (targetGrip - tire.grip) * Math.min(1.0, 10.0 * dt);
-    tire.load = load;
-  };
+  const tc = tireCtx;
+  tc.dt = dt;
+  tc.cornerStress = cornerStress;
+  tc.brakeStress = brakeStress;
+  tc.rolling = rolling;
+  tc.driftSlipHeat = driftSlipHeat;
+  tc.heatMul = heatMul;
+  tc.offTrackHeatMult = offTrackHeatMult;
+  tc.ambientTemp = ambientTemp;
+  tc.coolingRate = coolingRate;
+  tc.hotLimit = hotLimit;
+  tc.driftWear = driftWear;
+  tc.lockup = lockup;
+  tc.onTrack = onTrack;
+  tc.wearMul = wearMul;
+  tc.tireWearMultiplier = tireWearMultiplier;
+  tc.wetRel = wetRel;
+  tc.tempWindow = cmp.tempWindow;
+  tc.baseGrip = cmp.baseGrip;
 
   const fd = Math.max(0, Math.min(0.4, extra.frontDamage ?? 0));
-  updateSingleTire(car.tires.fl, flLoad, frontBrakeHeat, 0, car.wheelSlipFront || 0, fd);
-  updateSingleTire(car.tires.fr, frLoad, frontBrakeHeat, 0, car.wheelSlipFront || 0, fd);
-  updateSingleTire(car.tires.rl, rlLoad, rearBrakeHeat, tractionStress, (car.wheelSlipRear || 0) + car.driftIntensity * 0.8, 0);
-  updateSingleTire(car.tires.rr, rrLoad, rearBrakeHeat, tractionStress, (car.wheelSlipRear || 0) + car.driftIntensity * 0.8, 0);
+  updateSingleTire(car.tires.fl, tc, flLoad, frontBrakeHeat, 0, car.wheelSlipFront || 0, fd);
+  updateSingleTire(car.tires.fr, tc, frLoad, frontBrakeHeat, 0, car.wheelSlipFront || 0, fd);
+  updateSingleTire(car.tires.rl, tc, rlLoad, rearBrakeHeat, tractionStress, (car.wheelSlipRear || 0) + car.driftIntensity * 0.8, 0);
+  updateSingleTire(car.tires.rr, tc, rrLoad, rearBrakeHeat, tractionStress, (car.wheelSlipRear || 0) + car.driftIntensity * 0.8, 0);
 
   car.tires.frontGrip = (car.tires.fl.grip + car.tires.fr.grip) * 0.5;
   car.tires.rearGrip = (car.tires.rl.grip + car.tires.rr.grip) * 0.5;

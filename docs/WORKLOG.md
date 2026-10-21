@@ -39,3 +39,46 @@ comes up on **3001**; all `shoot.mjs` runs use `--url http://localhost:3001/game
 
 **Follow-ups noted (not done, outside S1)**
 - `world.ts:92` `rand = Math.random` default and `:111` seed fallback: per the session decision on R6, handle in S5.
+
+---
+
+## 2026-10-22 — S5 allocation-free hot path + golden + determinism (branch `v3/S5-alloc-golden`)
+
+**Files:** `lib/game/sim/race.ts`, `lib/game/sim/world.ts`, `lib/game/physics.ts`, new `lib/game/sim/golden.test.ts`.
+
+**Changes**
+- `arcPosition(phys, out)` writes into a caller-owned `ArcPos` (callers: `world.ts` step loop via `this.arc`; `makeCar`
+  via module scratch).
+- `advanceTiming`: returns one module-level reused `TimingResult` (documented "consume immediately"); the `timeAt`
+  closure is inlined with the **same expression** `t0 + ((p - prevProgress) / delta) * dt` so floats are identical.
+- `sortRunningOrder(order)` is now an in-place insertion sort with `compareRunning`. I added an `a.id - b.id`
+  tie-break so equal keys resolve exactly as the old stable sort of the id-ordered car list did.
+  `updateOrder` no longer reassigns `this.order` or uses `forEach`.
+- `physics.ts`: the per-car-per-step `updateSingleTire` closure is now a module function taking an explicit
+  `TireStepCtx` (module-scope scratch `tireCtx`, filled before the four calls). Arithmetic unchanged.
+- `world.ts` `fixedStep`: the per-car `extras`, timing-context and track-limits-context object literals are replaced by
+  reused fields (`this.extras`, `this.timingCtx`, `this.limitsCtx`). (Beyond the plan's list, same R7 intent, same files.)
+- R6 (per session decision): `rand` default is now `makeRng(0)` (placeholder, setup() replaces it); the single remaining
+  `Math.random` is the seed fallback in `setup()`, commented.
+
+**Evidence**
+- **Golden race** (`golden.test.ts`): seed 12345, race, 3 laps, 9 AI, pro, sunny, player on autopilot brain 99.
+  Digest = finish order + every car's lap times to 1e-6. FNV-1a hash **`9c69d82f`**, recorded from the UNMODIFIED code,
+  stable over 3 separate vitest processes, then **identical after the refactor** → the refactor is behaviour-neutral.
+  Digest: `order=0,1,2,4,3,5,7,9,6,8`, 3 laps for all 10 cars, laps ≈ 65–71 s.
+- Determinism test: same seed twice in one process → identical digest (pass).
+- R6 scan tests: no `Date.now`/`performance.now` in non-test files under `sim/`, `physics*.ts`, `vehicle/`;
+  `Math.random` appears exactly once (world.ts seed fallback).
+- Totals: typecheck clean; `npm test` **44/44** (was 37); `npm run build` OK.
+- **Micro-benchmark** (12 cars, 30 s sim after 12 s warm-up, wall ms per simulated second):
+  before 10.13 / 10.05 / 10.21 / 10.11 → after 9.85 / 10.49 (run-to-run noise ≈ ±5 %). **No measurable speed-up**:
+  the removed allocations were small and V8 handles short-lived objects cheaply. The win is GC-pressure hygiene, not CPU.
+  Baseline for §11.4: ≈ 10 ms per simulated second for 12 cars (≈ 0.084 ms per 120 Hz step).
+- Screenshot `shots/S5.png` (`--wait 9000 --hold ArrowUp:3000`): `fps 59`, `errors: []`; chase cam, car at 204 km/h gear 5,
+  P10/10, tower, minimap, grandstand — same scene as S1, no visual change.
+
+**NOT VERIFIED**
+- GC behaviour (no allocation profiler run). Allocations REMAIN in the step and are not S5 scope: `updateCarPhysics`
+  returns a fresh object and calls `findNearestTrackPoint` which returns a tuple; `aiCtx`/`pitCtx` literals per step
+  (240 objects/s); `buildHud` (10 Hz, accepted); lap-completion `slice()`/array literals (once per lap). Left for T1/V2 which
+  rewrite those call sites anyway.
