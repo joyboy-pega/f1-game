@@ -1,6 +1,6 @@
 # Buddh GP — Plan v2
 
-Last updated 2026-10-21. v1 (pre-foundation intentions) is superseded: this version reflects what is
+Last updated 2026-10-21 (all workstreams merged). v1 (pre-foundation intentions) is superseded: this version reflects what is
 built, the contracts every workstream codes against, how parallel work gets integrated, the bars it
 must clear, and what comes after.
 
@@ -23,8 +23,8 @@ workstream row in §4 before writing code. The lead updates §1 and §10 as work
 | WS-F | Audio | ✅ merged |
 | WS-G | Cameras, replay, ghost | ✅ merged |
 | WS-H | Repo hygiene (legacy/, favicon, manifest, README) | ✅ merged |
-| INT | Integration of A–H into `main` (§5) | ⏳ next |
-| QA | Release-candidate QA pass (§6) | ⏳ |
+| INT | Integration of A–H into `main` (§5) | ✅ done: all workstreams merged, 29 tests, clean build |
+| QA | Release-candidate QA pass (§6) | 🟡 headless pass done (see §12); needs a human pass on real hardware |
 | P2+ | Roadmap (§7) | ⏳ planned |
 
 ---
@@ -230,3 +230,28 @@ Ranked by player value per unit of effort, building on what Phase 1 creates.
 - Spawning many worktree agents at the same instant can fail or base a worktree on a stale commit. Spawn them in small batches and check `git worktree list` for the base commit right after.
 - In this shell `head` resolves to a Perl HTTP tool; scripts use `/usr/bin/head`.
 - Harness screenshots must be *looked at*: the baseline bugs (phantom overtakes, cars driving through each other, kerbs everywhere) were found visually, not by the type-checker.
+
+## 12. Release-candidate notes (2026-10-21)
+
+**Verified headlessly** (Chrome via `scripts/shoot.mjs`, software WebGL; no console errors in any run):
+lobby (desktop + mobile), grid and lights, standing start, mid-race HUD, telemetry drawer, pause menu,
+results screen (mock and real), full 1-lap race to the flag with classification, replay opened from the
+results (TV, helicopter, onboard, chase cameras), Time Trial + Night started from the lobby, rain, sunset,
+night, touch layout in landscape and portrait. `npm run typecheck`, `npm test` (29 tests) and
+`npm run build` all pass.
+
+**Fixed during integration:** DRS detection was cancelled on the step it fired (checkpoint sat before the
+zone start); TV replay cameras were landing inside garages and grandstands; replay timing tower showed
+final standings; touch controls were hidden on landscape phones; minimap collided with the tower on
+small screens; night was unreadable; `postprocessing` (~123 kB gz) is now lazy-loaded.
+
+**Known gaps / not verified**
+| Area | Gap |
+|---|---|
+| Audio | Written and wired, but nobody has listened to it. Needs a tuning pass by ear. |
+| Performance | Harness FPS is software-rendered (30–60). Real-GPU frame times are unmeasured. Total JS is ~700 kB gz across all routes before the lazy-load; the `/game` first-load number was not measured. |
+| Pit stops, ghost | Covered by unit tests (pit flow, ghost round-trip) but not played through by hand in a browser. |
+| Gamepad | Mapping implemented per the standard layout; no physical pad was tested. |
+| Wet starts | A player who holds throttle straight on a wet grid rear-ends slower cars (expected); compound choice matters in rain. |
+| Portrait phones | Playable but cramped; landscape is the target (manifest requests it). |
+| Deferred features | Everything in §7 (qualifying, championship, dynamic weather, safety car, split-screen, multiplayer). |

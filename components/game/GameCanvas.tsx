@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { QUALITY_PRESETS } from '@/lib/game/performance';
@@ -14,7 +15,8 @@ import { Environment } from './Environment';
 import { Effects } from './Effects';
 import { GameLoop } from './GameLoop';
 import { AudioBridge } from './AudioBridge';
-import { PostFX } from './fx/PostFX';
+// The composer pulls in the whole postprocessing library: load it after the scene is up.
+const PostFX = dynamic(() => import('./fx/PostFX').then((m) => m.PostFX), { ssr: false });
 import { Ghost } from './Ghost';
 import { ReplayDirector } from './replay/ReplayDirector';
 
