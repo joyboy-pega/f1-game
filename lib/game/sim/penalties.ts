@@ -1,13 +1,19 @@
-import { N, TRACK_LIMITS, inPitBand, segmentLengths, smoothCurvature } from '../constants';
+import { TRACK_LIMITS } from '../constants';
+import { inPitBand, trackCache } from '../track';
 import type { EventBus } from './events';
 import type { WorldCar } from './types';
 
-/** Corner zones: stretches where curvature is high (R < 700), merged and padded. */
-export const cornerZone = new Int16Array(N).fill(-1);
-export let cornerCount = 0;
-(function buildCornerZones() {
+/** Corner zones: stretches where curvature is high (R < 700), merged and padded. Built once per track. */
+interface CornerZones {
+  zone: Int16Array;
+  count: number;
+}
+
+const getCornerZones = trackCache((rt): CornerZones => {
+  const N = rt.N;
+  const zone = new Int16Array(N).fill(-1);
   const isCorner = new Uint8Array(N);
-  for (let i = 0; i < N; i++) isCorner[i] = segmentLengths[i] / Math.max(1e-6, smoothCurvature[i]) < 700 ? 1 : 0;
+  for (let i = 0; i < N; i++) isCorner[i] = rt.segLen[i] / Math.max(1e-6, rt.smoothCurvature[i]) < 700 ? 1 : 0;
   const GAP = 25;
   const PAD = 20;
   // find runs (cyclic), merge runs closer than GAP
@@ -29,10 +35,19 @@ export let cornerCount = 0;
     else merged.push([r[0], r[1]]);
   }
   merged.forEach((r, id) => {
-    for (let i = r[0] - PAD; i <= r[1] + PAD; i++) cornerZone[((i % N) + N) % N] = id;
+    for (let i = r[0] - PAD; i <= r[1] + PAD; i++) zone[((i % N) + N) % N] = id;
   });
-  cornerCount = merged.length;
-})();
+  return { zone, count: merged.length };
+});
+
+/** Corner id (or -1) per spline index, and the number of corners, for the active track. */
+export function cornerZoneOf(idx: number): number {
+  return getCornerZones().zone[idx];
+}
+
+export function cornerCount(): number {
+  return getCornerZones().count;
+}
 
 export interface LimitsContext {
   raceTime: number;
@@ -54,7 +69,7 @@ export function updateTrackLimits(car: WorldCar, ctx: LimitsContext): void {
   if (!ctx.enabled) return;
   const idx = car.phys.idx;
   const off = car.surface.dist > TRACK_LIMITS.warnDist;
-  const inCorner = cornerZone[idx];
+  const inCorner = getCornerZones().zone[idx];
 
   // Leaving the corner clears the "already warned" latch
   if (L.lastCornerId >= 0 && inCorner !== L.lastCornerId) L.lastCornerId = -1;

@@ -135,6 +135,8 @@ export interface Assists {
 export type QualityChoice = 'AUTO' | 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface GameSettings {
+  /** Circuit id (lib/game/track registry). */
+  trackId: string;
   mode: GameMode;
   totalLaps: number;
   aiCount: number;
@@ -162,6 +164,7 @@ export interface GameSettings {
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
+  trackId: 'buddh',
   mode: 'race',
   totalLaps: 5,
   aiCount: 9,

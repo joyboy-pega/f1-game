@@ -3,15 +3,15 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { HW, N, PIT_LANE, TW } from '@/lib/game/constants';
+import { HW, TW } from '@/lib/game/constants';
+import { track } from '@/lib/game/track';
 import { QUALITY_PRESETS } from '@/lib/game/performance';
 import { useGameStore } from '@/lib/game/store';
 import { useLighting } from '@/lib/game/visuals/lighting';
 import { getBanner, getGlow } from '@/lib/game/visuals/textures';
 import {
   GeoBuilder,
-  TRACK_BOUNDS,
-  corners,
+  getTrackVisuals,
   frameAt,
   rng,
   sideProfile,
@@ -21,7 +21,6 @@ import {
 } from '@/lib/game/visuals/trackData';
 
 const WALL = HW + 82;
-const PIT_SIDE = PIT_LANE.side;
 const GREY: RGBA = [0.45, 0.47, 0.5, 1];
 const DARK: RGBA = [0.12, 0.13, 0.16, 1];
 const CROWD_COLORS = ['#e10600', '#1e41b0', '#ffd700', '#ffffff', '#00d2be', '#ff8700', '#e8e8e8', '#7a1fa2', '#222831', '#2ea043'];
@@ -45,7 +44,10 @@ const TIER_H = 5.5;
 
 /** Where the grandstands go: the whole main straight opposite the pits, plus outside key corners. */
 export function standPlan(): Stand[] {
-  const out: Stand[] = [{ from: 1815, count: 190, side: (-PIT_SIDE) as 1 | -1, d0: WALL + 28 }];
+  const T = track.current;
+  const corners = getTrackVisuals().corners;
+  // Buddh-authored placement (box start index and apex hints); G3 moves this into the track's scenery plan.
+  const out: Stand[] = [{ from: T.pit.boxStartIdx, count: 190, side: (-T.pit.side) as 1 | -1, d0: WALL + 28 }];
   const pick = (apexIdx: number, span: number) => {
     const c = corners.reduce((best, k) => (Math.abs(wrapIdx(k.apex) - apexIdx) < Math.abs(wrapIdx(best.apex) - apexIdx) ? k : best), corners[0]);
     out.push({ from: wrapIdx(c.apex) - span / 2, count: span, side: (-c.inside) as 1 | -1, d0: WALL + 30 });
@@ -157,6 +159,13 @@ function disposeInstanced(...meshes: THREE.InstancedMesh[]) {
 }
 
 export function TrackProps() {
+  const T = track.current;
+  const N = T.N;
+  const PIT_LANE = T.pit;
+  const PIT_SIDE = PIT_LANE.side;
+  const TRACK_BOUNDS = getTrackVisuals().bounds;
+  // Geometry is rebuilt if the active track changes (the Canvas also remounts per session).
+  const trackId = T.meta.id;
   const L = useLighting();
   const lightsLit = useGameStore((s) => s.lightsLit);
   const quality = useGameStore((s) => s.quality);
@@ -177,10 +186,10 @@ export function TrackProps() {
   const gantry = useMemo(() => {
     const [x, z, tx, tz] = place(0, 0);
     return { x, z, rotY: Math.atan2(tx, tz) };
-  }, []);
-  const gantryTex = useMemo(() => getBanner('gantry', 'BUDDH GP', 'INDIAN GRAND PRIX', 1024, 192, '#0a0d12', '#ffffff', '#c8ff2e'), []);
+  }, [trackId]);
+  const gantryTex = useMemo(() => getBanner('gantry', 'BUDDH GP', 'INDIAN GRAND PRIX', 1024, 192, '#0a0d12', '#ffffff', '#c8ff2e'), []); // title text is Buddh's; T4 makes it per-track
 
-  const plan = useMemo(standPlan, []);
+  const plan = useMemo(standPlan, [trackId]);
   const standGeo = useMemo(() => buildStands(plan), [plan]);
   const crowd = useMemo(() => buildCrowd(plan, Math.max(0.35, density)), [plan, density]);
 
@@ -197,7 +206,7 @@ export function TrackProps() {
       const tex = getBanner(key, text, sub, 1024, 256, '#0b0f16', '#ffffff', '#e10600');
       return { key, tex, x, z, yaw: Math.atan2(tx, tz) + (side > 0 ? Math.PI / 2 : -Math.PI / 2) };
     });
-  }, []);
+  }, [trackId]);
 
   // ---- trees (instanced) ----
   // Built ONCE at full density. The placement loop below consumes the random stream in order, so the instances for a lower
@@ -268,7 +277,7 @@ export function TrackProps() {
       }
     }
     return { poles: poles.build(), heads: heads.build(), pools };
-  }, []);
+  }, [trackId]);
 
   const poolRef = useRef<THREE.InstancedMesh>(null);
   const glow = useMemo(() => getGlow(), []);
@@ -295,7 +304,7 @@ export function TrackProps() {
       mesh.setMatrixAt(i, dummy.matrix);
     }
     return mesh;
-  }, []);
+  }, [trackId]);
 
   useEffect(() => () => disposeInstanced(hills), [hills]);
 

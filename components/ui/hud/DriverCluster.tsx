@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { PIT_LANE } from '@/lib/game/constants';
+import { track } from '@/lib/game/track';
 import { useGameStore } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
 import { useTicker } from '@/lib/game/useTicker';
@@ -114,7 +114,7 @@ export function DriverCluster() {
         <div className="h-cl-status">
           {inPitLane && (
             <span className="h-status pit">
-              PIT LIMITER <b>{PIT_LANE.speedLimitKmh}</b>
+              PIT LIMITER <b>{track.current.pit.speedLimitKmh}</b>
             </span>
           )}
           {!inPitLane && boxRequested && (

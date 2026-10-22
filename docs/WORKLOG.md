@@ -343,3 +343,61 @@ root's 0.05 (F1Car places the group at y = 0.05). Derived world values (hand-com
   with the player still held), so they do not show the plume in either build; the harness cannot time the first second after lights out. Earlier
   shots from before the change (e.g. `shots/S3.png`, 5.6 s after the start) show a large white plume behind the pack. Needs a human look at a real start.
 - B9 in an actual pit stop (no pit-stop test exists; `race.test.ts` has pit tests but none asserts grip). The effect is a sub-second grip dip after a stop.
+
+---
+
+## 2026-10-22 — T1 TrackRuntime extraction, bit-identical (branch `v3/T1-track-runtime`)
+
+**New:** `lib/game/track/{types,build,registry,state,helpers,index}.ts`, `lib/game/tracks/buddh.ts`, `lib/game/units.ts`,
+`lib/game/storeMigrate.ts`, tests `track/track.test.ts`, `storeMigrate.test.ts` (+1 test in `sim/world.test.ts`).
+**Migrated (24 files):** constants, physics, sim/{ai,assists,drs,penalties,pit,race,racingLine,world}, visuals/trackData, audio/helpers,
+components {AudioBridge, RacingLine, Track, TrackProps, CarFx, ReplayDirector, Minimap, DriverCluster}, store, gameState, probe, shoot.mjs.
+
+**What it is**
+- `buildTrack(meta, controlPoints)` ports the old Catmull-Rom / tangent / normal / curvature / smoothing / arc-length code verbatim (same
+  expressions, same order). `track.current` holds the active `TrackRuntime`; `setActiveTrack(id)`; `trackCache(build)` gives per-track derived
+  data keyed by track id. `constants.ts` now holds car/physics configuration only (track width `TW/HW` stays until T2).
+- Per-track caches replace module-load computation: racing line (`getRacingLine()`), corner zones (penalties), DRS zone info (drs), pit geometry
+  (pit), kerb/run-off masks + corners + bounds + spatial grid (`getTrackVisuals()`). Metadata is in metres; the Buddh values were converted from
+  the old indices and `track.test.ts` asserts they come back as exactly 280/1130 (sectors), 1790/100/1815/1905 (pit), 1720/1760/80 and 290/330/710 (DRS).
+- `world.setup(settings)` calls `setActiveTrack(settings.trackId)` first (unknown id falls back to Buddh). `GameSettings.trackId = 'buddh'`;
+  persisted store bumped to version 2 with `migrateStore` (v1 → v2 adds `trackId`, never throws on junk).
+- Components' `useMemo`s key on the track id; geometry is also rebuilt on each session because the Canvas remounts per session.
+
+**Evidence**
+- **Golden hash `9c69d82f` unchanged** after the full migration (and before the rendering code was touched): finish order and every lap time of the
+  seeded 10-car 3-lap race are identical to 1e-6. Before deleting the old globals I ran a temporary comparison (removed afterwards): positions,
+  tangents, normals, curvature, smooth curvature, segment lengths, cumulative arc length and bounds of `getTrack('buddh')` equal the old module
+  arrays with `!==` over every index (0 mismatches).
+- `npm run probe` output is identical to the S6 baseline in every row (0.44 / 1.22 s, 289 km/h, 66.4 s lap estimate …).
+- Tests **82/82** (was 69): +7 track, +5 store migration, +1 world track selection. typecheck clean, build OK.
+- Renderer stats, production build, grid at 6 s, same command as the S6 baseline: LOW 183 draws / 195 046 tris / 87 geom / 31 tex / 30 progs
+  (**identical** to S6); HIGH 244 / 312 481 / 88 / 57 / 67 (S6: 244 / 312 476 / 88 / 57 / 66; difference is random livery/grid order and one more
+  program since S3). `shots/T1-HIGH-grid.png` vs `shots/S6-HIGH-grid.png` viewed: same garages, grandstand, car positions, minimap outline and HUD
+  (only the start-light timing and car colours differ). `shots/T1.png` (dev, driving, 209 km/h, 189 draws, fps 60), `/dev/replay?t=12&cam=tv` and
+  `--mobile`: all `errors: []`.
+- The `--settings` shots go through a real v1 → v2 persisted-store migration in the browser (the harness writes the store, and the quality tier
+  came out as requested), and `shoot.mjs` now writes version 2.
+
+**Deviations from the plan text (all deliberate)**
+1. `cumulativeS` is `Float32Array` (plan: Float64). The old code stored Float32, so Float64 would change every arc length and the golden hash.
+   `curvature`/`smoothCurvature` likewise stay Float32. Positions/tangents/normals are Float64.
+2. `DrsZoneMeta` carries `id` and `name` (the HUD needs a label); `TrackRuntime.curvature` instead of `trackCurvature`; `segLen`, `bounds` added.
+3. `KMH_PER_UNIT` is 0.37 (not 0.36) in `units.ts`, per the human's decision; the three literal `0.37`s now import it. The camera rig's `98.1` was
+   not touched (`G_UNITS` exists but the rig still has its own constant; S4 only moved anchors).
+4. `DRS_CONFIG.detectionLeadIdx` and `.zones` were removed (detection index is metadata now).
+5. `PIT` lateral offsets (`laneOffset` etc.) are still `HW + n` because width is constant until T2.
+
+**Discovery that changes T2:** at the plan's `UNITS_PER_M = 10` the Buddh spline is **4611 m**, not 4739 m. The 4739 m in §2.3/S6 comes from the
+speed factor (1 unit = 0.10278 m). Two unit scales coexist (positions/lengths at 0.1 m, speeds at 0.10278 m). T2's rescale factor to 5125 m is
+therefore ≈ 1.111 (plan: ≈ 1.081), and the `0.37 → 0.36` change should be made together with it. `buddhMeta.lengthM = 4611.092`.
+
+**Known leftovers (not T1 scope, recorded)**
+- Still Buddh-specific by design: stand placement hints in `TrackProps.standPlan` (apex indices 122/755/1650), gantry text, banner texts,
+  `crowdProximity` (idx 1700..120), ai.ts `du * 24` (≈ spline spacing). G3/T4 move them into per-track scenery.
+- `isCarInDrsZone` in physics.ts is now a thin wrapper over `isInDrsZone`.
+- A second track cannot be selected yet (T4), so switching tracks at runtime is covered only by unit tests of the caches / `setActiveTrack`.
+
+**NOT VERIFIED**
+- Behaviour with a second track (none exists). Hot-path cost of `trackCache` lookups (a string-keyed Map `get` per call in penalties/drs/pit/racing line):
+  the sim benchmark was not re-run after T1 — see the S5 baseline (~10 ms per simulated second, 12 cars) and compare next session.

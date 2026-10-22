@@ -54,7 +54,7 @@ if (settingsJson) {
   const patch = JSON.parse(settingsJson);
   await context.addInitScript((p) => {
     try {
-      localStorage.setItem('buddh-gp', JSON.stringify({ state: { settings: p }, version: 1 }));
+      localStorage.setItem('buddh-gp', JSON.stringify({ state: { settings: p }, version: 2 }));
     } catch {}
   }, patch);
 }

@@ -3,7 +3,8 @@
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { DRIVER_ROSTER, DRS_CONFIG, HW, N, PIT_LANE, drsDetectionIdx } from '@/lib/game/constants';
+import { DRIVER_ROSTER, HW } from '@/lib/game/constants';
+import { track } from '@/lib/game/track';
 import { gridSlotIndex } from '@/lib/game/sim/race';
 import { boxIndexFor } from '@/lib/game/sim/pit';
 import { useLighting } from '@/lib/game/visuals/lighting';
@@ -21,8 +22,7 @@ import {
 import {
   GeoBuilder,
   frameAt,
-  kerbInside,
-  kerbOutside,
+  getTrackVisuals,
   maskRuns,
   sideIdx,
   sideProfile,
@@ -51,6 +51,7 @@ function merge(parts: THREE.BufferGeometry[]): THREE.BufferGeometry | null {
 }
 
 function buildRoad() {
+  const N = track.current.N;
   return sweep({
     from: 0,
     count: N,
@@ -83,6 +84,7 @@ function buildKerbs() {
     }
   };
   for (const side of SIDES) {
+    const { kerbInside, kerbOutside } = getTrackVisuals();
     add(side, kerbInside[sideIdx(side)]);
     add(side, kerbOutside[sideIdx(side)]);
   }
@@ -90,6 +92,7 @@ function buildKerbs() {
 }
 
 function buildBand(d0: number, d1: number, y: number, tile: number) {
+  const N = track.current.N;
   const parts = SIDES.map((side) =>
     sweep({
       from: 0,
@@ -107,6 +110,7 @@ function buildBand(d0: number, d1: number, y: number, tile: number) {
 
 /** Barrier/fence runs per side. On the pit side the wall stops at the pit exit and resumes after the entry. */
 function wallRuns(side: 1 | -1): [number, number][] {
+  const { N, pit: PIT_LANE } = track.current;
   if (side !== PIT_LANE.side) return [[0, N]];
   const from = PIT_LANE.exitIdx + 10;
   return [[from, (PIT_LANE.entryIdx - 4 - from + N) % N]];
@@ -158,16 +162,18 @@ function buildFence() {
 }
 
 // ---- pit lane ----------------------------------------------------------------------------------
-const PIT_FROM = PIT_LANE.entryIdx;
-const PIT_COUNT = (PIT_LANE.exitIdx - PIT_LANE.entryIdx + N) % N;
 const PIT_TAPER = 26;
+/** 0..1 blend of the pit lane's lateral offset along the entry..exit stretch (tapers in and out). */
 const pitT = (i: number) => {
-  const k = (i - PIT_FROM + N) % N;
-  return smoothstep(0, PIT_TAPER, k) * (1 - smoothstep(PIT_COUNT - PIT_TAPER, PIT_COUNT, k));
+  const { N, pit } = track.current;
+  const pitCount = (pit.exitIdx - pit.entryIdx + N) % N;
+  const k = (i - pit.entryIdx + N) % N;
+  return smoothstep(0, PIT_TAPER, k) * (1 - smoothstep(pitCount - PIT_TAPER, pitCount, k));
 };
-const SIDE = PIT_LANE.side;
 
 function buildPitLane() {
+  const PIT_LANE = track.current.pit;
+  const SIDE = PIT_LANE.side;
   const hw = PIT_LANE.laneHalfWidth;
   const inner = PIT_LANE.laneOffset - hw;
   const outer = PIT_LANE.laneOffset + hw;
@@ -175,12 +181,17 @@ function buildPitLane() {
     { o: (i) => SIDE * (HW + (inner - HW) * pitT(i)), y: 0.07, u: 0 },
     { o: (i) => SIDE * (HW + (outer - HW) * pitT(i)), y: 0.07, u: (2 * hw) / 128 },
   ];
-  return sweep({ from: PIT_FROM, count: PIT_COUNT, vScale: 128, profile, flip: SIDE < 0 });
+  const N = track.current.N;
+  return sweep({ from: PIT_LANE.entryIdx, count: (PIT_LANE.exitIdx - PIT_LANE.entryIdx + N) % N, vScale: 128, profile, flip: SIDE < 0 });
 }
 
 function buildPitWall() {
-  const from = PIT_FROM + PIT_TAPER;
-  const count = PIT_COUNT - 2 * PIT_TAPER;
+  const PIT_LANE = track.current.pit;
+  const SIDE = PIT_LANE.side;
+  const N = track.current.N;
+  const pitCount = (PIT_LANE.exitIdx - PIT_LANE.entryIdx + N) % N;
+  const from = PIT_LANE.entryIdx + PIT_TAPER;
+  const count = pitCount - 2 * PIT_TAPER;
   const d = PIT_LANE.wallOffset;
   return sweep({
     from,
@@ -198,6 +209,8 @@ function buildPitWall() {
 
 /** Team-coloured pit boxes (fill + white outline) and the garage building behind the pit lane. */
 function buildPit() {
+  const PIT_LANE = track.current.pit;
+  const SIDE = PIT_LANE.side;
   const fills = new GeoBuilder(3);
   const outlines = new GeoBuilder(3);
   const garages = new GeoBuilder(3);
@@ -274,8 +287,8 @@ function buildMarkings() {
   }
 
   // DRS detection (blue) and activation (green) lines
-  for (const zone of DRS_CONFIG.zones) {
-    strip(coloured, drsDetectionIdx(zone), -2, 2, -HW, HW, [0.15, 0.5, 1, 0.9]);
+  for (const zone of track.current.drs) {
+    strip(coloured, zone.detectIdx, -2, 2, -HW, HW, [0.15, 0.5, 1, 0.9]);
     strip(coloured, zone.start, -2, 2, -HW, HW, [0.1, 0.9, 0.35, 0.9]);
   }
   return { white: white.build(), dark: dark.build(), coloured: coloured.build() };

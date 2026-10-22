@@ -1,50 +1,75 @@
-import { HW, N, PIT_LANE, TRACK_LENGTH, cumulativeS, tangents, type TyreCompound } from '../constants';
+import { HW, type TyreCompound } from '../constants';
+import { track, trackCache } from '../track';
+import { KMH_PER_UNIT } from '../units';
 import { fitFreshTires } from '../physics';
 import { arcDelta } from './ai';
-import { lineOffset } from './racingLine';
+import { getRacingLine } from './racingLine';
 import type { EventBus } from './events';
 import { bestCompoundForWetness, compoundMismatch } from './tyres';
 import type { WorldCar } from './types';
 
 /**
- * Pit stops. A car with `pitRequest` that crosses PIT_LANE.entryIdx is taken over by this module
+ * Pit stops. A car with `pitRequest` that crosses the pit entry (track.current.pit.entryIdx) is taken over by this module
  * (the player too): it is driven along the pit lane under an 80 km/h limiter, stops in its own box,
  * gets fresh tyres, waits for a clear lane and rejoins at the exit.
  * Every car has its own box (by car id), so two cars can never share one.
  */
 
-const SIDE = PIT_LANE.side;
-/** Fast lane (nearer the track) and working lane (the boxes). */
-export const FAST_LAT = SIDE * (PIT_LANE.laneOffset - 11);
-export const BOX_LAT = SIDE * (PIT_LANE.laneOffset + 9);
-const EXIT_LAT = SIDE * 30;
-/** Slightly under the limit so the controller never trips the 80 km/h line. */
-const LIMIT = (PIT_LANE.speedLimitKmh / 0.37) * 0.97;
 const BOX_COUNT = 12;
 const ENTRY_BLEND = 450;
 const EXIT_BLEND = 650;
 
-const ENTRY_S = cumulativeS[PIT_LANE.entryIdx];
-const BOX_SPACING_IDX = (PIT_LANE.boxEndIdx - PIT_LANE.boxStartIdx) / BOX_COUNT;
+/** Pit-lane geometry derived once per track: lateral lanes, limiter speed and the arc positions the controller needs. */
+interface PitGeo {
+  /** Fast lane (nearer the track) and working lane (the boxes), signed lateral offsets. */
+  fastLat: number;
+  boxLat: number;
+  exitLat: number;
+  /** Slightly under the limit so the controller never trips the 80 km/h line. */
+  limit: number;
+  entryS: number;
+  exitArc: number;
+  boxSpacingIdx: number;
+}
+
+const getPitGeo = trackCache((rt): PitGeo => {
+  const pit = rt.pit;
+  const entryS = rt.cumulativeS[pit.entryIdx];
+  return {
+    fastLat: pit.side * (pit.laneOffset - 11),
+    boxLat: pit.side * (pit.laneOffset + 9),
+    exitLat: pit.side * 30,
+    limit: (pit.speedLimitKmh / KMH_PER_UNIT) * 0.97,
+    entryS,
+    exitArc: arcFromEntryS(rt.cumulativeS[pit.exitIdx], entryS, rt.length),
+    boxSpacingIdx: (pit.boxEndIdx - pit.boxStartIdx) / BOX_COUNT,
+  };
+});
 
 export function boxIndexFor(carId: number): number {
-  return Math.round(PIT_LANE.boxStartIdx + (carId + 0.5) * BOX_SPACING_IDX);
+  const T = track.current;
+  return Math.round(T.pit.boxStartIdx + (carId + 0.5) * getPitGeo().boxSpacingIdx);
 }
 
 /** Signed spline-index distance to the pit entry, in (-N/2, N/2]. */
 export function entryDelta(idx: number): number {
-  return ((idx - PIT_LANE.entryIdx + N + N / 2) % N) - N / 2;
+  const T = track.current;
+  const N = T.N;
+  return ((idx - T.pit.entryIdx + N + N / 2) % N) - N / 2;
 }
 
-/** Arc length from the pit entry line to arc position s (wrap-aware, may be slightly negative). */
-function arcFromEntry(s: number): number {
-  let d = s - ENTRY_S;
-  if (d < -TRACK_LENGTH / 4) d += TRACK_LENGTH;
-  else if (d > (3 * TRACK_LENGTH) / 4) d -= TRACK_LENGTH;
+/** Arc length from the pit entry line (arc `entryS`) to arc position s (wrap-aware, may be slightly negative). */
+function arcFromEntryS(s: number, entryS: number, L: number): number {
+  let d = s - entryS;
+  if (d < -L / 4) d += L;
+  else if (d > (3 * L) / 4) d -= L;
   return d;
 }
 
-const EXIT_ARC = arcFromEntry(cumulativeS[PIT_LANE.exitIdx]);
+function arcFromEntry(s: number): number {
+  return arcFromEntryS(s, getPitGeo().entryS, track.current.length);
+}
+
 const ss = (x: number) => {
   const t = x < 0 ? 0 : x > 1 ? 1 : x;
   return t * t * (3 - 2 * t);
@@ -98,16 +123,21 @@ export function checkPitEntry(car: WorldCar, idxBefore: number, ctx: PitContext)
 
 function latTarget(car: WorldCar, sArc: number, boxArc: number): number {
   const pit = car.pit!;
+  const G = getPitGeo();
+  const FAST_LAT = G.fastLat;
+  const BOX_LAT = G.boxLat;
+  const EXIT_ARC = G.exitArc;
   let lat = FAST_LAT;
   if (sArc < ENTRY_BLEND) lat = lerp(pit.entryLateral, FAST_LAT, ss(sArc / ENTRY_BLEND));
   if (pit.stage === 'approach' || pit.stage === 'service') lat = lerp(FAST_LAT, BOX_LAT, ss((sArc - (boxArc - 130)) / 70));
   else if (pit.stage === 'depart') lat = lerp(BOX_LAT, FAST_LAT, ss((sArc - (boxArc + 40)) / 70));
-  if (sArc > EXIT_ARC - EXIT_BLEND) lat = lerp(lat, EXIT_LAT, ss((sArc - (EXIT_ARC - EXIT_BLEND)) / EXIT_BLEND));
+  if (sArc > EXIT_ARC - EXIT_BLEND) lat = lerp(lat, G.exitLat, ss((sArc - (EXIT_ARC - EXIT_BLEND)) / EXIT_BLEND));
   return lat;
 }
 
 /** Another pit car is in the fast lane close behind this box (unsafe to release). */
 function laneBusyBehind(car: WorldCar, cars: WorldCar[]): boolean {
+  const FAST_LAT = getPitGeo().fastLat;
   for (const o of cars) {
     if (o === car || !o.pit || o.pit.stage === 'service') continue;
     const ds = arcDelta(o.timing.lastS, car.timing.lastS); // >0: o is behind me
@@ -125,8 +155,12 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
   const p = car.phys;
   const ctrl = car.ctrl;
   const v = Math.max(0, p.vf);
+  const T = track.current;
+  const G = getPitGeo();
+  const LIMIT = G.limit;
+  const EXIT_ARC = G.exitArc;
   const sArc = arcFromEntry(car.timing.lastS);
-  const boxArc = arcFromEntry(cumulativeS[pit.boxIdx]);
+  const boxArc = arcFromEntry(T.cumulativeS[pit.boxIdx]);
 
   // ---- stage transitions -----------------------------------------------------------------
   if (pit.stage === 'enter' && sArc > boxArc - 330) pit.stage = 'approach';
@@ -182,7 +216,7 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
   const latAhead = latTarget(car, sArc + 60, boxArc);
   const slope = (latAhead - lat) / 60;
   const e = car.lateral - lat;
-  const th = Math.atan2(tangents[idx][1], tangents[idx][0]);
+  const th = Math.atan2(T.ty[idx], T.tx[idx]);
   const velAng = v > 40 ? Math.atan2(p.vy, p.vx) : p.a;
   const want = th + Math.atan(slope) - Math.atan2(2.0 * e, v + 40);
   let herr = want - velAng;
@@ -212,7 +246,7 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
     car.pit = null;
     car.inPit = false;
     car.pitRequest = false;
-    if (car.ai) car.ai.shift = clamp(car.lateral - lineOffset[p.idx], -HW + 12, HW - 12);
+    if (car.ai) car.ai.shift = clamp(car.lateral - getRacingLine().offset[p.idx], -HW + 12, HW - 12);
     return true;
   }
   return false;

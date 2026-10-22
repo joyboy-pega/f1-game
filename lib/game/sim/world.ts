@@ -1,4 +1,5 @@
-import { DRIVER_ROSTER, MAX_AI_CARS, HW, N, trackSplinePoints, type TyreCompound } from '../constants';
+import { DRIVER_ROSTER, MAX_AI_CARS, HW, type TyreCompound } from '../constants';
+import { DEFAULT_TRACK_ID, hasTrack, setActiveTrack, track } from '../track';
 import { NEUTRAL_CONTROLS, type ControlState } from '../controls';
 import {
   DEFAULT_SETTINGS,
@@ -137,6 +138,8 @@ export class GameWorld {
 
   setup(settings: GameSettings) {
     this.settings = settings;
+    // Everything below (grid, cars, timing) is built against the active track, so switch it first.
+    setActiveTrack(hasTrack(settings.trackId) ? settings.trackId : DEFAULT_TRACK_ID);
     // The ONLY Math.random in sim code (R6): picks a fresh seed when the caller did not supply one.
     this.rand = makeRng(this.seed ?? Math.floor(Math.random() * 4294967296));
     this.raceId++;
@@ -168,7 +171,7 @@ export class GameWorld {
     for (let slot = 0; slot < carCount; slot++) {
       const isPlayer = slot === playerSlot;
       // Staggered 2-wide grid; solo modes start further back for a rolling out-lap
-      const idx = race ? gridSlotIndex(slot) : (N - 80) % N;
+      const idx = race ? gridSlotIndex(slot) : (track.current.N - 80) % track.current.N;
       const lateral = race ? (slot % 2 === 0 ? -1 : 1) * HW * 0.42 : 0;
       const compound: TyreCompound = isPlayer ? settings.startCompound : aiIdx % 3 === 2 ? 'medium' : 'soft';
       const car = makeCar(cars.length, isPlayer, idx, lateral, compound);
@@ -539,7 +542,3 @@ export class GameWorld {
 
 export const world = new GameWorld();
 
-/** Convenience for renderers: world-space position of spline index i. */
-export function trackPoint(i: number): [number, number] {
-  return trackSplinePoints[((i % N) + N) % N];
-}

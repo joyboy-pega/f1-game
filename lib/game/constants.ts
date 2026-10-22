@@ -1,90 +1,9 @@
-import { TRACK_CONTROL_POINTS } from './trackPoints';
+// Car / physics configuration. Track geometry and metadata live in lib/game/track (PLAN-v3 T1); the active track is
+// `track.current` from '@/lib/game/track'.
 
-export const TW = 130;
+export const TW = 130; // track width (world units); T2 replaces it with per-index widths
 export const HW = TW / 2; // 65
 export const CAR_SCALE = 11.5;
-
-// Build Catmull-Rom Track Spline
-export const controlPoints: [number, number][] = [];
-for (let i = 0; i < TRACK_CONTROL_POINTS.length; i += 2) {
-  controlPoints.push([TRACK_CONTROL_POINTS[i], TRACK_CONTROL_POINTS[i + 1]]);
-}
-
-export const trackSplinePoints: [number, number][] = [];
-(function buildSpline() {
-  const n = controlPoints.length;
-  for (let i = 0; i < n; i++) {
-    const p0 = controlPoints[(i + n - 1) % n];
-    const p1 = controlPoints[i];
-    const p2 = controlPoints[(i + 1) % n];
-    const p3 = controlPoints[(i + 2) % n];
-    for (let s = 0; s < 2; s++) {
-      const t = s / 2;
-      const t2 = t * t;
-      const t3 = t2 * t;
-      trackSplinePoints.push([
-        0.5 * (2 * p1[0] + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3),
-        0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)
-      ]);
-    }
-  }
-})();
-
-export const N = trackSplinePoints.length; // 1920
-
-// Precompute Tangents & Normals
-export const tangents: [number, number][] = [];
-export const normals: [number, number][] = [];
-for (let i = 0; i < N; i++) {
-  const prev = trackSplinePoints[(i + N - 1) % N];
-  const next = trackSplinePoints[(i + 1) % N];
-  const tx = next[0] - prev[0];
-  const ty = next[1] - prev[1];
-  const len = Math.hypot(tx, ty) || 1;
-  tangents.push([tx / len, ty / len]);
-  normals.push([-ty / len, tx / len]);
-}
-
-// Curvature
-export const trackCurvature = new Float32Array(N);
-for (let i = 0; i < N; i++) {
-  const a = trackSplinePoints[(i + N - 1) % N];
-  const b = trackSplinePoints[i];
-  const c = trackSplinePoints[(i + 1) % N];
-  const v1x = b[0] - a[0], v1y = b[1] - a[1];
-  const v2x = c[0] - b[0], v2y = c[1] - b[1];
-  const cross = Math.abs(v1x * v2y - v1y * v2x);
-  trackCurvature[i] = cross / (Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y) + 0.001);
-}
-
-export const smoothCurvature = new Float32Array(N);
-const W2 = 12;
-for (let i = 0; i < N; i++) {
-  let s = 0;
-  for (let k = -W2; k <= W2; k++) {
-    s += trackCurvature[(i + k + N) % N];
-  }
-  smoothCurvature[i] = s / (W2 * 2 + 1);
-}
-
-// Minimap Projection Bounds
-export const minimapBounds = (() => {
-  let a = 1e9, b = -1e9, c = 1e9, d = -1e9;
-  trackSplinePoints.forEach((p) => {
-    a = Math.min(a, p[0]);
-    b = Math.max(b, p[0]);
-    c = Math.min(c, p[1]);
-    d = Math.max(d, p[1]);
-  });
-  const targetW = 330;
-  const targetH = 215;
-  const padX = 26;
-  const padY = 22;
-  const s = Math.min((targetW - padX * 2) / (b - a), (targetH - padY * 2) / (d - c));
-  const ox = targetW / 2 - ((a + b) / 2) * s;
-  const oy = targetH / 2 - ((c + d) / 2) * s;
-  return { s, ox, oy, w: targetW, h: targetH, minX: a, maxX: b, minY: c, maxY: d };
-})();
 
 // Vehicle Drift Config
 export const DRIFT_CONFIG = {
@@ -119,14 +38,6 @@ export const ERS_CONFIG = {
 };
 
 // Drag Reduction System (DRS)
-export interface DrsZone {
-  id: number;
-  name: string;
-  start: number;
-  end: number;
-  wraps: boolean;
-}
-
 export const DRS_CONFIG = {
   drsEnabled: true,
   requireDrsZones: true,
@@ -143,12 +54,6 @@ export const DRS_CONFIG = {
   enabledAfterLaps: 1,
   /** A car within this time gap of the car ahead at a detection point gets DRS for that zone. */
   detectionGapSec: 1.0,
-  /** Detection point sits this many spline indices before the zone start. */
-  detectionLeadIdx: 40,
-  zones: [
-    { id: 1, name: 'ZONE 1 · MAIN STRAIGHT', start: 1760, end: 80, wraps: true },
-    { id: 2, name: 'ZONE 2 · BACK STRAIGHT', start: 330, end: 710, wraps: false },
-  ] as DrsZone[],
 };
 
 // Controlled Braking & Brake Balance
@@ -278,20 +183,6 @@ export const DRIVER_ROSTER: DriverProfile[] = [
 
 export const MAX_AI_CARS = DRIVER_ROSTER.length;
 
-// Track arc length (world units) — used for timing, gaps and AI look-ahead
-export const segmentLengths = new Float32Array(N);
-export const cumulativeS = new Float32Array(N + 1);
-for (let i = 0; i < N; i++) {
-  const a = trackSplinePoints[i];
-  const b = trackSplinePoints[(i + 1) % N];
-  segmentLengths[i] = Math.hypot(b[0] - a[0], b[1] - a[1]);
-  cumulativeS[i + 1] = cumulativeS[i] + segmentLengths[i];
-}
-export const TRACK_LENGTH = cumulativeS[N];
-
-// Sector boundaries as spline indices (S1: [0,s1), S2: [s1,s2), S3: [s2,N))
-export const SECTOR_BOUNDS: [number, number] = [280, 1130];
-
 export type TyreCompound = 'soft' | 'medium' | 'hard' | 'inter' | 'wet';
 export type GameMode = 'race' | 'timetrial' | 'practice';
 export type Difficulty = 'rookie' | 'pro' | 'legend';
@@ -314,38 +205,6 @@ export const WEATHER_ICONS: Record<WeatherType, string> = {
   rain: '🌧️',
   snow: '❄️',
 };
-
-// Pit lane (shared contract: sim/pit.ts drives it, world/ visuals draw it).
-// +normal points to the OUTSIDE of the circuit on the main straight.
-export const PIT_LANE = {
-  side: 1 as 1 | -1,
-  entryIdx: 1790, // spline index where the pit lane splits from the track
-  exitIdx: 100, // spline index where it rejoins (before Turn 1)
-  boxStartIdx: 1815, // garages / pit boxes span this stretch
-  boxEndIdx: 1905,
-  laneOffset: HW + 46, // pit lane centre, units from the track centreline
-  laneHalfWidth: 20,
-  wallOffset: HW + 22, // pit wall between track and pit lane (cosmetic)
-  garageOffset: HW + 96, // garage fronts, beyond the physics wall at HW + 82
-  speedLimitKmh: 80,
-};
-
-/** DRS detection point (spline index) for a zone: just before the zone start. */
-export function drsDetectionIdx(zone: DrsZone): number {
-  return (zone.start - DRS_CONFIG.detectionLeadIdx + N) % N;
-}
-
-/** True when spline index i lies on the stretch between pit entry and pit exit. */
-export function inPitIdxRange(i: number): boolean {
-  return i >= PIT_LANE.entryIdx || i <= PIT_LANE.exitIdx;
-}
-
-/** True when a point (spline index, signed lateral) lies on the pit-lane asphalt band. */
-export function inPitBand(i: number, lateral: number): boolean {
-  if (!inPitIdxRange(i)) return false;
-  const l = lateral * PIT_LANE.side;
-  return l >= PIT_LANE.laneOffset - PIT_LANE.laneHalfWidth && l <= PIT_LANE.laneOffset + PIT_LANE.laneHalfWidth;
-}
 
 // Car-to-car collision shape: three circles along the heading.
 export const COLLISION_CONFIG = {

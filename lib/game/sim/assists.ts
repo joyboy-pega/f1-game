@@ -1,5 +1,5 @@
 import type { Assists, WeatherType } from '../gameState';
-import { PROFILE_BRAKE_DECEL, lineOffset } from './racingLine';
+import { PROFILE_BRAKE_DECEL, getRacingLine } from './racingLine';
 import { gripSpeedFactor, lineSteer, profileTarget } from './ai';
 import type { WorldCar } from './types';
 
@@ -33,7 +33,7 @@ export function applyAssists(car: WorldCar, assists: Assists, weather: WeatherTy
     // Gentle: a fraction of what the AI would do, fading out when the driver steers firmly.
     const driverWeight = clamp(Math.abs(ctrl.steer), 0, 1);
     const gain = 0.5 * (1 - 0.7 * driverWeight);
-    const lateralErr = Math.abs(car.lateral - lineOffset[p.idx]);
+    const lateralErr = Math.abs(car.lateral - getRacingLine().offset[p.idx]);
     const w = lateralErr > 40 ? 0.5 : 1; // far from the line: the line is no longer a sensible target
     ctrl.steer = clamp(ctrl.steer + clamp(pull, -0.4, 0.4) * gain * w, -1, 1);
   }

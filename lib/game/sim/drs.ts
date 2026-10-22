@@ -1,24 +1,27 @@
-import { CAR_SCALE, DRS_CONFIG, N, cumulativeS, drsDetectionIdx, TRACK_LENGTH, type DrsZone } from '../constants';
+import { CAR_SCALE, DRS_CONFIG } from '../constants';
+import { track, trackCache, type DrsZoneIdx } from '../track';
 import { arcDelta } from './ai';
 import { CHECKPOINTS_PER_LAP as CP, type WorldCar } from './types';
 import { timeGap } from './race';
 
-const CP_LEN = TRACK_LENGTH / CP;
 const ZONE_SLACK_IDX = 6;
 
 interface ZoneInfo {
-  zone: DrsZone;
+  zone: DrsZoneIdx;
   detectIdx: number;
   /** Checkpoint-in-lap index of the detection point. */
   detectCp: number;
 }
 
-export const DRS_ZONES: ZoneInfo[] = DRS_CONFIG.zones.map((zone) => {
-  const detectIdx = drsDetectionIdx(zone);
-  // ceil: the checkpoint must lie at/after the detection point, or the car is still outside the zone
-  // on the step detection fires and the activation is cancelled immediately.
-  return { zone, detectIdx, detectCp: Math.ceil(cumulativeS[detectIdx] / CP_LEN) % CP };
-});
+/** Per-track DRS zone info (built once per track id). */
+const getDrsZones = trackCache((rt): ZoneInfo[] =>
+  rt.drs.map((zone) => {
+    // ceil: the checkpoint must lie at/after the detection point, or the car is still outside the zone
+    // on the step detection fires and the activation is cancelled immediately.
+    const cpLen = rt.length / CP;
+    return { zone, detectIdx: zone.detectIdx, detectCp: Math.ceil(rt.cumulativeS[zone.detectIdx] / cpLen) % CP };
+  })
+);
 
 /** True when idx lies in the (wrap-aware) range [start, end]. */
 function inRange(idx: number, start: number, end: number): boolean {
@@ -39,6 +42,8 @@ export interface DrsContext {
  * Physics only lets a car open DRS while `drsAvailable` is set.
  */
 export function updateDrsAvailability(cars: WorldCar[], ctx: DrsContext) {
+  const DRS_ZONES = getDrsZones();
+  const N = track.current.N;
   for (const car of cars) {
     const t = car.timing;
     const idx = car.phys.idx;

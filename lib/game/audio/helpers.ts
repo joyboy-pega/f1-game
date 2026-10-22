@@ -1,4 +1,5 @@
-import { HW, N } from '../constants';
+import { HW } from '../constants';
+import { track } from '../track';
 import type { CameraViewMode } from '../constants';
 
 /** Pure helpers behind the audio layers: no AudioContext, unit-tested in helpers.test.ts. */
@@ -121,7 +122,7 @@ export function tyreSqueal(p: {
  * Proximity of a spline index to the main grandstands, 0..1. The stands run from idx ~1700
  * up to the line (idx 0) and ~120 past it; the plateau straddles the finish line.
  */
-export function crowdProximity(idx: number, n = N): number {
+export function crowdProximity(idx: number, n = track.current.N): number {
   let pos = ((idx % n) + n) % n;
   if (pos > n / 2) pos -= n; // negative = before the line
   if (pos < 0) return smoothstep(-300, -90, pos);

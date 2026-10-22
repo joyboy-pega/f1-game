@@ -1,12 +1,10 @@
-import { TRACK_LENGTH, cumulativeS, trackSplinePoints, tangents, normals, SECTOR_BOUNDS, N } from '../constants';
+import { track } from '../track';
 import type { SectorStatus } from '../gameState';
 import type { CarPhysicsState } from '../physics';
 import type { EventBus } from './events';
 import { CHECKPOINTS_PER_LAP as CP, MAX_TRACKED_LAPS, type CarTiming, type WorldCar } from './types';
 
-const L = TRACK_LENGTH;
-const CP_LEN = L / CP;
-export const SECTOR_S: [number, number] = [cumulativeS[SECTOR_BOUNDS[0]], cumulativeS[SECTOR_BOUNDS[1]]];
+// Track-dependent values are read from `track.current` at call time (a new session may switch tracks).
 
 export interface OverallBests {
   bestLap: number | null;
@@ -28,20 +26,22 @@ export interface ArcPos {
  * (and returns it) so the 120 Hz step allocates nothing (R7).
  */
 export function arcPosition(phys: CarPhysicsState, out: ArcPos): ArcPos {
+  const T = track.current;
+  const L = T.length;
   const i = phys.idx;
-  const p = trackSplinePoints[i];
-  const dx = phys.x - p[0];
-  const dy = phys.y - p[1];
-  let s = cumulativeS[i] + dx * tangents[i][0] + dy * tangents[i][1];
+  const dx = phys.x - T.px[i];
+  const dy = phys.y - T.py[i];
+  let s = T.cumulativeS[i] + dx * T.tx[i] + dy * T.ty[i];
   if (s < 0) s += L;
   else if (s >= L) s -= L;
   out.s = s;
-  out.lateral = dx * normals[i][0] + dy * normals[i][1];
+  out.lateral = dx * T.nx[i] + dy * T.ny[i];
   return out;
 }
 
 export function sectorOf(s: number): number {
-  return s < SECTOR_S[0] ? 0 : s < SECTOR_S[1] ? 1 : 2;
+  const T = track.current;
+  return s < T.cumulativeS[T.sectorIdx[0]] ? 0 : s < T.cumulativeS[T.sectorIdx[1]] ? 1 : 2;
 }
 
 /**
@@ -49,6 +49,8 @@ export function sectorOf(s: number): number {
  * @param behindLine true when the car starts on the grid behind the start line
  */
 export function createTiming(s: number, behindLine: boolean): CarTiming {
+  const L = track.current.length;
+  const CP_LEN = L / CP;
   const progress = behindLine && s > L / 2 ? s - L : s;
   return {
     progress,
@@ -114,6 +116,8 @@ const timingResult: TimingResult = { lapCompleted: false, crossTime: 0 };
  * The returned object is reused: consume `lapCompleted` / `crossTime` immediately.
  */
 export function advanceTiming(car: WorldCar, s: number, ctx: TimingContext): TimingResult {
+  const L = track.current.length;
+  const CP_LEN = L / CP;
   const t = car.timing;
   const result = timingResult;
   result.lapCompleted = false;
@@ -196,7 +200,7 @@ export function timeGap(behind: CarTiming, ahead: CarTiming): number | null {
 }
 
 export function lapsBehind(behind: CarTiming, ahead: CarTiming): number {
-  return Math.floor((ahead.progress - behind.progress) / L);
+  return Math.floor((ahead.progress - behind.progress) / track.current.length);
 }
 
 export function formatGap(behind: CarTiming, ahead: CarTiming): string {
@@ -247,5 +251,6 @@ export function sortRunningOrder(order: WorldCar[]): WorldCar[] {
 
 /** Spline index `k` slots behind the start line (grid). */
 export function gridSlotIndex(slot: number): number {
+  const N = track.current.N;
   return (N - 6 - slot * 4 + N * 4) % N;
 }

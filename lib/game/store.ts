@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { STORE_VERSION, migrateStore } from './storeMigrate';
 import {
   DEFAULT_SETTINGS,
   EMPTY_HUD,
@@ -134,7 +135,8 @@ export const useGameStore = create<GameStore>()(
     }),
     {
       name: 'buddh-gp',
-      version: 1,
+      version: STORE_VERSION,
+      migrate: (persisted, version) => migrateStore(persisted, version) as GameStore,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ settings: s.settings, records: s.records }),
       merge: (persisted, current) => {

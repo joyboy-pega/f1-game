@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { HW, N, PIT_LANE } from '@/lib/game/constants';
+import { HW } from '@/lib/game/constants';
+import { track } from '@/lib/game/track';
 import { standPlan } from '@/components/game/TrackProps';
 import { CameraRig } from '@/lib/game/camera/rig';
 import { findNearestTrackPoint } from '@/lib/game/physics';
@@ -28,6 +29,7 @@ const AUTO_SHOT_SECONDS = 7;
  */
 function buildTvCams(): TvCam[] {
   const cams: TvCam[] = [];
+  const { N, pit: PIT_LANE } = track.current;
   const stands = standPlan();
   for (let k = 0; k < TV_COUNT; k++) {
     const idx = Math.floor((k / TV_COUNT) * N);
@@ -47,7 +49,10 @@ function buildTvCams(): TvCam[] {
   return cams;
 }
 
-const wrapDelta = (a: number, b: number) => ((b - a + N + N / 2) % N) - N / 2;
+const wrapDelta = (a: number, b: number) => {
+  const N = track.current.N;
+  return ((b - a + N + N / 2) % N) - N / 2;
+};
 
 /**
  * Plays the recording back into the live cars (so every renderer, effect and HUD just works) and
