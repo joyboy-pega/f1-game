@@ -156,6 +156,9 @@ export const useGameStore = create<GameStore>()(
           ...p.settings,
           assists: { ...DEFAULT_SETTINGS.assists, ...p.settings?.assists },
         };
+        if ((mergedSettings.carModel as string) === 'street') {
+          mergedSettings.carModel = 'roadster';
+        }
         return {
           ...current,
           settings: mergedSettings,

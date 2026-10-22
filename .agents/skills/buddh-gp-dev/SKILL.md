@@ -61,7 +61,7 @@ The project is Vercel-ready:
 | `lib/game/physics.ts` | Shared `updateCarPhysics` for player + AI |
 | `lib/game/sim/ai.ts` | AI `ctrl` writer |
 | `components/game/GameCanvas.tsx` | Scene root — keep edits additive |
-| `components/game/car/F1Car.tsx` | Car router (F1 / Street / Pegasus) |
+| `components/game/car/F1Car.tsx` | Car router (F1 / Roadster / Pegasus) |
 | `components/game/car/PegasusCar.tsx` | Pegasus #53 RTF component |
 | `components/game/car/pegasusGeometry.ts` | Pegasus procedural geometry + texture cache |
 | `components/ui/MainMenu.tsx` | Lobby + garage selector |

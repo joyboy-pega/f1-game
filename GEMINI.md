@@ -45,7 +45,7 @@ Before writing **any** Next.js code:
 - Scene root: `components/game/GameCanvas.tsx` — keep edits additive.
 
 ### Car System
-- `VehicleModelType` = `'f1' | 'street' | 'pegasus'`.
+- `VehicleModelType` = `'f1' | 'roadster' | 'pegasus'`.
 - Pegasus #53 detection: `carModel === 'pegasus' || car.driver.team === 'Pegasus'`.
 - Pegasus coordinate conversion: `toGamePt([xu, yu, zu]) => [-zu, yu, xu]`.
 - All Pegasus textures cached in `Map<string, THREE.CanvasTexture>` keyed by `body_accent_number_driverCode`.

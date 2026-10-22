@@ -25,12 +25,12 @@ export const F1_WHEELS: WheelSpec[] = [
   { x: -REAR_AXLE.x, y: REAR_AXLE.radius, z: REAR_AXLE.z, radius: REAR_AXLE.radius, width: REAR_AXLE.width, front: false, left: false },
 ];
 
-/** Street car: same footprint, squarer wheel set. */
-export const STREET_WHEELS: WheelSpec[] = [
-  { x: 0.8, y: 0.33, z: 1.0, radius: 0.33, width: 0.27, front: true, left: true },
-  { x: -0.8, y: 0.33, z: 1.0, radius: 0.33, width: 0.27, front: true, left: false },
-  { x: 0.8, y: 0.34, z: -0.98, radius: 0.34, width: 0.32, front: false, left: true },
-  { x: -0.8, y: 0.34, z: -0.98, radius: 0.34, width: 0.32, front: false, left: false },
+/** Tesla Roadster wheels: wide electric hypercar stagger (20" front, 21" rear equivalent). */
+export const ROADSTER_WHEELS: WheelSpec[] = [
+  { x: 0.82, y: 0.33, z: 1.05, radius: 0.33, width: 0.28, front: true, left: true },
+  { x: -0.82, y: 0.33, z: 1.05, radius: 0.33, width: 0.28, front: true, left: false },
+  { x: 0.84, y: 0.35, z: -1.0, radius: 0.35, width: 0.34, front: false, left: true },
+  { x: -0.84, y: 0.35, z: -1.0, radius: 0.35, width: 0.34, front: false, left: false },
 ];
 
 /** Formula Student Pegasus #53 wheels (13" rims, wide racing slicks). */
@@ -49,10 +49,10 @@ export const NOSE_CAM: [number, number, number] = [0, 0.52, 1.5];
 /** T-cam: on top of the airbox. */
 export const TCAM: [number, number, number] = [0, 1.02, -0.3];
 
-/** Street car equivalents (supercar cabin is lower and further back). */
-export const STREET_COCKPIT_EYE: [number, number, number] = [0.2, 0.62, -0.05];
-export const STREET_NOSE_CAM: [number, number, number] = [0, 0.5, 1.45];
-export const STREET_TCAM: [number, number, number] = [0, 0.84, -0.25];
+/** Tesla Roadster camera anchors (low-slung sports cabin, sleek raked windshield). */
+export const ROADSTER_COCKPIT_EYE: [number, number, number] = [0.22, 0.62, -0.05];
+export const ROADSTER_NOSE_CAM: [number, number, number] = [0, 0.48, 1.55];
+export const ROADSTER_TCAM: [number, number, number] = [0, 0.85, -0.22];
 
 /** Pegasus #53 camera anchors */
 export const PEGASUS_COCKPIT_EYE: [number, number, number] = [0, 0.82, -0.02];

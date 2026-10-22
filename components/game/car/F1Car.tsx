@@ -6,9 +6,9 @@ import * as THREE from 'three';
 import { CAR_SCALE, type TyreCompound } from '@/lib/game/constants';
 import { useGameStore } from '@/lib/game/store';
 import type { WorldCar } from '@/lib/game/sim/types';
-import { F1_WHEELS, STREET_WHEELS, type WheelSpec } from './dimensions';
+import { F1_WHEELS, ROADSTER_WHEELS, type WheelSpec } from './dimensions';
 import { getF1Geometries } from './f1Geometry';
-import { getStreetGeometries } from './streetGeometry';
+import { getRoadsterGeometries } from './roadsterGeometry';
 import { getLiveryMaterial } from './livery';
 import { createCarMaterials, getSharedMaterials } from './materials';
 import { getRimGeometry, getTyreGeometry } from './wheels';
@@ -21,7 +21,7 @@ export interface F1CarProps {
 /**
  * Renders one world car. Reads `car.phys` every frame; never re-renders from sim state.
  * Contract: root group placed at (phys.x, 0.05, phys.y), rotation.y = PI/2 - phys.a,
- * uniform CAR_SCALE. Supports modern F1, street supercar, and Formula Student Pegasus #53.
+ * uniform CAR_SCALE. Supports modern F1, Tesla Roadster, and Formula Student Pegasus #53.
  */
 export function F1Car({ car }: F1CarProps) {
   const carModel = useGameStore((s) => s.settings.carModel);
@@ -29,8 +29,8 @@ export function F1Car({ car }: F1CarProps) {
   if (isPegasus) {
     return <PegasusCar car={car} />;
   }
-  const street = car.isPlayer && carModel === 'street';
-  return <CarRig key={street ? 'street' : 'f1'} car={car} street={street} />;
+  const isRoadster = car.isPlayer && carModel === 'roadster';
+  return <CarRig key={isRoadster ? 'roadster' : 'f1'} car={car} roadster={isRoadster} />;
 }
 
 // Max visual wheel spin per frame (rad): keeps 6-spoke rims from strobing backwards.
@@ -39,9 +39,9 @@ const DEG = Math.PI / 180;
 const FLAP_CLOSED = 25 * DEG;
 const FLAP_OPEN = -3 * DEG;
 
-function CarRig({ car, street }: { car: WorldCar; street: boolean }) {
+function CarRig({ car, roadster }: { car: WorldCar; roadster: boolean }) {
   const livery = car.driver.livery;
-  const wheels: WheelSpec[] = street ? STREET_WHEELS : F1_WHEELS;
+  const wheels: WheelSpec[] = roadster ? ROADSTER_WHEELS : F1_WHEELS;
 
   const liveryMat = useMemo(() => getLiveryMaterial(livery), [livery.body, livery.accent, livery.rim, livery.number]); // eslint-disable-line react-hooks/exhaustive-deps
   const shared = getSharedMaterials();
@@ -52,8 +52,8 @@ function CarRig({ car, street }: { car: WorldCar; street: boolean }) {
     mats.brakeLight.dispose();
   }, [mats]);
 
-  const f1 = useMemo(() => (street ? null : getF1Geometries()), [street]);
-  const st = useMemo(() => (street ? getStreetGeometries() : null), [street]);
+  const f1 = useMemo(() => (roadster ? null : getF1Geometries()), [roadster]);
+  const rd = useMemo(() => (roadster ? getRoadsterGeometries() : null), [roadster]);
   const rimGeo = useMemo(() => getRimGeometry(livery.rim), [livery.rim]);
   const tyreGeo0 = useMemo(() => getTyreGeometry(car.compound), []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -160,13 +160,16 @@ function CarRig({ car, street }: { car: WorldCar; street: boolean }) {
             <mesh geometry={f1.brakeLight} material={mats.brakeLight} position={[0, 0.355, -1.472]} />
           </>
         )}
-        {st && (
+        {rd && (
           <>
-            <mesh geometry={st.body} material={liveryMat} castShadow receiveShadow />
-            <mesh geometry={st.trim} material={shared.carbon} castShadow receiveShadow />
-            <mesh geometry={st.glass} material={shared.glass} />
-            <mesh geometry={st.lamps} material={shared.lamp} />
-            <mesh geometry={st.tailLight} material={mats.brakeLight} />
+            <mesh geometry={rd.body} material={liveryMat} castShadow receiveShadow />
+            <mesh geometry={rd.trim} material={shared.carbon} castShadow receiveShadow />
+            <mesh geometry={rd.glass} material={shared.glass} />
+            <mesh geometry={rd.lamps} material={shared.lamp} />
+            <mesh geometry={rd.tailLight} material={mats.brakeLight} />
+            <group position={[0.22, 0.54, 0.18]} rotation={[0.4, 0, 0]}>
+              <mesh ref={steerRef} geometry={rd.yoke} material={shared.carbon} />
+            </group>
           </>
         )}
       </group>

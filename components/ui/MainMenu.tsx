@@ -98,7 +98,7 @@ export function MainMenu() {
             <div>
               <b>{s.driverName || 'You'}</b>
               <small>
-                {s.carModel === 'pegasus' ? 'Formula Student (SAE India) · Team Pegasus #53' : s.carModel === 'f1' ? 'Formula car' : 'Street coupe'} · {COMPOUNDS[s.startCompound].name} tyres
+                {s.carModel === 'pegasus' ? 'Formula Student (SAE India) · Team Pegasus #53' : s.carModel === 'f1' ? 'Formula car' : 'Tesla Roadster'} · {COMPOUNDS[s.startCompound].name} tyres
               </small>
             </div>
           </div>
@@ -196,7 +196,7 @@ export function MainMenu() {
                     value={s.carModel}
                     options={[
                       { value: 'f1', label: 'Formula' },
-                      { value: 'street', label: 'Street' },
+                      { value: 'roadster', label: 'Tesla Roadster' },
                       { value: 'pegasus', label: 'Pegasus #53' },
                     ]}
                     onChange={(v) => {
