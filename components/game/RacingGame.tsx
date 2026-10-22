@@ -32,7 +32,7 @@ export function RacingGame() {
   const results = useGameStore((s) => s.results);
   const paused = useGameStore((s) => s.paused);
   const replayActive = useGameStore((s) => s.replayActive);
-  const telemetryOpen = useGameStore((s) => s.telemetryOpen);
+  const telemetryOpen = useGameStore((s) => s.telemetryOpen || s.settings.showTelemetry);
   const showMinimap = useGameStore((s) => s.settings.showMinimap);
   const quality = useGameStore((s) => s.settings.quality);
   const audioEnabled = useGameStore((s) => s.settings.audioEnabled);

@@ -293,6 +293,15 @@
   outline: 3px solid var(--lime);
   outline-offset: 2px;
 }
+.h-tele-btn.active {
+  background: var(--purple);
+  color: #fff;
+  border-color: var(--purple);
+}
+.h-tele-btn:hover {
+  background: var(--purple);
+  color: #fff;
+}
 
 /* --------------------------------------------------------------- cluster */
 .h-cluster {
@@ -817,12 +826,38 @@
   letter-spacing: 0.1em;
   margin-bottom: 8px;
 }
-.h-tele-head span:last-child {
+.h-tele-head span:last-child,
+.h-tele-actions span {
   font-family: var(--font-mono);
   font-weight: 800;
   font-size: 9px;
   letter-spacing: 0.1em;
   color: var(--ink-mute);
+}
+.h-tele-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.h-tele-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--edge);
+  color: var(--ink-mute);
+  font-size: 11px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.h-tele-close:hover {
+  background: var(--purple);
+  color: #fff;
+  border-color: var(--purple);
 }
 .h-tele-tyres {
   display: grid;
