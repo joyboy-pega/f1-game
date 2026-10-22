@@ -469,3 +469,36 @@ changed `track/registry.ts`, `track/index.ts`, `storeMigrate.ts` (v3), `store.ts
 
 **NOT VERIFIED (human to look):** how the lobby header/preview and Setup tab look (layout, sizing, colours of the new SVG); the Circuit selector (hidden with one track);
 that records show correctly after switching tracks (only one track exists, so cross-track display is covered by unit tests of the keys, not by a UI run).
+
+---
+
+## 2026-10-22 — T5 track import pipeline (branch `v3/T5-import`)
+
+**Files:** new `lib/game/track/{geo,import,pointsCodec}.ts`, `scripts/tracks/import-geojson.ts`, `scripts/tracks/README.md`,
+`scripts/tracks/data/it-1922.geojson` (+ `LICENSE-bacinger-f1-circuits.md`), generated `lib/game/tracks/monza.ts` (25.4 kB source, **not registered** — T6.1 registers it),
+`CREDITS.md`, test `track/import.test.ts`.
+
+**Source verification (R11):** downloaded `it-1922.geojson` into a fresh scratch dir and read it: FeatureCollection, one LineString of 125 `[lon, lat]` (last = first),
+`properties.length` 5793, `altitude` 142 (matches §10.1). Licence page checked: GitHub reports MIT, `LICENSE.md` "Copyright (c) 2019-2025 Tomislav Bacinger" (copied next to the data).
+Plan said the file is `LICENSE`; it is `LICENSE.md`. No other difference from §10.1.
+
+**Pipeline** (`importCircuit`): equirectangular projection (R = 6 371 000 m, x east, **y south**) → drop duplicate closing point → centripetal Catmull-Rom (24 samples/segment) →
+resample to equal arc length (N = round(length / 2.5 m)) → Laplacian smoothing (8 passes, λ 0.5, max move 1.5 m) → uniform scale to the official length → re-space →
+rotate so index 0 is the sample nearest `--start` (default: the file's first coordinate). Emits a `TrackModule` (float32 base64) + meta skeleton with PLACEHOLDER pit/DRS/sectors/width.
+- **Handedness decision:** y = south, so the minimap (screen y down) is north-up and a clockwise circuit has a positive signed area. Verified by test: Buddh's control points
+  (clockwise on its minimap) have positive area, Monza (clockwise in reality) imports with positive area and `direction: 'cw'`.
+- Centripetal (not uniform) Catmull-Rom because the survey points are unevenly spaced (a plain polyline gives sharp corners at every vertex).
+
+**Evidence (Monza)**
+- N = 2317, length **5793.0 m** (tolerance in the plan 5793 ± 5; raw polyline was 5786.5 m so the scale is 1.00183), spacing 2.5 m (segment lengths 24–26 units after the builder).
+- Closed: first-to-last gap < 3 m (one spacing). Self-intersections **0**; minimum separation between parts of the track > 44 m.
+- Curvature: max |Δκ| between consecutive samples **0.0209 1/m** (threshold in the test 0.03; Monza's tightest corners are ~0.05 1/m). A circle gives 1/R exactly (tested).
+- Start sample is 0.9 cm from the requested coordinate.
+- `buildTrack(monza)` produces a valid `TrackRuntime` (`samplesPerPoint = 1`), length within 5 m of 5793.
+- Tests **114/114** (was 98): +10 geo helpers/codec, +6 Monza/generated-module. Golden hash unchanged. typecheck, build, `shoot --no-shot` `errors: []`.
+
+**NOT VERIFIED / open for T6**
+- Monza's real start/finish line, pit lane, DRS zones, sectors, width: placeholders. Index 0 is the file's first coordinate, which is NOT verified to be the start line (§0.4: ask before
+  guessing). Real pit-straight direction is also unconfirmed.
+- Nothing here changes the running game (the module is not registered, not bundled).
+- Min-separation and curvature thresholds were set from this one circuit; other circuits (Suzuka's crossover!) will need their own review.
