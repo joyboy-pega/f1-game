@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CameraRig, type RigMode } from '@/lib/game/camera/rig';
@@ -19,6 +19,7 @@ export function Camera() {
   const { camera } = useThree();
   const rig = useMemo(() => new CameraRig(), []);
   const viewMode = useGameStore((s) => s.settings.cameraView);
+  const smoothIntroP = useRef(0);
 
   useFrame((_, dt) => {
     if (useGameStore.getState().replayActive) return;
@@ -32,7 +33,13 @@ export function Camera() {
     if (intro) {
       mode = 'intro';
       const t = world.phase === 'grid' ? world.phaseTime : 1 + world.phaseTime;
-      introP = Math.min(1, t / INTRO_SECONDS);
+      const targetP = Math.min(1, t / INTRO_SECONDS);
+      // Smooth out fixed 120 Hz simulation substeps for fluid camera dolly
+      const k = 1 - Math.exp(-Math.min(0.1, dt) * 20);
+      smoothIntroP.current += (targetP - smoothIntroP.current) * k;
+      introP = smoothIntroP.current;
+    } else {
+      smoothIntroP.current = 0;
     }
     const pole = world.order[0]?.phys;
     rig.update(cam, p, mode, dt, {

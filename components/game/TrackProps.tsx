@@ -139,7 +139,7 @@ function CrowdMesh({ crowd }: { crowd: Crowd }) {
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, crowd.matrices.length]}>
       <planeGeometry args={[1.9, 3.6]} />
-      <meshStandardMaterial roughness={0.9} side={THREE.DoubleSide} />
+      <meshBasicMaterial side={THREE.DoubleSide} toneMapped={false} />
     </instancedMesh>
   );
 }
@@ -320,8 +320,8 @@ export function TrackProps() {
 
       {/* grandstands */}
       {standGeo && (
-        <mesh geometry={standGeo} receiveShadow castShadow>
-          <meshStandardMaterial vertexColors roughness={0.8} side={THREE.DoubleSide} />
+        <mesh geometry={standGeo} receiveShadow>
+          <meshStandardMaterial vertexColors roughness={0.8} />
         </mesh>
       )}
       {crowd.map((c, i) => (
@@ -341,7 +341,7 @@ export function TrackProps() {
       <primitive object={hills} />
 
       {/* floodlights */}
-      <mesh geometry={towers.poles} castShadow>
+      <mesh geometry={towers.poles}>
         <meshStandardMaterial vertexColors roughness={0.6} metalness={0.5} />
       </mesh>
       {night > 0.05 && (

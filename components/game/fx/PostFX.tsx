@@ -84,14 +84,17 @@ export function PostFX() {
     <EffectComposer multisampling={0} enableNormalPass={false} frameBufferType={THREE.HalfFloatType}>
       <Bloom
         mipmapBlur
+        levels={5}
         intensity={bloom.intensity}
         luminanceThreshold={bloom.threshold}
         luminanceSmoothing={0.12}
         radius={0.72}
       />
-      {full ? <Vignette ref={vignette} offset={0.32} darkness={0.5} eskil={false} /> : <></>}
-      {full ? <HueSaturation saturation={grade.saturation} /> : <></>}
-      {full ? <BrightnessContrast brightness={grade.brightness} contrast={grade.contrast} /> : <></>}
+      {full ? <Vignette ref={vignette} offset={0.32} darkness={0.5} eskil={false} /> : null}
+      {full && Math.abs(grade.saturation) > 0.005 ? <HueSaturation saturation={grade.saturation} /> : null}
+      {full && (Math.abs(grade.brightness) > 0.005 || Math.abs(grade.contrast) > 0.005) ? (
+        <BrightnessContrast brightness={grade.brightness} contrast={grade.contrast} />
+      ) : null}
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
       <SMAA />
     </EffectComposer>
