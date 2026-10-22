@@ -502,3 +502,34 @@ rotate so index 0 is the sample nearest `--start` (default: the file's first coo
   guessing). Real pit-straight direction is also unconfirmed.
 - Nothing here changes the running game (the module is not registered, not bundled).
 - Min-separation and curvature thresholds were set from this one circuit; other circuits (Suzuka's crossover!) will need their own review.
+
+---
+
+## 2026-10-22 — V1 vehicle modules + unit tests, no integration (branch `v3/V1-vehicle-modules`)
+
+**Files:** new `lib/game/vehicle/{params,tyre,aero,powertrain}.ts` and `vehicle.test.ts` (20 tests). `model.ts` / `limits.ts` belong to V2. Nothing imports the module yet:
+the running game and the golden hash are untouched (full suite below). Folder is covered by the R6 scan test (no `Math.random` / `Date.now`).
+
+**What is in it (SI units, R3 sources in comments)**
+- `params.ts`: car 798 kg, wheelbase 3.6 m, front weight 45.5 %, CoG 0.28 m, wheel radius 0.34 m (all "approximate"); aero ClA 4.8 m², CdA 1.0 m², balance 45 % front,
+  DRS drag ×0.9 / downforce ×0.86 (tuned); engine 560 kW peak at 11 500 rpm, 4 000-15 000 rpm, power-curve table, 8 gears defined by their top speed at the limiter
+  (110…340 km/h), 40 ms shift cut; MGU-K 120 kW, 4 MJ deploy / 2 MJ harvest per lap.
+- `tyre.ts`: Magic Formula (`stiffnessFor` derives B from the wanted peak position), lateral C 1.9 / peak 7°, longitudinal C 1.65 / peak 10 %, E = 0 (all §5.2.2 starting values),
+  μ with load sensitivity k = 0.18 (plan suggests 0.1; flagged for V2 tuning), friction ellipse `ellipseLateral`, rolling resistance.
+- `aero.ts`: `aeroForces(speed, {drs, draft, dirtyAir, damage}, out)` writes into a caller-owned object (R7); DRS takes its downforce loss off the rear axle; slipstream cuts drag only; dirty air up to −10 % downforce.
+- `powertrain.ts`: engine power/torque, rpm from road speed, automatic gearbox with hysteresis, shift torque cut, rev limiter, MGU-K deploy/harvest with per-lap allowances.
+
+**Evidence** (`npx vitest run lib/game/vehicle`: 20/20)
+- Magic Formula: lateral force peaks at 7.00° ± 0.1° and equals μ·Fz at the peak; longitudinal peaks at 10 % ± 0.3 %; odd, zero at zero, falls beyond the peak; force rises sub-linearly with load.
+- Friction ellipse: Fy shrinks by √(1−(Fx/Fxmax)²) (0.6 → 0.8 exactly, 1.0 → 0); over a slip grid the combined force never leaves the ellipse (≤ 1.0001).
+- Aero: downforce at 250 km/h = **1.81 × weight** (band 1.5-2.2); forces scale with v²; DRS/draft/dirty-air/damage behave as specified.
+- Power: peak 560 kW at 11 500 rpm (±500); 8th gear 340.0 km/h at 15 000 rpm; all gear tops match the table.
+- Gearbox: **found and fixed a real bug through the test**: with the specified 9 000 rpm braking downshift, 2nd→1st at 90 km/h lands at 12 272 rpm (> 11 800 upshift) and the box hunted 1↔2.
+  Downshifts now require the lower gear to sit ≥ 500 rpm below the upshift point. Ramp test: ups 2…8 once each, downs 7…1 once each, no chatter. A shift cuts torque for 40 ms (±2 steps).
+- 1-D straight (power curve + aero + rolling resistance, 120 Hz, traction ignored): top speed **322.1 km/h plain** (band 315-330), **330.2 with DRS** (325-340), **340.0 with DRS+ERS** (330-350;
+  this last one is the 8th-gear rev limiter). Parameters were found by a throwaway search (ICE power vs CdA): all three ICE powers 560-640 kW can hit the bands with a matching CdA, so I kept 560 kW
+  (the §11.1 ballpark) and CdA 1.0.
+- 0-100 / 0-200 km/h are NOT checked here (the 1-D run ignores traction: it would give 1.07 / 3.3 s); they need the tyre model in V2.
+- Totals: tests **134/134** (was 114), typecheck clean, build OK. Golden hash unchanged.
+
+**NOT VERIFIED:** anything about feel (not integrated yet); μ0 / load sensitivity / CoG height / inertia are untuned starting values (V2 tunes them against lateral-g and braking bands).
