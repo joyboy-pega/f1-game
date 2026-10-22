@@ -702,7 +702,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 | 6 | S4 camera anchors | — | S | 🟡 02daad0 (steering wheel visibility in cockpit NOT VERIFIED) |
 | 7 | S7 small cleanups | — | S | 🟡 52658f2 (launch smoke visual NOT VERIFIED) |
 | 8 | T1 TrackRuntime extraction (bit-identical) | S5 | L | ✅ c5883ca |
-| 9 | T4 track selection, per-track records | T1 | M | 🟡 (see below; lobby visuals NOT VERIFIED, human checks) |
+| 9 | T4 track selection, per-track records | T1 | M | 🟡 6a44234 (lobby visuals NOT VERIFIED, human checks) |
 | 10 | T5 import pipeline | T1 | M | ⏳ |
 | 11 | V1 vehicle modules + unit tests | S6 | M | ⏳ |
 | 12 | V2 stepVehicle + adapter (hits §11.1) | V1 | L | ⏳ |
