@@ -3,14 +3,23 @@
 // The car runs on a "treadmill" along the longest straight of the active track: whenever it nears the end it is
 // shifted back along the straight, so a single straight is enough for any run length. Pure measurement, no game state.
 
-import { DRS_CONFIG, N, TRACK_LENGTH, trackSplinePoints } from '../lib/game/constants';
+import { DRS_CONFIG } from '../lib/game/constants';
+import { track } from '../lib/game/track';
+import { KMH_PER_UNIT } from '../lib/game/units';
 import { NEUTRAL_CONTROLS, type ControlState } from '../lib/game/controls';
 import { createInitialCarState, findNearestTrackPoint, updateCarPhysics, type CarPhysicsState } from '../lib/game/physics';
-import { lineLapTimeEstimate } from '../lib/game/sim/racingLine';
+import { getRacingLine } from '../lib/game/sim/racingLine';
 
 const DT = 1 / 120; // the sim's fixed step
-const M_PER_UNIT = 0.37 / 3.6; // physics.ts: kmh = vf * 0.37, so 1 unit/s = 0.37 km/h = 0.10278 m/s (1 unit = 0.10278 m)
+const M_PER_UNIT = KMH_PER_UNIT / 3.6; // physics.ts: kmh = vf * 0.37, so 1 unit/s = 0.37 km/h = 0.10278 m/s (1 unit = 0.10278 m for speeds)
 const G = 9.81; // m/s^2
+
+const T = track.current;
+const N = T.N;
+const TRACK_LENGTH = T.length;
+const lineLapTimeEstimate = getRacingLine().lapTimeEstimate;
+/** Spline points as tuples, for the straight finder (probe code, not a hot path). */
+const trackSplinePoints: [number, number][] = Array.from({ length: N }, (_, i) => [T.px[i], T.py[i]]);
 
 // The back straight sits inside a DRS zone, but the treadmill moves the car through spline indices; lift the zone
 // requirement for the probe only so DRS can be tested anywhere on the straight.
@@ -67,7 +76,7 @@ function newCar(): CarPhysicsState {
 }
 
 function setSpeed(car: CarPhysicsState, kmh: number) {
-  const v = kmh / 0.37;
+  const v = kmh / KMH_PER_UNIT;
   car.vx = Math.cos(car.a) * v;
   car.vy = Math.sin(car.a) * v;
 }
@@ -93,7 +102,7 @@ function step(car: CarPhysicsState, c: ControlState) {
   return r;
 }
 
-const speedKmh = (car: CarPhysicsState) => Math.hypot(car.vx, car.vy) * 0.37;
+const speedKmh = (car: CarPhysicsState) => Math.hypot(car.vx, car.vy) * KMH_PER_UNIT;
 
 // ---- Straight-line acceleration -------------------------------------------------------------------------------------
 interface AccelResult {

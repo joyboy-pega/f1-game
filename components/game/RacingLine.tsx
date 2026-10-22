@@ -3,9 +3,9 @@
 import { useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { N } from '@/lib/game/constants';
+import { track } from '@/lib/game/track';
 import { useGameStore } from '@/lib/game/store';
-import { lineHeading, lineSpeed, lineX, lineY } from '@/lib/game/sim/racingLine';
+import { getRacingLine } from '@/lib/game/sim/racingLine';
 import { world } from '@/lib/game/sim/world';
 
 const POINTS = 44; // ~1000 units of line ahead (spline points are ~24 units apart)
@@ -47,6 +47,12 @@ export function RacingLine() {
     const v = Math.max(0, p.vf);
     const full = mode === 'full';
     const start = p.idx;
+    const N = track.current.N;
+    const RL = getRacingLine();
+    const lineSpeed = RL.speed;
+    const lineHeading = RL.heading;
+    const lineX = RL.x;
+    const lineY = RL.y;
 
     for (let k = 0; k < POINTS; k++) {
       const i = (start + k) % N;

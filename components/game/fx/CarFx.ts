@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { HW, trackSplinePoints } from '@/lib/game/constants';
+import { HW } from '@/lib/game/constants';
+import { track } from '@/lib/game/track';
 import { world } from '@/lib/game/sim/world';
 import { renderPose, type Pose } from '@/lib/game/sim/interp';
 import { addCameraShake } from '@/lib/game/fx/shake';
@@ -207,9 +208,9 @@ export class CarFx {
         let c = Math.min(14, Math.floor(a[k]));
         a[k] -= Math.floor(a[k]);
         // Wall is on the outside of the track: push sparks out along centreline -> car.
-        const pt = trackSplinePoints[p.idx];
-        let ox = q.x - pt[0];
-        let oz = q.y - pt[1];
+        const T = track.current;
+        let ox = q.x - T.px[p.idx];
+        let oz = q.y - T.py[p.idx];
         const ol = Math.hypot(ox, oz) || 1;
         ox /= ol;
         oz /= ol;

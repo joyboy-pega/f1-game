@@ -1,27 +1,11 @@
-import {
-  N,
-  HW,
-  TRACK_LENGTH,
-  PIT_LANE,
-  normals,
-  trackSplinePoints,
-  type Difficulty,
-  type WeatherType,
-} from '../constants';
+import { HW, type Difficulty, type WeatherType } from '../constants';
+import { track } from '../track';
+import { KMH_PER_UNIT } from '../units';
 import { isCarInDrsZone } from '../physics';
 import { makeRng } from './rng';
 import { snapRenderPose } from './interp';
 import type { WorldCar, AIBrain } from './types';
-import {
-  lineOffset,
-  lineX,
-  lineY,
-  lineHeading,
-  lineCurv,
-  lineSeg,
-  lineCornerSpeed,
-  PROFILE_BRAKE_DECEL,
-} from './racingLine';
+import { getRacingLine, PROFILE_BRAKE_DECEL } from './racingLine';
 
 // Racing-line AI driver. It produces a ControlState so AI cars run through the exact same physics
 // as the player: pure-pursuit steering on the optimal line, a braking-point speed scan from the line's
@@ -90,9 +74,10 @@ export function createBrain(slot: number, seed: number = slot * 7919 + 17): AIBr
 
 /** Signed arc distance from a to b along the lap, in (-L/2, L/2]. */
 export function arcDelta(a: number, b: number): number {
+  const L = track.current.length;
   let d = b - a;
-  if (d > TRACK_LENGTH / 2) d -= TRACK_LENGTH;
-  else if (d < -TRACK_LENGTH / 2) d += TRACK_LENGTH;
+  if (d > L / 2) d -= L;
+  else if (d < -L / 2) d += L;
   return d;
 }
 
@@ -106,11 +91,13 @@ export function gripSpeedFactor(car: WorldCar, weather: WeatherType): number {
 
 /** Marshals put a car that is stuck back on the racing line. */
 export function respawnOnLine(car: WorldCar, speed = 120) {
+  const N = track.current.N;
+  const RL = getRacingLine();
   const p = car.phys;
   const i = (p.idx + 4) % N;
-  p.x = lineX[i];
-  p.y = lineY[i];
-  p.a = lineHeading[i];
+  p.x = RL.x[i];
+  p.y = RL.y[i];
+  p.a = RL.heading[i];
   p.vf = speed;
   p.vl = 0;
   p.vx = Math.cos(p.a) * speed;
@@ -124,6 +111,8 @@ export function respawnOnLine(car: WorldCar, speed = 120) {
 
 /** Distance (spline indices) to the next sizeable corner on the racing line, and its direction. */
 function nextCorner(idx: number, maxIdx: number): { dist: number; dir: number } {
+  const N = track.current.N;
+  const lineCurv = getRacingLine().curv;
   for (let k = 4; k < maxIdx; k += 2) {
     const c = lineCurv[(idx + k) % N];
     if (Math.abs(c) > 0.0028) return { dist: k, dir: c > 0 ? 1 : -1 };
@@ -136,14 +125,16 @@ function nextCorner(idx: number, maxIdx: number): { dist: number; dir: number } 
  * feed-forward plus Stanley-style cross-track and heading feedback.
  */
 export function lineSteer(car: WorldCar, shift: number): number {
+  const N = track.current.N;
+  const RL = getRacingLine();
   const p = car.phys;
   const idx = p.idx;
   const v = Math.max(0, p.vf);
   const ahd = Math.min(6, 1 + Math.round((v * 0.07) / 24));
-  const kappa = lineCurv[(idx + ahd) % N];
-  const e = car.lateral - (lineOffset[idx] + shift);
+  const kappa = RL.curv[(idx + ahd) % N];
+  const e = car.lateral - (RL.offset[idx] + shift);
   const velAng = v > 40 ? Math.atan2(p.vy, p.vx) : p.a;
-  const wantAng = lineHeading[idx] - Math.atan2(STEER_K_E * e, v + 40);
+  const wantAng = RL.heading[idx] - Math.atan2(STEER_K_E * e, v + 40);
   let herr = wantAng - velAng;
   herr = Math.atan2(Math.sin(herr), Math.cos(herr));
   const yawCmd = v * kappa + STEER_K_H * herr;
@@ -154,21 +145,26 @@ export function lineSteer(car: WorldCar, shift: number): number {
 
 /** Highest speed allowed here such that every corner ahead can still be taken (braking-point scan). */
 export function profileTarget(idx: number, pace: number, gripF: number, aBrake: number): number {
+  const N = track.current.N;
+  const RL = getRacingLine();
   const cap = SPEED_CAP * pace;
   let target = cap;
   let d = 0;
   for (let k = 0; k < 40; k++) {
     const i = (idx + k) % N;
-    const vc = Math.min(cap, lineCornerSpeed[i] * CORNER_SAFETY * pace * gripF);
+    const vc = Math.min(cap, RL.cornerSpeed[i] * CORNER_SAFETY * pace * gripF);
     const allowed = Math.sqrt(vc * vc + 2 * aBrake * d);
     if (allowed < target) target = allowed;
-    d += lineSeg[i];
+    d += RL.seg[i];
     if (d > 1000) break;
   }
   return target;
 }
 
 export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
+  const N = track.current.N;
+  const RL = getRacingLine();
+  const PIT = track.current.pit;
   const brain = car.ai;
   const skill = car.skill;
   if (!brain || !skill) return;
@@ -187,7 +183,7 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   const gripF = gripSpeedFactor(car, ctx.weather);
 
   const myS = car.timing.lastS;
-  const baseOff = lineOffset[idx];
+  const baseOff = RL.offset[idx];
   const planned = baseOff + brain.shift;
 
   // ---- neighbours ---------------------------------------------------------------------------
@@ -204,7 +200,7 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
     const ds = arcDelta(myS, o.timing.lastS);
     const dl = o.lateral - planned;
     // Compare current and intended lines: cars on converging paths count as being in the way
-    const oPlan = o.ai ? lineOffset[o.phys.idx] + o.ai.shift : o.lateral;
+    const oPlan = o.ai ? RL.offset[o.phys.idx] + o.ai.shift : o.lateral;
     const overlap = Math.min(Math.abs(dl), Math.abs(o.lateral - car.lateral), Math.abs(oPlan - planned), Math.abs(oPlan - car.lateral));
     if (ds > 0 && ds < 700 && ds < aheadGap && overlap < 22) {
       ahead = o;
@@ -227,7 +223,7 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
 
   // ---- lateral intent ---------------------------------------------------------------------
   let shiftTarget = 0;
-  const curvHere = Math.abs(lineCurv[idx]);
+  const curvHere = Math.abs(RL.curv[idx]);
 
   const nc = nextCorner(idx, 16);
   const cornerSoon = curvHere > 0.0035 || nc.dist > 0 || brain.targetSpeed < v - 20;
@@ -290,11 +286,11 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
 
   // heading to the pits: move to the pit-lane side before the entry
   if (car.pitRequest) {
-    const du = (PIT_LANE.entryIdx - idx + N) % N;
+    const du = (PIT.entryIdx - idx + N) % N;
     if (du <= 55) {
       const f = 1 - du / 55;
       const s = f * f * (3 - 2 * f);
-      shiftTarget = (PIT_LANE.side * (HW - 18) - baseOff) * s;
+      shiftTarget = (PIT.side * (HW - 18) - baseOff) * s;
     }
   }
 
@@ -316,9 +312,9 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
 
   // pit entry: arrive at the speed limit
   if (car.pitRequest) {
-    const du = (PIT_LANE.entryIdx - idx + N) % N;
+    const du = (PIT.entryIdx - idx + N) % N;
     if (du < 120) {
-      const lim = (PIT_LANE.speedLimitKmh / 0.37) * 0.97;
+      const lim = (PIT.speedLimitKmh / KMH_PER_UNIT) * 0.97;
       const dist = du * 24;
       target = Math.min(target, Math.sqrt(lim * lim + 2 * aBrake * dist));
     }
@@ -387,7 +383,7 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
     car.drsAvailable && !p.drsOpen && isCarInDrsZone(idx) && v > 200 && brakeCmd === 0 && Math.abs(ctrl.steer) < 0.2;
 
   let straight = true;
-  for (let k = 3; k < 14; k += 3) if (Math.abs(lineCurv[(idx + k) % N]) > 0.0016) straight = false;
+  for (let k = 3; k < 14; k += 3) if (Math.abs(RL.curv[(idx + k) % N]) > 0.0016) straight = false;
   const attacking = !!ahead && aheadGap < 400;
   const charge = p.ersCharge;
   const wantBoost = straight && throttleCmd > 0.85 && (charge > 60 / tun.ers + 5 || (attacking && charge > 15) || (car.drsAvailable && charge > 25));

@@ -1,21 +1,17 @@
 import {
-  N,
   HW,
-  trackSplinePoints,
-  tangents,
-  normals,
-  smoothCurvature,
   DRIFT_CONFIG,
   ERS_CONFIG,
   DRS_CONFIG,
   BRAKE_CONFIG,
   TIRE_CONFIG,
   TYRE_COMPOUNDS,
-  inPitBand,
   WeatherType,
   type TyreCompound,
 } from './constants';
 import { ControlState } from './controls';
+import { inPitBand, isInDrsZone, track } from './track';
+import { KMH_PER_UNIT } from './units';
 import { dryMisuse, tempGrip, wearGrip, wetGripFactor, wetnessFor } from './sim/tyres';
 
 export interface SingleTireState {
@@ -106,17 +102,17 @@ export function calculateTireWearGrip(wear: number): number {
 
 /** Create a stationary car at spline index `idx`, offset `lateral` units along the track normal. */
 export function createInitialCarState(idx: number = 0, lateral: number = 0): CarPhysicsState {
-  const i = ((Math.round(idx) % N) + N) % N;
-  const p0 = trackSplinePoints[i];
-  const p1 = trackSplinePoints[(i + 1) % N];
-  const initAngle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+  const T = track.current;
+  const i = ((Math.round(idx) % T.N) + T.N) % T.N;
+  const i1 = (i + 1) % T.N;
+  const initAngle = Math.atan2(T.py[i1] - T.py[i], T.px[i1] - T.px[i]);
   const initialTemp = TIRE_CONFIG.startTemperature;
   const initialWear = 0.0;
   const initGrip = calculateTireTempGrip(initialTemp) * calculateTireWearGrip(initialWear);
 
   return {
-    x: p0[0] + normals[i][0] * lateral,
-    y: p0[1] + normals[i][1] * lateral,
+    x: T.px[i] + T.nx[i] * lateral,
+    y: T.py[i] + T.ny[i] * lateral,
     a: initAngle,
     vx: 0,
     vy: 0,
@@ -201,23 +197,20 @@ export function fitFreshTires(car: CarPhysicsState, startingTemp: number = TIRE_
 }
 
 export function isCarInDrsZone(idx: number): boolean {
-  for (const z of DRS_CONFIG.zones) {
-    if (z.wraps) {
-      if (idx >= z.start || idx <= z.end) return true;
-    } else {
-      if (idx >= z.start && idx <= z.end) return true;
-    }
-  }
-  return false;
+  return isInDrsZone(idx);
 }
 
 export function findNearestTrackPoint(x: number, y: number, currentIdx: number): [number, number] {
+  const T = track.current;
+  const N = T.N;
+  const px = T.px;
+  const py = T.py;
   let bi = currentIdx;
   let bd = 1e18;
   for (let k = -30; k <= 30; k++) {
     const i = (currentIdx + k + N) % N;
-    const dx = x - trackSplinePoints[i][0];
-    const dy = y - trackSplinePoints[i][1];
+    const dx = x - px[i];
+    const dy = y - py[i];
     const d = dx * dx + dy * dy;
     if (d < bd) {
       bd = d;
@@ -226,8 +219,8 @@ export function findNearestTrackPoint(x: number, y: number, currentIdx: number):
   }
   if (bd > 140 * 140) {
     for (let i = 0; i < N; i += 4) {
-      const dx = x - trackSplinePoints[i][0];
-      const dy = y - trackSplinePoints[i][1];
+      const dx = x - px[i];
+      const dy = y - py[i];
       const d = dx * dx + dy * dy;
       if (d < bd) {
         bd = d;
@@ -332,9 +325,8 @@ export function updateCarPhysics(
 } {
   const [ni, d] = findNearestTrackPoint(car.x, car.y, car.idx);
   // Pit-lane band counts as asphalt, as does the whole stretch while a car is driving through the pits.
-  const np = trackSplinePoints[ni];
-  const nn = normals[ni];
-  const signedLat = (car.x - np[0]) * nn[0] + (car.y - np[1]) * nn[1];
+  const T = track.current;
+  const signedLat = (car.x - T.px[ni]) * T.nx[ni] + (car.y - T.py[ni]) * T.ny[ni];
   const inPitLane = !!extra.inPit || inPitBand(ni, signedLat);
   const onTrack = inPitLane || d < HW + 6;
   const gravel = !inPitLane && d > HW + 40;
@@ -696,8 +688,7 @@ export function updateCarPhysics(
   // Guard Rail Collision & Bouncing
   const GUARD_RAIL_MAX = HW + 82;
   if (d > GUARD_RAIL_MAX) {
-    const pt = trackSplinePoints[ni];
-    const toCenter = [pt[0] - car.x, pt[1] - car.y];
+    const toCenter = [T.px[ni] - car.x, T.py[ni] - car.y];
     const cLen = Math.hypot(toCenter[0], toCenter[1]) || 1;
     const pen = d - GUARD_RAIL_MAX;
     car.x += (toCenter[0] / cLen) * pen;
@@ -716,7 +707,7 @@ export function updateCarPhysics(
   }
 
   // Speedometer, Gear & RPM
-  const kmh = Math.abs(vf) * 0.37;
+  const kmh = Math.abs(vf) * KMH_PER_UNIT;
   car.kmh = kmh;
   const g = vf < -5 ? 'R' : kmh < 8 ? 'N' : Math.min(8, 1 + Math.floor(kmh / 42));
   car.gear = g;

@@ -1,17 +1,32 @@
-import { N, HW, trackSplinePoints, normals, cumulativeS, TRACK_LENGTH } from '../constants';
+import { HW } from '../constants';
+import { track, trackCache, type TrackRuntime } from '../track';
 
 /**
  * Optimal racing line (minimum curvature within the track) and the speed profile that goes with it.
- * Computed once at module load (~10 ms). Typed arrays are shared by the AI, assists and the renderer.
+ * Built once per track (~10 ms) by `getRacingLine()`; the typed arrays are shared by the AI, assists and the renderer.
  *
- *  - lineOffset[i]  signed lateral offset from the centreline at spline index i (+ = along normals)
- *  - lineX/lineY    world position of the line
- *  - lineHeading[i] direction of travel along the line
- *  - lineCurv[i]    signed curvature (1/unit), + = turning toward +normal
- *  - lineSeg[i]     distance along the line from i to i+1
- *  - lineCornerSpeed[i]  cornering limit only (no braking / acceleration passes)
- *  - lineSpeed[i]   achievable speed with the physics' accel and brake limits
+ *  - offset[i]      signed lateral offset from the centreline at spline index i (+ = along normals)
+ *  - x / y          world position of the line
+ *  - heading[i]     direction of travel along the line
+ *  - curv[i]        signed curvature (1/unit), + = turning toward +normal
+ *  - seg[i]         distance along the line from i to i+1
+ *  - cornerSpeed[i] cornering limit only (no braking / acceleration passes)
+ *  - speed[i]       achievable speed with the physics' accel and brake limits
  */
+export interface RacingLine {
+  offset: Float32Array;
+  x: Float32Array;
+  y: Float32Array;
+  heading: Float32Array;
+  curv: Float32Array;
+  seg: Float32Array;
+  /** Cumulative distance along the line, length N + 1. */
+  s: Float32Array;
+  cornerSpeed: Float32Array;
+  speed: Float32Array;
+  length: number;
+  lapTimeEstimate: number;
+}
 
 export const LINE_MARGIN = 14; // keep the line this far from the track edge
 const MAX_OFFSET = HW - LINE_MARGIN;
@@ -36,29 +51,9 @@ export function accelAt(v: number): number {
   return 760 * Math.max(0, 1 - v / 900) - 0.13 * v;
 }
 
-export const lineOffset = new Float32Array(N);
-export const lineX = new Float32Array(N);
-export const lineY = new Float32Array(N);
-export const lineHeading = new Float32Array(N);
-export const lineCurv = new Float32Array(N);
-export const lineSeg = new Float32Array(N);
-export const lineS = new Float32Array(N + 1);
-export const lineCornerSpeed = new Float32Array(N);
-export const lineSpeed = new Float32Array(N);
-export let lineLength = 0;
-export let lineLapTimeEstimate = 0;
-
-function optimiseOffsets() {
-  const px = new Float64Array(N);
-  const py = new Float64Array(N);
-  const nx = new Float64Array(N);
-  const ny = new Float64Array(N);
-  for (let i = 0; i < N; i++) {
-    px[i] = trackSplinePoints[i][0];
-    py[i] = trackSplinePoints[i][1];
-    nx[i] = normals[i][0];
-    ny[i] = normals[i][1];
-  }
+function optimiseOffsets(rt: TrackRuntime, lineOffset: Float32Array) {
+  const N = rt.N;
+  const { px, py, nx, ny } = rt;
 
   // Projected Gauss-Seidel (SOR) on sum |q[i-1] - 2 q[i] + q[i+1]|^2 with q = p + o n.
   // Solved coarse-to-fine so long-wavelength corners converge in few sweeps.
@@ -126,11 +121,21 @@ function optimiseOffsets() {
   for (let i = 0; i < N; i++) lineOffset[i] = o[i];
 }
 
-function buildLine() {
-  optimiseOffsets();
+export function buildRacingLine(rt: TrackRuntime): RacingLine {
+  const N = rt.N;
+  const lineOffset = new Float32Array(N);
+  const lineX = new Float32Array(N);
+  const lineY = new Float32Array(N);
+  const lineHeading = new Float32Array(N);
+  const lineCurv = new Float32Array(N);
+  const lineSeg = new Float32Array(N);
+  const lineS = new Float32Array(N + 1);
+  const lineCornerSpeed = new Float32Array(N);
+  const lineSpeed = new Float32Array(N);
+  optimiseOffsets(rt, lineOffset);
   for (let i = 0; i < N; i++) {
-    lineX[i] = trackSplinePoints[i][0] + normals[i][0] * lineOffset[i];
-    lineY[i] = trackSplinePoints[i][1] + normals[i][1] * lineOffset[i];
+    lineX[i] = rt.px[i] + rt.nx[i] * lineOffset[i];
+    lineY[i] = rt.py[i] + rt.ny[i] * lineOffset[i];
   }
   for (let i = 0; i < N; i++) {
     const j = (i + 1) % N;
@@ -139,7 +144,7 @@ function buildLine() {
     const p = (i + N - 1) % N;
     lineHeading[i] = Math.atan2(lineY[j] - lineY[p], lineX[j] - lineX[p]);
   }
-  lineLength = lineS[N];
+  const lineLength = lineS[N];
 
   // Signed curvature from heading change over +-3 points, then smoothed
   const raw = new Float32Array(N);
@@ -185,16 +190,32 @@ function buildLine() {
     lineSpeed[i] = v[i];
     t += lineSeg[i] / Math.max(60, 0.5 * (v[i] + v[(i + 1) % N]));
   }
-  lineLapTimeEstimate = t;
+  return {
+    offset: lineOffset,
+    x: lineX,
+    y: lineY,
+    heading: lineHeading,
+    curv: lineCurv,
+    seg: lineSeg,
+    s: lineS,
+    cornerSpeed: lineCornerSpeed,
+    speed: lineSpeed,
+    length: lineLength,
+    lapTimeEstimate: t,
+  };
 }
 
-buildLine();
+/** The racing line of the active track (built on first use, then cached per track id). */
+export const getRacingLine = trackCache(buildRacingLine);
 
 /** Index of the track centreline arc length (for converting distance ahead into spline steps). */
 export function indexAhead(from: number, dist: number): number {
+  const T = track.current;
+  const cumulativeS = T.cumulativeS;
+  const N = T.N;
   const s0 = cumulativeS[from];
   let target = s0 + dist;
-  if (target >= TRACK_LENGTH) target -= TRACK_LENGTH;
+  if (target >= T.length) target -= T.length;
   // cumulativeS is monotonic: binary search
   let lo = 0;
   let hi = N;

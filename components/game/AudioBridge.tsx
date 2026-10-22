@@ -5,7 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { audio } from '@/lib/game/audio';
 import { playSimEvent } from '@/lib/game/audio/events';
 import { createAudioFrame } from '@/lib/game/audio/types';
-import { smoothCurvature } from '@/lib/game/constants';
+import { track } from '@/lib/game/track';
 import { useGameStore } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
 
@@ -64,7 +64,7 @@ export function AudioBridge() {
     q.wheelSlipRear = p.wheelSlipRear;
     q.idx = p.idx;
     q.lateral = pl.lateral;
-    q.curvature = smoothCurvature[p.idx] ?? 0;
+    q.curvature = track.current.smoothCurvature[p.idx] ?? 0;
     q.onTrack = pl.surface.onTrack;
     q.gravel = pl.surface.gravel;
     q.sparks = p.guardRailSparks;

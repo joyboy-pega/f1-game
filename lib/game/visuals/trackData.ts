@@ -1,18 +1,15 @@
 // Derived track data and geometry helpers shared by every world component.
 // Pure data + three BufferGeometry builders; no React. Units: 1 unit ~ 0.1 m.
+// Everything track-dependent reads `track.current` at call time or lives in a per-track cache (getTrackVisuals):
+// nothing is computed from the track at module load (PLAN-v3 T1).
 import * as THREE from 'three';
-import {
-  N,
-  HW,
-  trackSplinePoints,
-  tangents,
-  normals,
-  cumulativeS,
-  segmentLengths,
-  TRACK_LENGTH,
-} from '@/lib/game/constants';
+import { HW } from '@/lib/game/constants';
+import { track, trackCache, type TrackRuntime } from '@/lib/game/track';
 
-export const wrapIdx = (i: number) => ((Math.floor(i) % N) + N) % N;
+export const wrapIdx = (i: number) => {
+  const N = track.current.N;
+  return ((Math.floor(i) % N) + N) % N;
+};
 
 /** Deterministic PRNG so the world looks identical every session. */
 export function rng(seed: number) {
@@ -33,51 +30,32 @@ export const smoothstep = (a: number, b: number, x: number) => {
 
 /** Interpolated frame at fractional spline index f: [x, z, tx, tz, nx, nz]. */
 export function frameAt(f: number): [number, number, number, number, number, number] {
+  const T = track.current;
   const i0 = wrapIdx(f);
-  const i1 = (i0 + 1) % N;
+  const i1 = (i0 + 1) % T.N;
   const t = f - Math.floor(f);
-  const a = trackSplinePoints[i0];
-  const b = trackSplinePoints[i1];
-  const tx = tangents[i0][0] * (1 - t) + tangents[i1][0] * t;
-  const tz = tangents[i0][1] * (1 - t) + tangents[i1][1] * t;
+  const tx = T.tx[i0] * (1 - t) + T.tx[i1] * t;
+  const tz = T.ty[i0] * (1 - t) + T.ty[i1] * t;
   const l = Math.hypot(tx, tz) || 1;
-  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, tx / l, tz / l, -tz / l, tx / l];
+  return [T.px[i0] + (T.px[i1] - T.px[i0]) * t, T.py[i0] + (T.py[i1] - T.py[i0]) * t, tx / l, tz / l, -tz / l, tx / l];
 }
 
 /** Spline index (float) at arc length s. */
 export function indexAtS(s: number): number {
-  const L = TRACK_LENGTH;
+  const T = track.current;
+  const L = T.length;
   const ss = ((s % L) + L) % L;
   let lo = 0;
-  let hi = N;
+  let hi = T.N;
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
-    if (cumulativeS[mid] <= ss) lo = mid;
+    if (T.cumulativeS[mid] <= ss) lo = mid;
     else hi = mid;
   }
-  return lo + (ss - cumulativeS[lo]) / (segmentLengths[lo] || 1);
+  return lo + (ss - T.cumulativeS[lo]) / (T.segLen[lo] || 1);
 }
 
 // --- curvature ------------------------------------------------------------
-/** Signed turn angle per sample (rad); positive = turning towards +normal. */
-export const signedTurn = new Float32Array(N);
-for (let i = 0; i < N; i++) {
-  const a = tangents[i];
-  const b = tangents[(i + 1) % N];
-  signedTurn[i] = a[0] * b[1] - a[1] * b[0];
-}
-
-export function smoothSigned(win: number): Float32Array {
-  const out = new Float32Array(N);
-  for (let i = 0; i < N; i++) {
-    let s = 0;
-    for (let k = -win; k <= win; k++) s += signedTurn[(i + k + N) % N];
-    out[i] = s / (win * 2 + 1);
-  }
-  return out;
-}
-const ss6 = smoothSigned(6);
-
 export interface Corner {
   start: number;
   end: number; // inclusive, may exceed N-1 when wrapping (use wrapIdx)
@@ -87,7 +65,26 @@ export interface Corner {
   inside: 1 | -1;
 }
 
-function detectCorners(): Corner[] {
+type Masks = [Float32Array, Float32Array];
+
+/** Signed turn angle per sample (rad); positive = turning towards +normal, smoothed over +-win samples. */
+function smoothSigned(rt: TrackRuntime, win: number): Float32Array {
+  const N = rt.N;
+  const turn = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const j = (i + 1) % N;
+    turn[i] = rt.tx[i] * rt.ty[j] - rt.ty[i] * rt.tx[j];
+  }
+  const out = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    let s = 0;
+    for (let k = -win; k <= win; k++) s += turn[(i + k + N) % N];
+    out[i] = s / (win * 2 + 1);
+  }
+  return out;
+}
+
+function detectCorners(N: number, ss6: Float32Array): Corner[] {
   const THR = 0.02;
   // start scanning at a quiet sample so runs never straddle the loop seam
   let s0 = 0;
@@ -113,16 +110,15 @@ function detectCorners(): Corner[] {
   if (cur) runs.push(cur);
   return runs.filter((c) => c.peak > 0.028 && c.end - c.start >= 5);
 }
-export const corners: Corner[] = detectCorners();
 
 /** Per-side (index 0 = -normal, 1 = +normal) smooth masks over the lap. */
-function maskFrom(fn: (c: Corner, i: number) => number): [Float32Array, Float32Array] {
-  const m: [Float32Array, Float32Array] = [new Float32Array(N), new Float32Array(N)];
+function maskFrom(N: number, corners: Corner[], fn: (c: Corner, i: number) => number): Masks {
+  const m: Masks = [new Float32Array(N), new Float32Array(N)];
   for (const c of corners) {
     for (let i = c.start - 14; i <= c.end + 20; i++) {
       const w = fn(c, i);
       if (w <= 0) continue;
-      const idx = wrapIdx(i);
+      const idx = ((Math.floor(i) % N) + N) % N;
       const inside = c.inside > 0 ? 1 : 0;
       const side = w > 0 ? inside : inside;
       m[side][idx] = Math.max(m[side][idx], w);
@@ -130,29 +126,59 @@ function maskFrom(fn: (c: Corner, i: number) => number): [Float32Array, Float32A
   }
   return m;
 }
-function outsideMask(fn: (c: Corner, i: number) => number): [Float32Array, Float32Array] {
-  const m: [Float32Array, Float32Array] = [new Float32Array(N), new Float32Array(N)];
+function outsideMask(N: number, corners: Corner[], fn: (c: Corner, i: number) => number): Masks {
+  const m: Masks = [new Float32Array(N), new Float32Array(N)];
   for (const c of corners) {
     const side = c.inside > 0 ? 0 : 1;
     for (let i = c.start - 14; i <= c.end + 20; i++) {
       const w = fn(c, i);
       if (w <= 0) continue;
-      const idx = wrapIdx(i);
+      const idx = ((Math.floor(i) % N) + N) % N;
       m[side][idx] = Math.max(m[side][idx], w);
     }
   }
   return m;
 }
 
-/** Kerbs on the inside of corners, with lead-in/out. Sharp edges (kerbs end bluntly). */
-export const kerbInside = maskFrom((c, i) => (i >= c.start - 5 && i <= c.end + 5 ? 1 : 0));
-/** Exit kerbs on the outside, only after the apex of the tighter corners. */
-export const kerbOutside = outsideMask((c, i) => (c.peak > 0.045 && i >= c.apex - 2 && i <= c.end + 6 ? 1 : 0));
-/** Soft run-off weight on the outside of corners (1 inside corner, ramps out). */
-export const runoffOutside = outsideMask((c, i) => {
-  const a = smoothstep(c.start - 14, c.start - 2, i);
-  const b = 1 - smoothstep(c.end + 2, c.end + 20, i);
-  return Math.min(a, b);
+const CELL = 500;
+
+export interface TrackVisuals {
+  corners: Corner[];
+  /** Kerbs on the inside of corners, with lead-in/out. Sharp edges (kerbs end bluntly). */
+  kerbInside: Masks;
+  /** Exit kerbs on the outside, only after the apex of the tighter corners. */
+  kerbOutside: Masks;
+  /** Soft run-off weight on the outside of corners (1 inside corner, ramps out). */
+  runoffOutside: Masks;
+  bounds: { minX: number; maxX: number; minZ: number; maxZ: number; cx: number; cz: number };
+  /** Spatial hash of the centreline (every 2nd point) for distToTrack. */
+  grid: Map<string, number[]>;
+}
+
+/** Corner list, kerb / run-off masks, bounds and spatial grid of the active track (built once per track id). */
+export const getTrackVisuals = trackCache((rt): TrackVisuals => {
+  const N = rt.N;
+  const corners = detectCorners(N, smoothSigned(rt, 6));
+  const grid = new Map<string, number[]>();
+  for (let i = 0; i < N; i += 2) {
+    const key = `${Math.floor(rt.px[i] / CELL)},${Math.floor(rt.py[i] / CELL)}`;
+    const a = grid.get(key);
+    if (a) a.push(i);
+    else grid.set(key, [i]);
+  }
+  const { minX, maxX, minY, maxY } = rt.bounds;
+  return {
+    corners,
+    kerbInside: maskFrom(N, corners, (c, i) => (i >= c.start - 5 && i <= c.end + 5 ? 1 : 0)),
+    kerbOutside: outsideMask(N, corners, (c, i) => (c.peak > 0.045 && i >= c.apex - 2 && i <= c.end + 6 ? 1 : 0)),
+    runoffOutside: outsideMask(N, corners, (c, i) => {
+      const a = smoothstep(c.start - 14, c.start - 2, i);
+      const b = 1 - smoothstep(c.end + 2, c.end + 20, i);
+      return Math.min(a, b);
+    }),
+    bounds: { minX, maxX, minZ: minY, maxZ: maxY, cx: (minX + maxX) / 2, cz: (minY + maxY) / 2 },
+    grid,
+  };
 });
 
 export function sideIdx(side: 1 | -1) {
@@ -161,6 +187,7 @@ export function sideIdx(side: 1 | -1) {
 
 /** Runs of consecutive samples where mask > thr (handles wrap). Returns [from, count]. */
 export function maskRuns(mask: Float32Array, thr = 0.5, minLen = 2): [number, number][] {
+  const N = track.current.N;
   const out: [number, number][] = [];
   let start = -1;
   // begin at a masked-off sample so runs do not straddle the seam
@@ -179,18 +206,10 @@ export function maskRuns(mask: Float32Array, thr = 0.5, minLen = 2): [number, nu
   return out;
 }
 
-// --- spatial lookup -------------------------------------------------------
-const CELL = 500;
-const grid = new Map<string, number[]>();
-for (let i = 0; i < N; i += 2) {
-  const p = trackSplinePoints[i];
-  const key = `${Math.floor(p[0] / CELL)},${Math.floor(p[1] / CELL)}`;
-  const a = grid.get(key);
-  if (a) a.push(i);
-  else grid.set(key, [i]);
-}
 /** Approximate distance from (x,z) to the centreline (searches ~1000 units around). */
 export function distToTrack(x: number, z: number): number {
+  const T = track.current;
+  const grid = getTrackVisuals().grid;
   const cx = Math.floor(x / CELL);
   const cz = Math.floor(z / CELL);
   let best = 1e9;
@@ -199,23 +218,13 @@ export function distToTrack(x: number, z: number): number {
       const a = grid.get(`${cx + dx},${cz + dz}`);
       if (!a) continue;
       for (const i of a) {
-        const p = trackSplinePoints[i];
-        const d = Math.hypot(p[0] - x, p[1] - z);
+        const d = Math.hypot(T.px[i] - x, T.py[i] - z);
         if (d < best) best = d;
       }
     }
   }
   return best;
 }
-
-export const TRACK_BOUNDS = (() => {
-  let a = 1e9, b = -1e9, c = 1e9, d = -1e9;
-  for (const p of trackSplinePoints) {
-    a = Math.min(a, p[0]); b = Math.max(b, p[0]);
-    c = Math.min(c, p[1]); d = Math.max(d, p[1]);
-  }
-  return { minX: a, maxX: b, minZ: c, maxZ: d, cx: (a + b) / 2, cz: (c + d) / 2 };
-})();
 
 // --- geometry builders ----------------------------------------------------
 export type Fn = number | ((i: number) => number);
@@ -258,24 +267,24 @@ export function sweep(opts: SweepOpts): THREE.BufferGeometry {
   const uv = new Float32Array(vertCount * 2);
   const col = new Float32Array(vertCount * cs);
   const idx = new Uint32Array(count * segs * 6);
-  let s = cumulativeS[wrapIdx(from)];
+  const T = track.current;
+  let s = T.cumulativeS[wrapIdx(from)];
   let vi = 0;
   let ii = 0;
   for (let k = 0; k < cols; k++) {
     const i = from + k;
     const w = wrapIdx(i);
-    const p = trackSplinePoints[w];
-    const nx = normals[w][0];
-    const nz = normals[w][1];
+    const nx = T.nx[w];
+    const nz = T.ny[w];
     const v = s / vScale + vOffset;
     for (let r = 0; r < segs; r++) {
       for (let e = 0; e < 2; e++) {
         const pt = profile[r + e];
         const o = ev(pt.o, w);
         const base = (k * segs + r) * 2 + e;
-        pos[base * 3] = p[0] + nx * o;
+        pos[base * 3] = T.px[w] + nx * o;
         pos[base * 3 + 1] = ev(pt.y, w);
-        pos[base * 3 + 2] = p[1] + nz * o;
+        pos[base * 3 + 2] = T.py[w] + nz * o;
         const pu = ev(pt.u, w);
         uv[base * 2] = swapUV ? v : pu;
         uv[base * 2 + 1] = swapUV ? pu : v;
@@ -286,7 +295,7 @@ export function sweep(opts: SweepOpts): THREE.BufferGeometry {
         if (cs === 4) col[base * cs + 3] = c ? c[3] : 1;
       }
     }
-    s += segmentLengths[w];
+    s += T.segLen[w];
     vi++;
   }
   for (let k = 0; k < count; k++) {

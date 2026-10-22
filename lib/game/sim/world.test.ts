@@ -4,6 +4,7 @@ import { NEUTRAL_CONTROLS } from '../controls';
 import { DRIVER_ROSTER } from '../constants';
 import { GameWorld, FIXED_DT } from './world';
 import { createBrain } from './ai';
+import { track } from '../track';
 
 function raceSettings(patch: Partial<GameSettings> = {}): GameSettings {
   return { ...DEFAULT_SETTINGS, mode: 'race', totalLaps: 2, aiCount: 5, gridPosition: 3, ...patch };
@@ -166,5 +167,16 @@ describe('GameWorld edge-triggered input', () => {
     const seen = spyOnSteps(w, 'pitStopRequested');
     w.step(FIXED_DT, NEUTRAL_CONTROLS);
     expect(seen).toEqual([false]);
+  });
+});
+
+describe('GameWorld track selection', () => {
+  it('setup() activates the settings track and falls back to the default for an unknown id', () => {
+    const w = new GameWorld();
+    w.setup({ ...DEFAULT_SETTINGS, mode: 'timetrial', trackId: 'buddh' });
+    expect(track.current.meta.id).toBe('buddh');
+    expect(() => w.setup({ ...DEFAULT_SETTINGS, mode: 'timetrial', trackId: 'does-not-exist' })).not.toThrow();
+    expect(track.current.meta.id).toBe('buddh');
+    expect(w.cars).toHaveLength(1);
   });
 });

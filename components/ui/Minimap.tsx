@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { N, PIT_LANE, SECTOR_BOUNDS, trackSplinePoints } from '@/lib/game/constants';
+import { track } from '@/lib/game/track';
 import { useTicker } from '@/lib/game/useTicker';
 import { world } from '@/lib/game/sim/world';
 
@@ -12,20 +12,20 @@ const DPR = 2;
 const SECTOR_COLORS = ['#ffb800', '#b36bff', '#00e5ff'];
 
 function bounds() {
-  let a = 1e9, b = -1e9, c = 1e9, d = -1e9;
-  for (const p of trackSplinePoints) {
-    a = Math.min(a, p[0]); b = Math.max(b, p[0]);
-    c = Math.min(c, p[1]); d = Math.max(d, p[1]);
-  }
+  const { minX: a, maxX: b, minY: c, maxY: d } = track.current.bounds;
   const s = Math.min((W - PAD * 2) / (b - a), (H - PAD * 2) / (d - c));
   return { s, ox: W / 2 - ((a + b) / 2) * s, oy: H / 2 - ((c + d) / 2) * s };
 }
-const B = bounds();
+// Projection of the active track; refreshed by drawStatic() whenever the track is (re)drawn.
+let B = bounds();
 const px = (x: number) => x * B.s + B.ox;
 const py = (y: number) => y * B.s + B.oy;
 
 /** Track casing + sector-coloured line, drawn once. */
 function drawStatic(): HTMLCanvasElement {
+  const T = track.current;
+  const N = T.N;
+  B = bounds();
   const cv = document.createElement('canvas');
   cv.width = W * DPR;
   cv.height = H * DPR;
@@ -37,9 +37,9 @@ function drawStatic(): HTMLCanvasElement {
   const path = (from: number, to: number) => {
     ctx.beginPath();
     for (let i = from; i <= to; i += 2) {
-      const p = trackSplinePoints[i % N];
-      if (i === from) ctx.moveTo(px(p[0]), py(p[1]));
-      else ctx.lineTo(px(p[0]), py(p[1]));
+      const k = i % N;
+      if (i === from) ctx.moveTo(px(T.px[k]), py(T.py[k]));
+      else ctx.lineTo(px(T.px[k]), py(T.py[k]));
     }
   };
 
@@ -49,7 +49,7 @@ function drawStatic(): HTMLCanvasElement {
   ctx.lineWidth = 8;
   ctx.stroke();
 
-  const [s1, s2] = SECTOR_BOUNDS;
+  const [s1, s2] = T.sectorIdx;
   [[0, s1], [s1, s2], [s2, N]].forEach(([a, b], k) => {
     path(a, b);
     ctx.strokeStyle = SECTOR_COLORS[k];
@@ -59,11 +59,11 @@ function drawStatic(): HTMLCanvasElement {
 
   // pit lane
   ctx.beginPath();
-  const pitCount = (PIT_LANE.exitIdx - PIT_LANE.entryIdx + N) % N;
+  const pitCount = (T.pit.exitIdx - T.pit.entryIdx + N) % N;
   for (let k = 0; k <= pitCount; k += 3) {
-    const p = trackSplinePoints[(PIT_LANE.entryIdx + k) % N];
-    if (k === 0) ctx.moveTo(px(p[0]), py(p[1]));
-    else ctx.lineTo(px(p[0]), py(p[1]));
+    const j = (T.pit.entryIdx + k) % N;
+    if (k === 0) ctx.moveTo(px(T.px[j]), py(T.py[j]));
+    else ctx.lineTo(px(T.px[j]), py(T.py[j]));
   }
   ctx.strokeStyle = 'rgba(255,255,255,0.35)';
   ctx.lineWidth = 1;
@@ -72,9 +72,8 @@ function drawStatic(): HTMLCanvasElement {
   ctx.setLineDash([]);
 
   // start / finish tick
-  const p0 = trackSplinePoints[0];
   ctx.fillStyle = '#fff';
-  ctx.fillRect(px(p0[0]) - 1, py(p0[1]) - 5, 2, 10);
+  ctx.fillRect(px(T.px[0]) - 1, py(T.py[0]) - 5, 2, 10);
   return cv;
 }
 
@@ -83,9 +82,10 @@ export function Minimap() {
   const ref = useRef<HTMLCanvasElement>(null);
   const base = useRef<HTMLCanvasElement | null>(null);
 
+  const trackId = track.current.meta.id;
   useEffect(() => {
     base.current = drawStatic();
-  }, []);
+  }, [trackId]);
 
   useTicker(() => {
     const cv = ref.current;

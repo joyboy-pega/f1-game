@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TRACK_LENGTH } from '../constants';
+import { track } from '../track';
 import { NEUTRAL_CONTROLS } from '../controls';
 import { EventBus, type SimEvent } from './events';
 import { advanceTiming, createOverallBests } from './race';
@@ -158,7 +158,7 @@ describe('lap counting', () => {
     const car = w.player;
     const events = new EventBus();
     const ctx = { raceTime: 0, dt: FIXED_DT, standingStart: false, overall: createOverallBests(), events };
-    const L = TRACK_LENGTH;
+    const L = track.current.length;
     const sweep = (from: number, to: number) => {
       const step = (to - from) / 400;
       for (let i = 0; i <= 400; i++) {
