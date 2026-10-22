@@ -1,5 +1,5 @@
 // Time-trial ghost: the player's best lap, recorded at ~30 Hz relative to lap start.
-// Persisted per weather in localStorage as a base64 Float32Array (a 100 s lap is ~130 KB).
+// Persisted per track and weather in localStorage as a base64 Float32Array (a 100 s lap is ~130 KB).
 
 import type { SimEvent } from '../sim/events';
 import { lerpAngle } from '../sim/recorder';
@@ -11,6 +11,7 @@ export const GHOST_STRIDE = 8;
 const MAX_LAP_SECONDS = 600;
 
 export interface GhostLap {
+  trackId: string;
   weather: string;
   lapTime: number;
   /** Sample count. */
@@ -28,7 +29,33 @@ export interface GhostSample {
   drsOpen: boolean;
 }
 
-export const ghostKey = (weather: string) => `buddh-gp-ghost:${weather}`;
+export const ghostKey = (trackId: string, weather: string) => `buddh-gp-ghost:${trackId}:${weather}`;
+
+const GHOST_WEATHERS = ['sunny', 'cloudy', 'rain', 'snow'];
+
+/**
+ * One-time rename of pre-T4 ghosts (`buddh-gp-ghost:<weather>`, always Buddh) to `buddh-gp-ghost:buddh:<weather>`.
+ * An existing new-style ghost is never overwritten; the old key is removed either way. Returns how many were moved.
+ */
+export function migrateLegacyGhostKeys(storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>): number {
+  let moved = 0;
+  for (const weather of GHOST_WEATHERS) {
+    const oldKey = `buddh-gp-ghost:${weather}`;
+    try {
+      const raw = storage.getItem(oldKey);
+      if (raw === null) continue;
+      const newKey = ghostKey('buddh', weather);
+      if (storage.getItem(newKey) === null) {
+        storage.setItem(newKey, raw);
+        moved++;
+      }
+      storage.removeItem(oldKey);
+    } catch {
+      // storage unavailable or full: leave the old key in place
+    }
+  }
+  return moved;
+}
 
 // ----------------------------------------------------------------------------- serialisation
 
@@ -49,7 +76,7 @@ function fromBase64(b64: string): Uint8Array {
 /** Compact JSON: `{v:1, w, t, n, d}` with `d` the base64 of the little-endian float32 samples. */
 export function serializeGhost(g: GhostLap): string {
   const bytes = new Uint8Array(g.data.buffer, g.data.byteOffset, g.n * GHOST_STRIDE * 4);
-  return JSON.stringify({ v: 1, w: g.weather, t: Math.round(g.lapTime * 1000) / 1000, n: g.n, d: toBase64(bytes) });
+  return JSON.stringify({ v: 1, k: g.trackId, w: g.weather, t: Math.round(g.lapTime * 1000) / 1000, n: g.n, d: toBase64(bytes) });
 }
 
 export function parseGhost(raw: string | null): GhostLap | null {
@@ -62,15 +89,15 @@ export function parseGhost(raw: string | null): GhostLap | null {
     // Copy into a fresh, aligned buffer.
     const data = new Float32Array(o.n * GHOST_STRIDE);
     new Uint8Array(data.buffer).set(bytes);
-    return { weather: String(o.w ?? ''), lapTime: o.t, n: o.n, data };
+    return { trackId: typeof o.k === 'string' ? o.k : 'buddh', weather: String(o.w ?? ''), lapTime: o.t, n: o.n, data };
   } catch {
     return null;
   }
 }
 
-export function loadGhost(weather: string): GhostLap | null {
+export function loadGhost(trackId: string, weather: string): GhostLap | null {
   try {
-    return parseGhost(localStorage.getItem(ghostKey(weather)));
+    return parseGhost(localStorage.getItem(ghostKey(trackId, weather)));
   } catch {
     return null;
   }
@@ -78,7 +105,7 @@ export function loadGhost(weather: string): GhostLap | null {
 
 export function saveGhost(g: GhostLap): boolean {
   try {
-    localStorage.setItem(ghostKey(g.weather), serializeGhost(g));
+    localStorage.setItem(ghostKey(g.trackId, g.weather), serializeGhost(g));
     return true;
   } catch {
     return false; // quota / private mode: keep the in-memory ghost for this session only
@@ -118,7 +145,7 @@ export function sampleGhost(g: GhostLap, t: number, out: GhostSample): boolean {
 
 type Listener = () => void;
 
-/** Best ghost for the current weather; the Ghost component subscribes to changes. */
+/** Best ghost for the current track and weather; the Ghost component subscribes to changes. */
 export const ghostStore = {
   best: null as GhostLap | null,
   listeners: new Set<Listener>(),
@@ -139,7 +166,7 @@ export const ghostStore = {
 export interface GhostWorld {
   raceId: number;
   raceTime: number;
-  settings: { mode: string; weather: string };
+  settings: { mode: string; weather: string; trackId: string };
   player: {
     id: number;
     timing: { lapStartTime: number | null };
@@ -198,7 +225,7 @@ export class GhostRecorder {
     this.unsub?.();
     this.unsub = null;
     if (w.settings.mode === 'timetrial') {
-      ghostStore.set(loadGhost(w.settings.weather));
+      ghostStore.set(loadGhost(w.settings.trackId, w.settings.weather));
       if (w.events) this.unsub = w.events.subscribe((e) => this.onEvent(e));
     } else {
       ghostStore.set(null);
@@ -243,16 +270,16 @@ export class GhostRecorder {
     const w = this.world;
     if (!w) return;
     if (e.type === 'reset' && e.carId === w.player.id) this.valid = false; // teleported: lap isn't a clean reference
-    if (e.type === 'lap' && e.carId === w.player.id && e.personalBest) this.commit(w.settings.weather);
+    if (e.type === 'lap' && e.carId === w.player.id && e.personalBest) this.commit(w.settings.trackId, w.settings.weather);
   }
 
-  commit(weather: string) {
+  commit(trackId: string, weather: string) {
     const p = this.pending;
     this.pending = null;
     if (!p || !p.valid || p.n < 2) return;
     const best = ghostStore.best;
     if (best && best.lapTime <= p.lapTime) return;
-    const g: GhostLap = { weather, lapTime: p.lapTime, n: p.n, data: p.data };
+    const g: GhostLap = { trackId, weather, lapTime: p.lapTime, n: p.n, data: p.data };
     saveGhost(g);
     ghostStore.set(g);
   }

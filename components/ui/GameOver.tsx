@@ -33,12 +33,13 @@ export function GameOver({ results, onRestart, onExitToMenu }: GameOverProps) {
   const replayActive = useGameStore((s) => s.replayActive);
   const setReplayActive = useGameStore((s) => s.setReplayActive);
   const weather = useGameStore((s) => s.settings.weather);
+  const trackId = useGameStore((s) => s.settings.trackId);
   const records = useGameStore((s) => s.records);
   const isRace = results.mode === 'race';
   const pos = results.playerPosition;
   const times = results.playerLapTimes;
   const bestLap = times.length ? Math.min(...times) : null;
-  const record = records.bestLaps[recordKey(results.mode, weather)];
+  const record = records.bestLaps[recordKey(trackId, results.mode, weather)];
 
   useEffect(() => {
     if (!isRace || pos > 3) return;

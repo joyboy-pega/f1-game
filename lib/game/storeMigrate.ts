@@ -1,4 +1,5 @@
 import type { GameSettings } from './gameState';
+import { migrateBestLapKeys } from './records';
 
 /** Persisted store shape (only the parts a migration touches). */
 export interface PersistedStore {
@@ -7,19 +8,28 @@ export interface PersistedStore {
 }
 
 /** Version of the persisted `buddh-gp` store. Bump when the shape changes and add a step to `migrateStore`. */
-export const STORE_VERSION = 2;
+export const STORE_VERSION = 3;
 
 /**
  * v1 -> v2: settings gained `trackId` (the game had one circuit, Buddh). Missing or non-string values become 'buddh'.
+ * v2 -> v3: `records.bestLaps` keys gained the track id (`buddh:` prefix on the old `<mode>:<weather>` keys).
  * Never throws on junk input: an unusable payload is passed through for the store's `merge` to fill with defaults.
  */
 export function migrateStore(persisted: unknown, fromVersion: number): unknown {
   if (!persisted || typeof persisted !== 'object') return persisted;
   const p = persisted as PersistedStore;
+  let out: PersistedStore = p;
   if (fromVersion < 2) {
-    const settings = { ...(p.settings ?? {}) } as Partial<GameSettings>;
+    const settings = { ...(out.settings ?? {}) } as Partial<GameSettings>;
     if (typeof settings.trackId !== 'string') settings.trackId = 'buddh';
-    return { ...p, settings };
+    out = { ...out, settings };
   }
-  return persisted;
+  if (fromVersion < 3) {
+    // v3: best-lap keys gained the track id prefix; every pre-existing lap was set on Buddh.
+    const records = out.records as { bestLaps?: Record<string, number> } | undefined;
+    if (records && typeof records === 'object' && records.bestLaps && typeof records.bestLaps === 'object') {
+      out = { ...out, records: { ...records, bestLaps: migrateBestLapKeys(records.bestLaps) } };
+    }
+  }
+  return out === p ? persisted : out;
 }

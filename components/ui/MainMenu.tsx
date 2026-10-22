@@ -8,8 +8,11 @@ import { DEFAULT_SETTINGS, formatLapTime, type GameSettings } from '@/lib/game/g
 import { recordKey, useGameStore } from '@/lib/game/store';
 import { ControlsPanel } from './ControlsPanel';
 import { SettingsPanel } from './SettingsPanel';
-import { COMPOUNDS, COMPOUND_ORDER, LAP_RECORD, MODE_NAMES, WEATHER_LABEL, useMounted } from './format';
+import { COMPOUNDS, COMPOUND_ORDER, MODE_NAMES, WEATHER_LABEL, useMounted } from './format';
 import { Field, Seg, Slider } from './kit';
+import { TrackPreview } from './TrackPreview';
+import { trackCatalog } from '@/lib/game/track';
+import { parseRecordKey } from '@/lib/game/records';
 
 const Showroom = dynamic(() => import('./Showroom'), {
   ssr: false,
@@ -53,7 +56,9 @@ export function MainMenu() {
 
   const race = s.mode === 'race';
   const setLivery = (patch: Partial<Livery>) => set({ livery: { ...s.livery, ...patch } });
-  const bestKey = recordKey(s.mode, s.weather);
+  const bestKey = recordKey(s.trackId, s.mode, s.weather);
+  const catalog = trackCatalog();
+  const trackInfo = catalog.find((t) => t.id === s.trackId) ?? catalog[0];
   const best = mounted ? records.bestLaps[bestKey] : undefined;
 
   return (
@@ -63,26 +68,30 @@ export function MainMenu() {
           <span className="l-flag" aria-hidden="true" />
           <div>
             <h1>Buddh GP</h1>
-            <p>Formula racing · Buddh International Circuit</p>
+            <p>Formula racing · {trackInfo.name}</p>
           </div>
         </div>
         <div className="l-track">
-          <img src="/svg/buddh_circuit_clean.svg" alt="" className="l-track-img" />
+          <TrackPreview trackId={trackInfo.id} className="l-track-svg" />
           <dl>
             <div>
               <dt>Length</dt>
-              <dd>5.125 km</dd>
+              <dd>{(trackInfo.lengthM / 1000).toFixed(3)} km</dd>
             </div>
-            <div>
-              <dt>Turns</dt>
-              <dd>16</dd>
-            </div>
-            <div>
-              <dt>Lap record</dt>
-              <dd>
-                {formatLapTime(LAP_RECORD.time)} <small>{LAP_RECORD.driver.split(' ')[1]} {LAP_RECORD.year}</small>
-              </dd>
-            </div>
+            {trackInfo.turns !== undefined && (
+              <div>
+                <dt>Turns</dt>
+                <dd>{trackInfo.turns}</dd>
+              </div>
+            )}
+            {trackInfo.lapRecord && (
+              <div>
+                <dt>Lap record</dt>
+                <dd>
+                  {formatLapTime(trackInfo.lapRecord.time)} <small>{trackInfo.lapRecord.driver.split(' ')[1]} {trackInfo.lapRecord.year}</small>
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
       </header>
@@ -122,6 +131,11 @@ export function MainMenu() {
           <div className="l-body">
             {tab === 'Setup' && (
               <>
+                {catalog.length > 1 && (
+                  <Field label="Circuit">
+                    <Seg<string> label="Circuit" value={s.trackId} options={catalog.map((t) => ({ value: t.id, label: t.name }))} onChange={(v) => set({ trackId: v })} />
+                  </Field>
+                )}
                 {race && (
                   <>
                     <Field label="Laps" value={String(s.totalLaps)}>
@@ -250,10 +264,12 @@ export function MainMenu() {
                 {mounted && Object.keys(records.bestLaps).length === 0 && <p className="m-empty">Set a lap in Time Trial or Practice to see it here.</p>}
                 {mounted &&
                   Object.entries(records.bestLaps).map(([key, t]) => {
-                    const [mode, weather] = key.split(':');
+                    const { trackId, mode, weather } = parseRecordKey(key);
+                    const trackName = catalog.find((t) => t.id === trackId)?.name ?? trackId;
                     return (
                       <div key={key} className="m-lap">
                         <span>
+                          {catalog.length > 1 ? `${trackName} · ` : ''}
                           {MODE_NAMES[mode as GameMode] ?? mode} · {WEATHER_LABEL[weather as WeatherType] ?? weather}
                         </span>
                         <b>{formatLapTime(t)}</b>

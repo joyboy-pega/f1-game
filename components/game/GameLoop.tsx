@@ -34,8 +34,8 @@ function handleEvent(e: SimEvent) {
       break;
     case 'lap':
       if (e.carId === pid) {
-        if (world.settings.mode !== 'race') st.submitLap(recordKey(world.settings.mode, world.settings.weather), e.time);
-        if (world.settings.mode === 'timetrial' && e.personalBest) ghostRecorder.commit(world.settings.weather);
+        if (world.settings.mode !== 'race') st.submitLap(recordKey(world.settings.trackId, world.settings.mode, world.settings.weather), e.time);
+        if (world.settings.mode === 'timetrial' && e.personalBest) ghostRecorder.commit(world.settings.trackId, world.settings.weather);
         toast({
           id: `lap-${e.lap}`,
           type: e.overallBest ? 'fastest' : 'lap',

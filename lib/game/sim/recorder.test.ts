@@ -70,7 +70,7 @@ describe('ghost storage', () => {
       data[o + 3] = 0.3; // a
       data[o + 7] = i > 45 ? 1 : 0; // drs
     }
-    return { weather: 'sunny', lapTime: 2.97, n, data };
+    return { trackId: 'buddh', weather: 'sunny', lapTime: 2.97, n, data };
   };
 
   it('survives a serialise / parse round trip', () => {

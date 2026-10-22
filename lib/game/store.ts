@@ -14,7 +14,7 @@ import {
 } from './gameState';
 
 export interface Records {
-  /** Best lap per mode+weather key, e.g. "timetrial:sunny". */
+  /** Best lap per track+mode+weather key, e.g. "buddh:timetrial:sunny" (see records.ts). */
   bestLaps: Record<string, number>;
   racesStarted: number;
   racesFinished: number;
@@ -24,9 +24,7 @@ export interface Records {
 
 const EMPTY_RECORDS: Records = { bestLaps: {}, racesStarted: 0, racesFinished: 0, wins: 0, podiums: 0 };
 
-export function recordKey(mode: GameMode, weather: string) {
-  return `${mode}:${weather}`;
-}
+export { recordKey } from './records';
 
 interface GameStore {
   settings: GameSettings;
