@@ -187,41 +187,6 @@ export function TrackProps() {
     });
   }, []);
 
-  // ---- trees (instanced) ----
-  const trees = useMemo(() => {
-    const rand = rng(5);
-    const count = Math.floor(320 * density);
-    const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.6, 2.4, 14, 6), new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.95 }), count);
-    const crown = new THREE.InstancedMesh(new THREE.ConeGeometry(9, 26, 7), new THREE.MeshStandardMaterial({ roughness: 0.85 }), count);
-    trunk.castShadow = crown.castShadow = true;
-    const dummy = new THREE.Object3D();
-    const col = new THREE.Color();
-    let n = 0;
-    for (let k = 0; k < count * 2 && n < count; k++) {
-      const f = rand() * N;
-      const side: 1 | -1 = rand() < 0.5 ? 1 : -1;
-      const idx = wrapIdx(f);
-      const d = WALL + 90 + rand() * 420;
-      // keep clear of the garages and the grandstands
-      const pitZone = side === PIT_SIDE && (idx >= PIT_LANE.entryIdx - 40 || idx <= PIT_LANE.exitIdx + 40);
-      const standZone = plan.some((s) => side === s.side && ((idx - wrapIdx(s.from) + N) % N) < s.count + 10 && d < s.d0 + 120);
-      if (pitZone || standZone) continue;
-      const [x, z] = place(f, side * d);
-      const sc = 0.8 + rand() * 0.9;
-      dummy.position.set(x, 7 * sc, z);
-      dummy.scale.setScalar(sc);
-      dummy.updateMatrix();
-      trunk.setMatrixAt(n, dummy.matrix);
-      dummy.position.set(x, 7 * sc + 20 * sc, z);
-      dummy.updateMatrix();
-      crown.setMatrixAt(n, dummy.matrix);
-      col.setHSL(0.27 + rand() * 0.06, 0.45, 0.17 + rand() * 0.1);
-      crown.setColorAt(n, col);
-      n++;
-    }
-    trunk.count = crown.count = n;
-    return { trunk, crown };
-  }, [density, plan]);
 
   // ---- floodlight towers (night) ----
   const towers = useMemo(() => {
@@ -336,8 +301,6 @@ export function TrackProps() {
         </mesh>
       ))}
 
-      <primitive object={trees.trunk} />
-      <primitive object={trees.crown} />
       <primitive object={hills} />
 
       {/* floodlights */}
