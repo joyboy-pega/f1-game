@@ -8,6 +8,8 @@
 
 import * as THREE from 'three';
 import { consumeCameraShake } from '@/lib/game/fx/shake';
+import { CAR_SCALE } from '@/lib/game/constants';
+import { COCKPIT_EYE as MODEL_COCKPIT_EYE, NOSE_CAM as MODEL_NOSE_CAM, TCAM as MODEL_TCAM } from '@/components/game/car/dimensions';
 
 export type RigMode = 'chase' | 'tcam' | 'cockpit' | 'hood' | 'intro';
 
@@ -26,11 +28,13 @@ export interface RigCar {
   drsOpen: boolean;
 }
 
-// TODO(merge): align with car/dimensions.ts (COCKPIT_EYE, NOSE_CAM, TCAM) once the new car model lands.
-// All in world units (car local metres x CAR_SCALE = 11.5); `fwd` is along the car heading.
-export const COCKPIT_EYE = { fwd: 3.0, h: 9.8 };
-export const NOSE_CAM = { fwd: 24, h: 4.6 };
-export const TCAM = { back: 5, h: 15.5 };
+// Anchors come from the car model (car/dimensions.ts, car-local model units: [x lateral, y up, z forward]) so the
+// camera sits where the cockpit really is. Converted to world units with CAR_SCALE; `fwd` is along the car heading.
+// CAR_ROOT_Y is the car group's height above the ground (F1Car places it at y = 0.05).
+const CAR_ROOT_Y = 0.05;
+export const COCKPIT_EYE = { fwd: MODEL_COCKPIT_EYE[2] * CAR_SCALE, h: MODEL_COCKPIT_EYE[1] * CAR_SCALE + CAR_ROOT_Y };
+export const NOSE_CAM = { fwd: MODEL_NOSE_CAM[2] * CAR_SCALE, h: MODEL_NOSE_CAM[1] * CAR_SCALE + CAR_ROOT_Y };
+export const TCAM = { back: -MODEL_TCAM[2] * CAR_SCALE, h: MODEL_TCAM[1] * CAR_SCALE + CAR_ROOT_Y };
 
 const G = 98.1; // 1 g in world units/s^2 (1 unit = 0.1 m)
 const UP = new THREE.Vector3(0, 1, 0);
