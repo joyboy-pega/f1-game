@@ -177,21 +177,27 @@ export function createInitialCarState(idx: number = 0, lateral: number = 0): Car
 }
 
 /** New tyres: zero wear, cool (they warm up on track). */
-export function fitFreshTires(car: CarPhysicsState, startingTemp: number = TIRE_CONFIG.startTemperature) {
+/**
+ * Fit a new set. With `compound`, the starting grip follows the temperature (cold new tyres are NOT at full grip);
+ * without it the legacy 1.0 is kept for callers that do not know the compound.
+ */
+export function fitFreshTires(car: CarPhysicsState, startingTemp: number = TIRE_CONFIG.startTemperature, compound?: TyreCompound) {
+  const cmp = compound ? TYRE_COMPOUNDS[compound] : null;
+  const startGrip = cmp ? tempGrip(startingTemp, cmp.tempWindow) * wearGrip(0) * cmp.baseGrip : 1.0;
   const keys: (keyof Pick<TiresState, 'fl' | 'fr' | 'rl' | 'rr'>)[] = ['fl', 'fr', 'rl', 'rr'];
   for (const k of keys) {
     const t = car.tires[k];
     t.temp = startingTemp;
     t.wear = 0.0;
-    t.grip = 1.0;
+    t.grip = startGrip;
     t.slip = 0.0;
     t.load = 1.0;
   }
   car.tires.avgTemp = startingTemp;
   car.tires.avgWear = 0.0;
-  car.tires.frontGrip = 1.0;
-  car.tires.rearGrip = 1.0;
-  car.tires.overallGrip = 1.0;
+  car.tires.frontGrip = startGrip;
+  car.tires.rearGrip = startGrip;
+  car.tires.overallGrip = startGrip;
 }
 
 export function isCarInDrsZone(idx: number): boolean {

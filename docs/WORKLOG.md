@@ -313,3 +313,33 @@ root's 0.05 (F1Car places the group at y = 0.05). Derived world values (hand-com
 - The street-car variant (`STREET_*` anchors in dimensions.ts) is not used by the rig; the rig does not know the car model.
   Left as is (not in S4's scope).
 - Motion/feel of the cameras; stills only.
+
+---
+
+## 2026-10-22 — S7 small cleanups (branch `v3/S7-cleanups`)
+
+**Files:** `lib/game/fx/emission.ts` (+test), `lib/game/physics.ts`, `lib/game/sim/pit.ts`, `lib/game/constants.ts`, new `lib/game/physics.test.ts`.
+
+**Changes**
+1. **Launch smoke.** `rearSlip`'s launch term was `(1 - kmh/70) * 0.6` for any car with throttle > 0.8 below 70 km/h: every car threw a 0.6 plume
+   at the start. The plan's suggested gate (real rear slip) is impossible before V2 because `wheelSlipRear` only reflects braking in the kinematic
+   model, so it is now a light, short heuristic: `(1 - kmh/45) * 0.3` (max 0.3 at standstill, below CarFx's 0.14 threshold from ~25 km/h).
+   Marked in the code as interim until V2.
+2. **B9 / fresh tyres.** `fitFreshTires(car, temp, compound?)`: with a compound the starting grip is `tempGrip(temp) × wearGrip(0) × baseGrip`
+   instead of a flat 1.0. `pit.ts` passes `pit.fit`. Without the argument the old behaviour is kept. This is the grip *start value* only; the existing
+   10/s grip smoothing still converges to the temperature target as before. The wetness factor is not applied at fit time (converges within ~0.3 s).
+3. **Legacy `TIRE_CONFIG` keys** (`temperatureGainRate`, `temperatureCoolingRate`, `brakeHeatingScalar`, `corneringHeatingScalar`, `driftHeatingScalar`,
+   `wheelspinHeatingScalar`) removed. Repo-wide grep (lib, components, app, scripts): the only other mention is `legacy/test_tire_physics.js`, a
+   standalone file with its own copy of the config and no imports.
+
+**Evidence**
+- Tests: `emission.test.ts` +1 (launch puff ≤ 0.3, > 0.25 at 5 km/h, < 0.14 by 25 km/h, 0 without throttle); new `physics.test.ts` 3 tests (cold fresh
+  tyres below full grip = `tempGrip(65) × baseGrip`, hotter set starts higher, legacy no-compound path unchanged). `npm test` **69/69**.
+- Golden hash `9c69d82f` **unchanged** (the golden race has no pit stops, so the B9 change cannot show there — stated, not proven for pit races).
+- typecheck clean, build OK; all shoots `errors: []`.
+
+**NOT VERIFIED**
+- Launch smoke visually. My before/after shots (`shots/S7-before.png`, `S7-after.png`, `S7b-*-3.png`) were taken at the wrong moment (3.7 s after the start, or
+  with the player still held), so they do not show the plume in either build; the harness cannot time the first second after lights out. Earlier
+  shots from before the change (e.g. `shots/S3.png`, 5.6 s after the start) show a large white plume behind the pack. Needs a human look at a real start.
+- B9 in an actual pit stop (no pit-stop test exists; `race.test.ts` has pit tests but none asserts grip). The effect is a sub-second grip dip after a stop.

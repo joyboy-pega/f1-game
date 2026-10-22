@@ -201,13 +201,6 @@ export const TIRE_CONFIG = {
   driftWearMultiplier: 1.5,
   lockupWearMultiplier: 2.2,
   offTrackHeatingBonus: 1.40,
-  // Legacy keys (kept for UI/legacy readers)
-  temperatureGainRate: 1.0,
-  temperatureCoolingRate: 0.03,
-  brakeHeatingScalar: 14.0,
-  corneringHeatingScalar: 7.0,
-  driftHeatingScalar: 6.0,
-  wheelspinHeatingScalar: 5.0,
 };
 
 export type WetClass = 'slick' | 'inter' | 'wet';

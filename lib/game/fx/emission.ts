@@ -5,8 +5,10 @@ import type { CarPhysicsState } from '../physics';
 export function rearSlip(p: CarPhysicsState, throttle: number): number {
   const drift = p.isDrifting ? p.driftIntensity : 0;
   const brake = p.wheelSlipRear * 0.85;
-  // Launch / low-speed power oversteer. Only counts when properly on the throttle.
-  const spin = throttle > 0.8 && p.kmh < 70 && p.kmh > 3 ? (1 - p.kmh / 70) * 0.6 : 0;
+  // Launch puff. The kinematic model has no real wheelspin signal (wheelSlipRear only reflects braking), so this stays a
+  // heuristic: a short, light puff (max 0.3 at a standstill, gone by ~25 km/h against CarFx's 0.14 threshold) instead of
+  // the old 0.6 plume every car threw at the start (PLAN-v3 S7). Replace with real rear slip once vehicle v2 (V2) lands.
+  const spin = throttle > 0.8 && p.kmh < 45 && p.kmh > 3 ? (1 - p.kmh / 45) * 0.3 : 0;
   return Math.min(1, Math.max(drift, brake, spin));
 }
 

@@ -27,4 +27,18 @@ describe('fx emission', () => {
     expect(sprayStrength(210)).toBeCloseTo(0.5, 1);
     expect(sprayStrength(400)).toBe(1);
   });
+
+  it('launch puff is light and short (S7): max 0.3 at a standstill, none by 40 km/h or without throttle', () => {
+    const p = createInitialCarState(0, 0);
+    p.kmh = 5;
+    expect(rearSlip(p, 1)).toBeLessThanOrEqual(0.3);
+    expect(rearSlip(p, 1)).toBeGreaterThan(0.25);
+    p.kmh = 40;
+    expect(rearSlip(p, 1)).toBeLessThan(0.05);
+    p.kmh = 5;
+    expect(rearSlip(p, 0.5)).toBe(0);
+    // CarFx only emits above a 0.14 slip threshold: the puff dies out before ~25 km/h
+    p.kmh = 25;
+    expect(rearSlip(p, 1)).toBeLessThan(0.14);
+  });
 });
