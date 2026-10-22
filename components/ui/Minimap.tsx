@@ -5,9 +5,9 @@ import { N, PIT_LANE, SECTOR_BOUNDS, trackSplinePoints } from '@/lib/game/consta
 import { useTicker } from '@/lib/game/useTicker';
 import { world } from '@/lib/game/sim/world';
 
-const W = 216;
-const H = 150;
-const PAD = 14;
+const W = 320;
+const H = 215;
+const PAD = 16;
 const DPR = 2;
 const SECTOR_COLORS = ['#ffb800', '#b36bff', '#00e5ff'];
 
@@ -43,21 +43,30 @@ function drawStatic(): HTMLCanvasElement {
     }
   };
 
+  // Outer border / highlight for high visibility against dark backgrounds
   path(0, N);
   ctx.closePath();
-  ctx.strokeStyle = '#05070b';
-  ctx.lineWidth = 8;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+  ctx.lineWidth = 11;
   ctx.stroke();
 
+  // Dark asphalt track bed
+  path(0, N);
+  ctx.closePath();
+  ctx.strokeStyle = '#12151c';
+  ctx.lineWidth = 8.5;
+  ctx.stroke();
+
+  // Sectors in vibrant F1 broadcast neon colors
   const [s1, s2] = SECTOR_BOUNDS;
   [[0, s1], [s1, s2], [s2, N]].forEach(([a, b], k) => {
     path(a, b);
     ctx.strokeStyle = SECTOR_COLORS[k];
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4.2;
     ctx.stroke();
   });
 
-  // pit lane
+  // Pit lane
   ctx.beginPath();
   const pitCount = (PIT_LANE.exitIdx - PIT_LANE.entryIdx + N) % N;
   for (let k = 0; k <= pitCount; k += 3) {
@@ -65,16 +74,27 @@ function drawStatic(): HTMLCanvasElement {
     if (k === 0) ctx.moveTo(px(p[0]), py(p[1]));
     else ctx.lineTo(px(p[0]), py(p[1]));
   }
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([2, 2]);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([3, 3]);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // start / finish tick
+  // Start / finish tick perpendicular to the track
   const p0 = trackSplinePoints[0];
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(px(p0[0]) - 1, py(p0[1]) - 5, 2, 10);
+  const p1 = trackSplinePoints[1];
+  const dx = px(p1[0]) - px(p0[0]);
+  const dy = py(p1[1]) - py(p0[1]);
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  ctx.beginPath();
+  ctx.moveTo(px(p0[0]) - nx * 7, py(p0[1]) - ny * 7);
+  ctx.lineTo(px(p0[0]) + nx * 7, py(p0[1]) + ny * 7);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
   return cv;
 }
 
@@ -97,29 +117,50 @@ export function Minimap() {
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(bg, 0, 0, W, H);
 
+    // AI & competitor cars
     for (const car of world.cars) {
       if (car.isPlayer) continue;
+      const cx = px(car.phys.x);
+      const cy = py(car.phys.y);
       ctx.beginPath();
-      ctx.arc(px(car.phys.x), py(car.phys.y), car.inPit ? 2.4 : 3.6, 0, Math.PI * 2);
+      ctx.arc(cx, cy, car.inPit ? 3.2 : 4.6, 0, Math.PI * 2);
       ctx.fillStyle = car.driver.livery.body;
       ctx.fill();
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
       ctx.strokeStyle = '#05070b';
       ctx.stroke();
     }
+
+    // Player car with glowing halo for instant recognition
     const me = world.player.phys;
+    const mx = px(me.x);
+    const my = py(me.y);
+
     ctx.beginPath();
-    ctx.arc(px(me.x), py(me.y), 5.4, 0, Math.PI * 2);
+    ctx.arc(mx, my, 9.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(200, 255, 46, 0.35)';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(mx, my, 6, 0, Math.PI * 2);
     ctx.fillStyle = '#c8ff2e';
     ctx.fill();
     ctx.lineWidth = 2;
-    ctx.strokeStyle = '#000';
+    ctx.strokeStyle = '#000000';
     ctx.stroke();
   });
 
   return (
     <div className="h-root">
-      <div className="h-minimap" aria-hidden="true">
+      <div className="h-minimap" aria-label="Track Minimap">
+        <div className="h-minimap-head">
+          <span className="h-minimap-name">BUDDH INTL CIRCUIT</span>
+          <div className="h-minimap-sec">
+            <span style={{ color: SECTOR_COLORS[0] }}>S1</span>
+            <span style={{ color: SECTOR_COLORS[1] }}>S2</span>
+            <span style={{ color: SECTOR_COLORS[2] }}>S3</span>
+          </div>
+        </div>
         <canvas ref={ref} width={W * DPR} height={H * DPR} style={{ width: W, height: H }} />
       </div>
     </div>
