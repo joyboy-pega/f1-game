@@ -398,6 +398,10 @@ therefore ≈ 1.111 (plan: ≈ 1.081), and the `0.37 → 0.36` change should be 
 - `isCarInDrsZone` in physics.ts is now a thin wrapper over `isInDrsZone`.
 - A second track cannot be selected yet (T4), so switching tracks at runtime is covered only by unit tests of the caches / `setActiveTrack`.
 
+**Sim cost after T1** (12 cars, 30 s sim, wall ms per simulated second, three runs): **6.85 / 6.71 / 6.82**, down from ≈ 10.1 at the S5 baseline
+(≈ 33 % faster). I did not isolate the cause; the likely one is Float64Array reads replacing `[number, number][]` tuple lookups in
+`findNearestTrackPoint` / `arcPosition` (the string-keyed `trackCache` lookups did not show up as a cost). New §11.4 reference: ≈ 6.8 ms per
+simulated second for 12 cars.
+
 **NOT VERIFIED**
-- Behaviour with a second track (none exists). Hot-path cost of `trackCache` lookups (a string-keyed Map `get` per call in penalties/drs/pit/racing line):
-  the sim benchmark was not re-run after T1 — see the S5 baseline (~10 ms per simulated second, 12 cars) and compare next session.
+- Behaviour with a second track (none exists).
