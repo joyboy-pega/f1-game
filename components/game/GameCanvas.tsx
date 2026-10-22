@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -15,6 +15,7 @@ import { Environment } from './Environment';
 import { Effects } from './Effects';
 import { GameLoop } from './GameLoop';
 import { DevStats } from './DevStats';
+import { AdaptiveQuality } from './AdaptiveQuality';
 import { AudioBridge } from './AudioBridge';
 // The composer pulls in the whole postprocessing library: load it after the scene is up.
 const PostFX = dynamic(() => import('./fx/PostFX').then((m) => m.PostFX), { ssr: false });
@@ -30,23 +31,23 @@ import { ReplayDirector } from './replay/ReplayDirector';
  *  - simulation bridge: <GameLoop/> (must stay mounted)
  */
 export function GameCanvas() {
-  const quality = useGameStore((s) => s.quality);
-  const perf = QUALITY_PRESETS[quality];
-  const post = perf.postTier !== 'off';
+  // The Canvas is created once per session and never remounted for a quality change: resolution is adjusted live by
+  // <AdaptiveQuality/> and tiers (shadows, particles, foliage, post) react through the store. Only the initial
+  // resolution is read here; MSAA is off at every tier (SMAA runs inside the composer; LOW has no AA by design),
+  // and PostFX switches renderer tone mapping off while its composer is mounted.
+  const initialDpr = useRef(QUALITY_PRESETS[useGameStore.getState().quality].pixelRatio).current;
+  const shadows = QUALITY_PRESETS[useGameStore((s) => s.quality)].shadows;
 
   return (
     <div className="relative w-full h-full select-none overflow-hidden bg-slate-900">
-      {/* gl options are fixed at context creation, so the composer on/off switch remounts the Canvas:
-          MSAA only when no composer runs (SMAA replaces it), and tone mapping lives in exactly one place. */}
       <Canvas
-        key={post ? 'post' : 'plain'}
-        shadows={perf.shadows}
-        dpr={perf.pixelRatio}
+        shadows={shadows}
+        dpr={initialDpr}
         camera={{ position: [0, 30, -100], fov: 65, near: 0.5, far: 14000 }}
         gl={{
-          antialias: !post,
+          antialias: false,
           powerPreference: 'high-performance',
-          toneMapping: post ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping,
+          toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.1,
         }}
       >
@@ -63,6 +64,7 @@ export function GameCanvas() {
           <PostFX />
         </Suspense>
         <GameLoop />
+        <AdaptiveQuality />
         <DevStats />
         <AudioBridge />
       </Canvas>

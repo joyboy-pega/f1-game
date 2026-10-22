@@ -219,3 +219,63 @@ showed the start lights. I noticed because the numbers were identical across sce
 - Camera feel change: the rig now receives smoother yaw input; I looked at stills only, not motion.
 - The ghost car and the pit-lane takeover path have no dedicated test (ghost is non-interpolated by construction; the teleport
   guard covers pit takeover if it jumps > 6 m).
+
+---
+
+## 2026-10-22 — S3 governor without remounts, dynamic resolution, leak fix (branch `v3/S3-governor`)
+
+**Files:** `lib/game/performance.ts` (governor rewrite), new `components/game/AdaptiveQuality.tsx`, `components/game/GameCanvas.tsx`,
+`components/game/GameLoop.tsx`, `components/game/RacingGame.tsx`, `components/game/TrackProps.tsx`, `lib/game/devStats.ts`,
+`components/game/DevStats.tsx`, new `lib/game/performance.test.ts`, new `scripts/quality-cycle.mjs`.
+
+**Changes**
+- B3: the Canvas `key` is gone. `gl` is created once (`antialias: false`, ACES tone mapping; PostFX already swaps to
+  NoToneMapping while its composer is mounted and restores it on unmount). Consequence, as the plan accepted: LOW has no MSAA/SMAA.
+- P3: `AdaptiveQuality` wraps drei `PerformanceMonitor` (symbols verified in `node_modules`: `onIncline/onDecline/onChange`,
+  `factor`, `step`, `bounds`) and calls `setDpr(dprFor(tier, factor))`. Step 0.2, starts at factor 1, hysteresis 45/58 fps
+  (55/100 above 100 Hz). Resolution floor = 0.6 × tier resolution (`DPR_FLOOR_RATIO`, tuned, not measured).
+- Tiers: the governor drops a tier only after the resolution sat on its floor 5 s, restores only after 20 s at the ceiling
+  (never above the start tier), and never changes tier within 30 s. 5 s warm-up after mount is ignored.
+- **Deviation from the plan:** the plan says `flipflops={3}` + `onFallback`. I read drei's source: `flipped` increments on EVERY
+  incline/decline trigger, not on direction reversals, so `flipflops={3}` would lock adaptation after four consecutive
+  declines. I count real direction reversals myself (3 within 60 s → stop adapting and settle on MEDIUM) and left drei's
+  `flipflops` at its default.
+- AUTO only. A manual `settings.quality` pins the tier at its full resolution.
+- Shadow state on tier change: shadow maps are freed only when the map size changes, materials are refreshed only when shadows
+  toggle (a first version refreshed every material on every change and forced needless recompiles).
+- One source of truth: the `formula_v_quality` localStorage key is no longer read or written by the governor. On boot
+  `migrateLegacyQualityKey` folds it into `settings.quality` once (only if that is still AUTO) and deletes it.
+  `performanceGovernor.recordFrame/getFps/isManual` and GameLoop's 1 s quality mirror were removed (grep: no other users).
+- B8: trees are built once at full density (320); density sets `mesh.count` to a prefix (the placement loop consumes the RNG in
+  order, so lower density is exactly a prefix). Tree and hill meshes are disposed on unmount (`<primitive>` objects are not
+  disposed by R3F). Crowd meshes are declarative, so R3F already disposes them; they are still rebuilt on a density change
+  (cost, not a leak) — left alone.
+- Dev hooks (same gate as stats): `window.__BUDDH_DEV__.setQuality`, and `canvasMounts` / `contextLosses` in the stats object.
+
+**Evidence** (`node scripts/quality-cycle.mjs --cycles 10`: HIGH → MEDIUM → LOW → HIGH … → HIGH through the real store path)
+
+| | canvas mounts | context losses | geometries | textures | programs |
+|---|---|---|---|---|---|
+| After (this change) | 1 → **1** | 0 → 0 | 88 → **88** | 57 → **57** | 67 → 89 (then flat from the second cycle) |
+| Before (old `key` re-added temporarily, same script) | 1 → **7** | 0 → 0 | 88 → 81 | 57 → 50 | 67 → 42 |
+
+- 10 switches: 0 remounts after vs 6 before. Geometry and texture counts return exactly. Programs grow by ~22 once (cached
+  tone-mapping / shadow variants, so first entry into LOW and back pays a one-time compile) and stay at 89.
+  The "before" row is a reconstruction (I restored the keyed Canvas in the working tree for one run, then reverted), not the
+  literal old commit, because the probe needs the new dev hook.
+- Screenshots from that run: `shots/S3-HIGH-before.png` and `shots/S3-HIGH-after.png` look identical (shadows on the road,
+  bloom, colour grade); `shots/S3-LOW.png` shows no shadows, flatter colour, jagged crowd edges (no AA at LOW, by design).
+- Tests: `performance.test.ts` 11 tests (dpr mapping and clamp; decline hold; 30 s gap; LOW floor; incline hold and ceiling;
+  manual pin; **oscillation 5-minute simulation → exactly 1 tier change then locked on MEDIUM** (the old governor flapped);
+  dips spread over minutes do not lock; migration valid / garbage / absent / throwing storage). `npm test` **65/65**;
+  golden hash unchanged. typecheck and build clean.
+- Gate screenshot `shots/S3.png` (`--wait 9000 --hold ArrowUp:3000`): `fps 60`, `errors: []`, 189 draws, dpr 1.3, tier HIGH;
+  chase cam at 211 km/h, tower, minimap, launch smoke ahead.
+
+**NOT VERIFIED**
+- Live AUTO adaptation under real load. I tried a CPU throttle (`--adapt`): at 8× frames stayed 17–20 ms (the cost is in the
+  software GPU, not JS), so nothing declined; a 30× run was not performed (interrupted by the human). Logic is covered by the unit
+  tests only; headless software GL also cannot say how a real GPU behaves.
+- First-time shader-compile hitch when entering LOW/back on real hardware (programs 67 → 89, measured only as a count).
+- Mobile/touch behaviour, and the settings-panel quality control (the hook bypasses the UI; same store path `setSettings`).
+- The plan's P3 asks "never more than once per 30 s" and "≥ 5 s": enforced and unit-tested, not observed in a browser.

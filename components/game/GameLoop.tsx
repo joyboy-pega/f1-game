@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { controls } from '@/lib/game/controls';
-import { performanceGovernor } from '@/lib/game/performance';
 import { formatLapTime } from '@/lib/game/gameState';
 import { useGameStore, recordKey } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
@@ -94,7 +93,6 @@ function handleEvent(e: SimEvent) {
 
 export function GameLoop() {
   const hudTimer = useRef(0);
-  const qualityTimer = useRef(0);
 
   useEffect(() => {
     const unsubscribe = world.events.subscribe(handleEvent);
@@ -104,9 +102,8 @@ export function GameLoop() {
     };
   }, []);
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     const dt = Math.min(0.1, delta);
-    performanceGovernor.recordFrame(dt, state.clock.elapsedTime * 1000);
 
     const st = useGameStore.getState();
     const input = controls.poll();
@@ -138,13 +135,6 @@ export function GameLoop() {
     if (hudTimer.current >= HUD_INTERVAL) {
       hudTimer.current = 0;
       st.setHud(world.buildHud());
-    }
-
-    qualityTimer.current += dt;
-    if (qualityTimer.current >= 1) {
-      qualityTimer.current = 0;
-      const q = performanceGovernor.getSettings().level;
-      if (q !== st.quality) st.setQuality(q);
     }
   });
 
