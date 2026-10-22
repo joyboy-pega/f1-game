@@ -11,7 +11,7 @@ import { createInitialCarState, findNearestTrackPoint, updateCarPhysics, type Ca
 import { getRacingLine } from '../lib/game/sim/racingLine';
 
 const DT = 1 / 120; // the sim's fixed step
-const M_PER_UNIT = KMH_PER_UNIT / 3.6; // physics.ts: kmh = vf * 0.37, so 1 unit/s = 0.37 km/h = 0.10278 m/s (1 unit = 0.10278 m for speeds)
+const M_PER_UNIT = KMH_PER_UNIT / 3.6; // 1 unit = 0.1 m (units.ts)
 const G = 9.81; // m/s^2
 
 const T = track.current;

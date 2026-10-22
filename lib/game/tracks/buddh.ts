@@ -11,8 +11,8 @@ export const buddhMeta: TrackMeta = {
   id: 'buddh',
   name: 'Buddh Circuit',
   country: 'India',
-  // 46 110.9 world units at UNITS_PER_M = 10. (The S6 probe's 4739 m used 0.10278 m/unit from the 0.37 speed factor; the two
-  // scales disagree by 2.8 %, see units.ts.) The real circuit is 5125 m: T2 rescales.
+  // 46 110.9 world units at UNITS_PER_M = 10 (the earlier 4739 m figure came from the old 0.37 speed factor, see units.ts).
+  // The real circuit is 5125 m: T2 rescales.
   lengthM: 4611.092,
   direction: 'cw',
   widthM: 13, // TW = 130 world units
