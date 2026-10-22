@@ -7,6 +7,7 @@
 //     [--wait 6000] [--hold ArrowUp:4000] [--press KeyC] [--shots 3] [--interval 1500]
 //     [--width 1440] [--height 900] [--mobile] [--settings '<json patch of GameSettings>']
 //   e.g. --settings '{"quality":"LOW"}' pins a tier (the governor is otherwise AUTO and adapts at runtime).
+//   --no-shot: skip the PNG (console errors, fps and stats only).
 //   Add ?stats=1 to the URL on a production build to get window.__BUDDH_STATS__ (always on in `npm run dev`).
 //
 // Steps run in order: wait -> (hold/press actions) -> shots.
@@ -109,7 +110,7 @@ const fps = await page.evaluate(
 const stats = await page.evaluate(() => window.__BUDDH_STATS__ ?? null);
 
 const files = [];
-for (let s = 0; s < shots; s++) {
+for (let s = 0; s < (flag('no-shot') ? 0 : shots); s++) {
   const f = `${out}${shots > 1 ? `-${s + 1}` : ''}.png`;
   await page.screenshot({ path: f });
   files.push(f);

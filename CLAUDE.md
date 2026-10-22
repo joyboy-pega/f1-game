@@ -18,7 +18,7 @@ History of how the current game was built: `docs/PLAN.md` (v2).
 - `lib/game/store.ts` (zustand) holds settings (persisted), records, phase, the 10 Hz `hud` snapshot, toasts, results.
   Never push per-frame data into the store.
 - Player and AI cars share `updateCarPhysics` (`lib/game/physics.ts`); AI differ only in that `sim/ai.ts` writes their `ctrl`.
-- World units: 1 unit ≈ 0.1 m; `kmh = vf * 0.37`; track spline `trackSplinePoints` (N=1920), arc length `cumulativeS`.
+- World units: 1 unit ≈ 0.1 m; `kmh = vf * 0.36` (`lib/game/units.ts`); track spline `trackSplinePoints` (N=1920), arc length `cumulativeS`.
   Ground plane is XZ: world (x, y) of the sim maps to three.js (x, *, z=y). Car heading: `rotation.y = PI/2 - phys.a`.
 - Scene composition lives in `components/game/GameCanvas.tsx`; keep edits there additive.
 - Reuse geometry/materials across cars; per-car only livery textures.

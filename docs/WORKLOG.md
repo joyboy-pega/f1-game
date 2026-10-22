@@ -405,3 +405,35 @@ simulated second for 12 cars.
 
 **NOT VERIFIED**
 - Behaviour with a second track (none exists).
+
+---
+
+## 2026-10-22 — U1 unit-scale alignment (branch `v3/U1-unit-alignment`; requested by the human after T1)
+
+**Decision (human, "do the track scale alignment"):** one scale everywhere, 1 unit = 0.1 m. `KMH_PER_UNIT` is now `3.6 / UNITS_PER_M = 0.36`
+(was 0.37 in physics/pit/AI; audio, camera, track metadata already used 0.1 m). Overrides the §12.2 note that deferred this to T2/V2.
+User also asked to stop taking screenshots from here on (they verify visuals); gates now use `shoot.mjs --no-shot` (new flag: errors/fps/stats only).
+
+**Files:** `lib/game/units.ts`, `lib/game/tracks/buddh.ts` (comment), `scripts/probe-physics.ts`, `scripts/shoot.mjs`, `CLAUDE.md` (`kmh = vf * 0.36`),
+`lib/game/sim/world.test.ts` (+1 test).
+
+**Effect (measured, `npm run probe`):** same motion, speeds read 2.7 % lower; track length 4611 m (was reported 4739 m).
+| | before (0.37) | after (0.36) |
+|---|---|---|
+| 0-100 / 0-200 km/h | 0.44 / 1.22 s | 0.46 / 1.27 s |
+| top speed no DRS / DRS / DRS+ERS | 289 / 353 / 377 | 281 / 343 / 367 |
+| 288 (now 280) → 80 braking | 0.30 s, 16 m | 0.30 s, 16 m |
+| lateral g 100 / 200 / 300 | 5.07 / 9.64 / 11.80 | 5.03 / 9.55 / 11.61 |
+| gears reached / max rpm | 7 / 10 979 | 7 / 10 999 |
+| racing-line lap estimate | 66.4 s | 66.4 s |
+| track length | 4739 m | 4611 m |
+Gear and rpm are derived from displayed km/h, hence the small shifts. Lap-time estimate is unchanged (it works in units).
+The pit limiter now converts 80 km/h with 0.36: the limit in units/s rises 2.7 % (222 vs 216 units/s before the 3 % margin) so that it is still 80 km/h on the HUD.
+
+**Evidence:** golden hash **`9c69d82f` unchanged** (the golden race has no pit stops and nothing in the physics feeds back from `kmh`).
+New test: an AI car forced to pit stays ≤ 83.2 km/h (80 × 1.04) in the `approach`/`service`/`depart` stages and does complete the stop
+(the `enter` stage deliberately takes over at race speed). `npm test` **83/83**, typecheck, build OK; `shoot --no-shot` on the dev server: `errors: []`, fps 60.
+
+**NOT VERIFIED:** visuals / HUD speed readout / pit-lane feel (the human checks). The camera rig's own `98.1` constant is untouched (it equals `G_UNITS`).
+
+**For T2:** Buddh is 4611.1 m, so the scale to 5125 m is **1.1115**.

@@ -180,3 +180,35 @@ describe('GameWorld track selection', () => {
     expect(w.cars).toHaveLength(1);
   });
 });
+
+describe('pit lane speed limit (units)', () => {
+  it('an AI car in the pit lane stays under the 80 km/h limit once it is limited, and the stop completes', () => {
+    const w = new GameWorld();
+    w.seed = 4242;
+    w.setup(raceSettings({ totalLaps: 3, aiCount: 3 }));
+    autopilotPlayer(w);
+    const car = w.cars.find((c) => !c.isPlayer)!;
+    car.pitRequest = true;
+    let maxKmh = 0;
+    let pitSeen = false;
+    let exited = false;
+    w.events.subscribe((e) => {
+      if (e.type === 'pitExit' && e.carId === car.id) exited = true;
+    });
+    run(w, 300, () => {
+      if (car.pit) {
+        pitSeen = true;
+        // 'enter' takes the car over at race speed and brakes it down; the limiter applies from 'approach' on.
+        if (car.pit.stage === 'approach' || car.pit.stage === 'service' || car.pit.stage === 'depart') {
+          maxKmh = Math.max(maxKmh, car.phys.kmh);
+        }
+      }
+      return exited && !car.pit;
+    });
+    expect(pitSeen).toBe(true);
+    expect(exited).toBe(true);
+    // the controller aims 3 % under the limit; allow a little overshoot on entry
+    expect(maxKmh).toBeLessThan(80 * 1.04);
+    expect(maxKmh).toBeGreaterThan(40); // it did drive down the lane at limiter speed
+  });
+});
