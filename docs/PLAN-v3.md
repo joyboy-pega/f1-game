@@ -698,7 +698,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 | 2 | S5 allocation-free + golden + determinism tests | — | M | ✅ 1e9e9ee |
 | 3 | S6 measurement harness + baseline | — | M | ✅ 2c76980 |
 | 4 | S2 render interpolation | S1 | S | ✅ 40d0036 |
-| 5 | S3 governor / DPR / leaks | S6 | M | ⏳ |
+| 5 | S3 governor / DPR / leaks | S6 | M | 🟡 c5e05ae (live AUTO adaptation under load NOT VERIFIED) |
 | 6 | S4 camera anchors | — | S | ⏳ |
 | 7 | S7 small cleanups | — | S | ⏳ |
 | 8 | T1 TrackRuntime extraction (bit-identical) | S5 | L | ⏳ |
