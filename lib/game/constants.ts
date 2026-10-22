@@ -151,18 +151,18 @@ export const DRS_CONFIG = {
   ] as DrsZone[],
 };
 
-// Controlled Braking & Brake Balance
+// Controlled Braking & Brake Balance: high-speed downforce bite tapering down to realistic mechanical grip
 export const BRAKE_CONFIG = {
   maxBrakeForce: 2150,
-  brakeResponse: 8.5,
-  brakeReleaseRate: 14.0,
+  brakeResponse: 6.2,
+  brakeReleaseRate: 12.0,
   defaultBias: 0.56,
   minBias: 0.45,
   maxBias: 0.70,
   biasStep: 0.01,
   reverseMaxSpeed: -120,
-  reverseAccel: 450,
-  reverseDelay: 0.16,
+  reverseAccel: 380,
+  reverseDelay: 0.28,
   highSpeedAeroFactor: 0.35,
   lowSpeedCutoff: 1.5,
 };

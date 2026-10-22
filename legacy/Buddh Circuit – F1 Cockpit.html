@@ -1597,17 +1597,17 @@ const DRS_CONFIG = {
 // TUNABLE CONTROLLED BRAKING & BRAKE BALANCE CONFIGURATION
 // ==========================================================================
 const BRAKE_CONFIG = {
-  maxBrakeForce: 2150,            // Base peak deceleration force at 100% brake pedal
-  brakeResponse: 8.5,             // Pedal application ramp-up rate (units/s)
-  brakeReleaseRate: 14.0,         // Pedal release ramp-down rate (units/s)
+  maxBrakeForce: 350,             // Realistic F1 peak mechanical braking force
+  brakeResponse: 5.8,             // Progressive pedal ramp-up rate
+  brakeReleaseRate: 11.0,         // Smooth pedal release rate
   defaultBias: 0.56,              // Initial front brake bias (56% Front / 44% Rear)
   minBias: 0.45,                  // 45% Front bias minimum limit
   maxBias: 0.70,                  // 70% Front bias maximum limit
   biasStep: 0.01,                 // 1% per keypress adjustment
   reverseMaxSpeed: -120,          // Peak reverse velocity
-  reverseAccel: 450,              // Reverse acceleration rate
-  reverseDelay: 0.16,             // Brief stationary deadband before shifting to reverse
-  highSpeedAeroFactor: 0.35,      // Downforce braking assistance multiplier at top speed
+  reverseAccel: 380,              // Reverse acceleration rate
+  reverseDelay: 0.32,             // Brief stationary deadband before shifting to reverse
+  highSpeedAeroFactor: 0.55,      // Downforce braking assistance multiplier at top speed
   lowSpeedCutoff: 1.5,            // Low speed threshold for smooth exponential stop
   userBrakeForceMultiplier: (function(){
     const s = localStorage.getItem('formula_v_brake_force');

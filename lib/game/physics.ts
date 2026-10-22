@@ -454,8 +454,20 @@ export function updateCarPhysics(
 
   // Deceleration calculation
   const configuredMaxForce = BRAKE_CONFIG.maxBrakeForce * brakeForceMultiplier;
-  const requestedBrakeDecel = configuredMaxForce * car.brakeInput * aeroBrakeMult;
-  const availableBrakeTraction = configuredMaxForce * 1.2 * surfaceGripFactor * car.tires.overallGrip;
+
+  // Realistic aerodynamic downforce scaling:
+  // At high speed (~300+ km/h), massive downforce generates immense tire load and braking power.
+  // As speed drops, downforce decreases with v^2, tapering deceleration down to realistic mechanical grip
+  // so the car doesn't instantly snap to a dead stop at low and medium speeds.
+  const speedRatio = Math.min(1.0, Math.max(0, vf) / 680);
+  const downforceFactor = speedRatio * speedRatio;
+  const speedDecelScale = 0.52 + 0.48 * downforceFactor;
+
+  // Progressive pedal feel for natural threshold modulation
+  const progressivePedal = Math.pow(car.brakeInput, 1.25);
+
+  const requestedBrakeDecel = configuredMaxForce * progressivePedal * aeroBrakeMult * speedDecelScale;
+  const availableBrakeTraction = configuredMaxForce * 1.2 * surfaceGripFactor * car.tires.overallGrip * Math.max(0.5, speedDecelScale);
   const actualBrakeDecel = Math.min(requestedBrakeDecel, availableBrakeTraction);
   car.actualBrakeForce = actualBrakeDecel;
 
