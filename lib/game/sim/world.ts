@@ -1,5 +1,5 @@
 import { DRIVER_ROSTER, MAX_AI_CARS, HW, type TyreCompound } from '../constants';
-import { DEFAULT_TRACK_ID, hasTrack, setActiveTrack, track } from '../track';
+import { DEFAULT_TRACK_ID, isTrackLoaded, setActiveTrack, track } from '../track';
 import { NEUTRAL_CONTROLS, type ControlState } from '../controls';
 import {
   DEFAULT_SETTINGS,
@@ -139,7 +139,8 @@ export class GameWorld {
   setup(settings: GameSettings) {
     this.settings = settings;
     // Everything below (grid, cars, timing) is built against the active track, so switch it first.
-    setActiveTrack(hasTrack(settings.trackId) ? settings.trackId : DEFAULT_TRACK_ID);
+    // (A lazy track must have been loaded with ensureTrack first; otherwise fall back to the default.)
+    setActiveTrack(isTrackLoaded(settings.trackId) ? settings.trackId : DEFAULT_TRACK_ID);
     // The ONLY Math.random in sim code (R6): picks a fresh seed when the caller did not supply one.
     this.rand = makeRng(this.seed ?? Math.floor(Math.random() * 4294967296));
     this.raceId++;

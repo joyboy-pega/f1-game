@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getTrack, indexAtM, setActiveTrack, track, trackCache } from './index';
+import { ensureTrack, getTrack, indexAtM, isTrackLoaded, setActiveTrack, track, trackCache, trackCatalog, trackOutline } from './index';
+import { registerLazyTrackForTests } from './registry';
 
 describe('Buddh TrackRuntime', () => {
   const rt = getTrack('buddh');
@@ -64,5 +65,51 @@ describe('active track', () => {
     const get = trackCache((rt) => ({ n: rt.N, builds: ++builds }));
     expect(get()).toBe(get());
     expect(builds).toBe(1);
+  });
+});
+
+describe('catalog and lazy loading', () => {
+  it('lists Buddh with lobby facts without building anything', () => {
+    const b = trackCatalog().find((t) => t.id === 'buddh')!;
+    expect(b.name).toBe('Buddh Circuit');
+    expect(b.lengthM).toBe(5125);
+    expect(b.turns).toBe(16);
+  });
+
+  it('ensureTrack resolves bundled tracks immediately and loads a lazy module once', async () => {
+    expect(await ensureTrack('buddh')).toBe(getTrack('buddh'));
+    let loads = 0;
+    const buddh = getTrack('buddh');
+    registerLazyTrackForTests({ id: 'lazytest', name: 'Lazy', country: 'X', lengthM: 1 }, async () => {
+      loads++;
+      return { meta: { ...buddh.meta, id: 'lazytest', name: 'Lazy' }, controlPoints: Array.from({ length: 32 }, (_, i) => [Math.cos(i / 5) * 1000, Math.sin(i / 5) * 1000] as [number, number]) };
+    });
+    expect(isTrackLoaded('lazytest')).toBe(false);
+    expect(() => getTrack('lazytest')).toThrow();
+    const rt = await ensureTrack('lazytest');
+    await ensureTrack('lazytest');
+    expect(loads).toBe(1);
+    expect(isTrackLoaded('lazytest')).toBe(true);
+    expect(rt.meta.id).toBe('lazytest');
+    expect(setActiveTrack('lazytest').meta.id).toBe('lazytest');
+    setActiveTrack('buddh');
+    expect(track.current.meta.id).toBe('buddh');
+    await expect(ensureTrack('nope')).rejects.toThrow();
+  });
+});
+
+describe('trackOutline', () => {
+  it('makes a closed path inside the box with the start marker on it', () => {
+    const o = trackOutline(getTrack('buddh'), 220, 140, 10);
+    expect(o.d.startsWith('M')).toBe(true);
+    expect(o.d.endsWith('Z')).toBe(true);
+    const nums = o.d.match(/-?\d+(\.\d+)?/g)!.map(Number);
+    for (let i = 0; i < nums.length; i += 2) {
+      expect(nums[i]).toBeGreaterThanOrEqual(9.9);
+      expect(nums[i]).toBeLessThanOrEqual(210.1);
+      expect(nums[i + 1]).toBeGreaterThanOrEqual(9.9);
+      expect(nums[i + 1]).toBeLessThanOrEqual(130.1);
+    }
+    expect(o.start.x).toBeGreaterThan(0);
   });
 });

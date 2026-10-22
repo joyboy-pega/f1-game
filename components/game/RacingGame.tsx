@@ -7,7 +7,8 @@ import { controls } from '@/lib/game/controls';
 import { migrateLegacyQualityKey, performanceGovernor } from '@/lib/game/performance';
 import { useGameStore } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
-import { ghostStore, loadGhost } from '@/lib/game/replay/ghost';
+import { ghostStore, loadGhost, migrateLegacyGhostKeys } from '@/lib/game/replay/ghost';
+import { ensureTrack } from '@/lib/game/track';
 import { ReplayControls } from '@/components/ui/ReplayControls';
 import { GameCanvas } from './GameCanvas';
 import { HUD } from '@/components/ui/HUD';
@@ -18,10 +19,17 @@ import { PauseMenu } from '@/components/ui/PauseMenu';
 import { GameOver } from '@/components/ui/GameOver';
 
 /** Build the world from current settings, then bump the session so the scene remounts against it. */
-export function startSession() {
+export async function startSession() {
   const settings = useGameStore.getState().settings;
-  world.setup(settings);
-  ghostStore.set(settings.mode === 'timetrial' ? loadGhost(settings.weather) : null);
+  // Load (and build) the selected circuit before the world is set up against it.
+  try {
+    await ensureTrack(settings.trackId);
+  } catch {
+    useGameStore.getState().setSettings({ trackId: 'buddh' });
+  }
+  const s = useGameStore.getState().settings;
+  world.setup(s);
+  ghostStore.set(s.mode === 'timetrial' ? loadGhost(s.trackId, s.weather) : null);
   useGameStore.getState().newSession();
 }
 
@@ -47,8 +55,10 @@ export function RacingGame() {
       const legacy = migrateLegacyQualityKey(window.localStorage);
       const st = useGameStore.getState();
       if (legacy && st.settings.quality === 'AUTO') st.setSettings({ quality: legacy });
-      startSession();
-      setReady(true);
+      try {
+        migrateLegacyGhostKeys(window.localStorage);
+      } catch {}
+      void startSession().then(() => setReady(true));
     };
     if (useGameStore.persist.hasHydrated()) start();
     else return useGameStore.persist.onFinishHydration(start);
@@ -85,7 +95,7 @@ export function RacingGame() {
     };
   }, []);
 
-  const restart = startSession;
+  const restart = () => void startSession();
   const exit = () => router.push('/');
 
   if (!ready) return null;

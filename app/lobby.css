@@ -74,6 +74,12 @@
   filter: invert(1) brightness(1.4);
   opacity: 0.85;
 }
+.l-track-svg {
+  width: 96px;
+  height: 62px;
+  flex: none;
+  opacity: 0.9;
+}
 .l-track dl {
   display: flex;
   gap: 18px;
@@ -372,7 +378,8 @@
   }
 }
 @media (max-width: 520px) {
-  .l-track-img {
+  .l-track-img,
+  .l-track-svg {
     display: none;
   }
   .l-modes {

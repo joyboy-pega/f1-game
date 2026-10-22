@@ -437,3 +437,35 @@ New test: an AI car forced to pit stays ≤ 83.2 km/h (80 × 1.04) in the `appro
 **NOT VERIFIED:** visuals / HUD speed readout / pit-lane feel (the human checks). The camera rig's own `98.1` constant is untouched (it equals `G_UNITS`).
 
 **For T2:** Buddh is 4611.1 m, so the scale to 5125 m is **1.1115**.
+
+---
+
+## 2026-10-22 — T4 track selection, per-track records and ghosts, lobby (branch `v3/T4-track-selection`)
+
+**Files:** new `lib/game/records.ts`, `lib/game/track/outline.ts`, `components/ui/TrackPreview.tsx`, tests `records.test.ts`, `replay/ghost.test.ts`;
+changed `track/registry.ts`, `track/index.ts`, `storeMigrate.ts` (v3), `store.ts`, `replay/ghost.ts`, `sim/world.ts`, `RacingGame.tsx`, `GameLoop.tsx`,
+`GameOver.tsx`, `MainMenu.tsx`, `app/lobby.css`, `track.test.ts`, `storeMigrate.test.ts`, `recorder.test.ts` (GhostLap gained `trackId`).
+(Human asked for no screenshots: all checks below are tests or DOM/localStorage probes.)
+
+**Changes**
+- Records: `recordKey(trackId, mode, weather)` = `buddh:timetrial:sunny`. Persisted store → **version 3**; `migrateStore` prefixes legacy `<mode>:<weather>` keys with
+  `buddh:` (on a clash the faster lap wins, junk values dropped, input not mutated).
+- Ghosts: key `buddh-gp-ghost:<trackId>:<weather>`, `GhostLap.trackId` (serialised as `k`; a ghost without it is Buddh). `migrateLegacyGhostKeys` renames old keys once
+  (never overwrites a new-style ghost) and runs at game start. `loadGhost(trackId, weather)`, `commit(trackId, weather)`.
+- Registry: static `trackCatalog()` (id, name, country, official length, published turns / lap record) so the lobby lists tracks without loading their modules;
+  `ensureTrack(id)` lazily `import()`s non-bundled tracks (Buddh stays bundled); `isTrackLoaded`; `getTrack` throws for an unloaded lazy track; `world.setup` falls back to
+  Buddh if the track is not loaded. `startSession()` is now async: `await ensureTrack(settings.trackId)` before `world.setup` (unknown id → resets to Buddh).
+- Lobby: the header card shows the selected track (outline generated from its centreline via `trackOutline` → SVG, length, turns, lap record from the catalog); a "Circuit"
+  selector appears in Setup when more than one track is registered; the Records tab shows the track name (when >1 track) and parses new keys. The old static Buddh SVG/facts are gone.
+  New CSS class `.l-track-svg` (the old `.l-track-img` inverted a black SVG; the generated one is light-on-dark).
+- Catalog length for Buddh is the official 5125 m (shown in the lobby) while `buddhMeta.lengthM` is still the as-built 4611 m until T2.
+
+**Evidence**
+- Tests **98/98** (was 83): store migration v2→v3 / v1→v3 / junk, record keys, ghost keys + migration (idempotent, no overwrite, throwing storage), catalog, lazy `ensureTrack`
+  (loaded once, unloaded access throws, unknown id rejects), outline path closed and inside its box. Golden hash unchanged (run in the suite). typecheck + build OK.
+- Browser probe (headless, seeded localStorage with a v2 store `{'timetrial:sunny': 91.234}` and a legacy ghost key): lobby path rendered (2995 chars), facts "5.125 km / 16 /
+  1:27.249 Vettel 2011", stored lap key became `buddh:timetrial:sunny`, store version 3, and after opening `/game` the ghost moved to `buddh-gp-ghost:buddh:sunny`, old key gone.
+  `shoot --no-shot` on `/` and `/game`: `errors: []`.
+
+**NOT VERIFIED (human to look):** how the lobby header/preview and Setup tab look (layout, sizing, colours of the new SVG); the Circuit selector (hidden with one track);
+that records show correctly after switching tracks (only one track exists, so cross-track display is covered by unit tests of the keys, not by a UI run).
