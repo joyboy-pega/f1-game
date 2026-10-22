@@ -144,6 +144,18 @@ function CrowdMesh({ crowd }: { crowd: Crowd }) {
   );
 }
 
+/** Trees at full density (PLAN-v3 S3: quality changes scale `count`, they never rebuild geometry). */
+const TREE_COUNT = 320;
+
+/** Free the geometry, material(s) and instance buffers of instanced meshes we built by hand. */
+function disposeInstanced(...meshes: THREE.InstancedMesh[]) {
+  for (const m of meshes) {
+    m.geometry.dispose();
+    (Array.isArray(m.material) ? m.material : [m.material]).forEach((mat) => mat.dispose());
+    m.dispose();
+  }
+}
+
 export function TrackProps() {
   const L = useLighting();
   const lightsLit = useGameStore((s) => s.lightsLit);
@@ -188,9 +200,11 @@ export function TrackProps() {
   }, []);
 
   // ---- trees (instanced) ----
+  // Built ONCE at full density. The placement loop below consumes the random stream in order, so the instances for a lower
+  // density are exactly a prefix of this list: a quality change just changes `mesh.count` (no new geometry, nothing to leak).
   const trees = useMemo(() => {
     const rand = rng(5);
-    const count = Math.floor(320 * density);
+    const count = TREE_COUNT;
     const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.6, 2.4, 14, 6), new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.95 }), count);
     const crown = new THREE.InstancedMesh(new THREE.ConeGeometry(9, 26, 7), new THREE.MeshStandardMaterial({ roughness: 0.85 }), count);
     trunk.castShadow = crown.castShadow = true;
@@ -220,8 +234,16 @@ export function TrackProps() {
       n++;
     }
     trunk.count = crown.count = n;
-    return { trunk, crown };
-  }, [density, plan]);
+    return { trunk, crown, placed: n };
+  }, [plan]);
+
+  useEffect(() => {
+    // Fewer trees at lower tiers: show a prefix of the placed instances.
+    trees.trunk.count = trees.crown.count = Math.min(trees.placed, Math.floor(TREE_COUNT * density));
+  }, [trees, density]);
+
+  // <primitive> objects are not disposed by R3F: free the GPU resources ourselves.
+  useEffect(() => () => disposeInstanced(trees.trunk, trees.crown), [trees]);
 
   // ---- floodlight towers (night) ----
   const towers = useMemo(() => {
@@ -274,6 +296,8 @@ export function TrackProps() {
     }
     return mesh;
   }, []);
+
+  useEffect(() => () => disposeInstanced(hills), [hills]);
 
   const night = L.nightFactor;
 

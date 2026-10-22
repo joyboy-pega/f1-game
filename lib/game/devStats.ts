@@ -19,16 +19,24 @@ export interface BuddhStats {
   quality: string;
   /** Rendered frames averaged into this snapshot. */
   frames: number;
+  /** How many times a Canvas has mounted in this page (a quality change must not increase it). */
+  canvasMounts: number;
+  /** webglcontextlost events seen in this page. */
+  contextLosses: number;
 }
 
 declare global {
   interface Window {
     __BUDDH_STATS__?: BuddhStats;
+    /** Scripted-test hooks (same gate as the stats). */
+    __BUDDH_DEV__?: { setQuality: (q: 'AUTO' | 'LOW' | 'MEDIUM' | 'HIGH') => void };
   }
 }
 
 export const devStats = {
   enabled: false,
+  canvasMounts: 0,
+  contextLosses: 0,
   simMsSum: 0,
   simFrames: 0,
   addSim(ms: number) {

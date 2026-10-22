@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { audio } from '@/lib/game/audio';
 import { controls } from '@/lib/game/controls';
-import { performanceGovernor } from '@/lib/game/performance';
+import { migrateLegacyQualityKey, performanceGovernor } from '@/lib/game/performance';
 import { useGameStore } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
 import { ghostStore, loadGhost } from '@/lib/game/replay/ghost';
@@ -43,6 +43,10 @@ export function RacingGame() {
   // Wait for persisted settings to hydrate, then start the first session.
   useEffect(() => {
     const start = () => {
+      // The old standalone quality key is folded into settings.quality once, then deleted (one source of truth).
+      const legacy = migrateLegacyQualityKey(window.localStorage);
+      const st = useGameStore.getState();
+      if (legacy && st.settings.quality === 'AUTO') st.setSettings({ quality: legacy });
       startSession();
       setReady(true);
     };

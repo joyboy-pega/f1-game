@@ -15,6 +15,10 @@ export function DevStats() {
   useEffect(() => {
     if (!statsRequested()) return;
     devStats.enabled = true;
+    devStats.canvasMounts++;
+    const onLost = () => devStats.contextLosses++;
+    gl.domElement.addEventListener('webglcontextlost', onLost);
+    window.__BUDDH_DEV__ = { setQuality: (q) => useGameStore.getState().setSettings({ quality: q }) };
     // renderer.render() resets the counters on every call, and the composer renders several passes per frame.
     // Turn autoReset off and reset once per frame ourselves so the totals cover the whole frame.
     gl.info.autoReset = false;
@@ -22,7 +26,9 @@ export function DevStats() {
     return () => {
       gl.info.autoReset = true;
       devStats.enabled = false;
+      gl.domElement.removeEventListener('webglcontextlost', onLost);
       delete window.__BUDDH_STATS__;
+      delete window.__BUDDH_DEV__;
     };
   }, [gl]);
 
@@ -48,6 +54,8 @@ export function DevStats() {
       dpr: gl.getPixelRatio(),
       quality: useGameStore.getState().quality,
       frames: a.frames,
+      canvasMounts: devStats.canvasMounts,
+      contextLosses: devStats.contextLosses,
     };
     a.elapsed = a.frames = a.frameMs = a.calls = a.tris = 0;
     devStats.simMsSum = 0;
