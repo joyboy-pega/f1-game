@@ -279,3 +279,37 @@ showed the start lights. I noticed because the numbers were identical across sce
 - First-time shader-compile hitch when entering LOW/back on real hardware (programs 67 → 89, measured only as a count).
 - Mobile/touch behaviour, and the settings-panel quality control (the hook bypasses the UI; same store path `setSettings`).
 - The plan's P3 asks "never more than once per 30 s" and "≥ 5 s": enforced and unit-tested, not observed in a browser.
+
+---
+
+## 2026-10-22 — S4 one source for camera anchors (branch `v3/S4-camera-anchors`)
+
+**Files:** `lib/game/camera/rig.ts` only.
+
+**Change:** the rig's private `COCKPIT_EYE` / `NOSE_CAM` / `TCAM` literals and the `TODO(merge)` are gone. It imports the model-unit
+anchors from `components/game/car/dimensions.ts` (`[x, y up, z forward]`) and converts with `CAR_SCALE` (11.5); height adds the car
+root's 0.05 (F1Car places the group at y = 0.05). Derived world values (hand-computed, vite-node cannot resolve the `@/` alias):
+
+| anchor | before (fwd/back, h) | after (fwd/back, h) |
+|---|---|---|
+| cockpit eye | fwd 3.0, h 9.8 | fwd 1.38, h 8.56 |
+| nose cam | fwd 24, h 4.6 | fwd 17.25, h 6.03 |
+| T-cam | back 5, h 15.5 | back 3.45, h 11.78 |
+
+**Evidence (R12: same command both times, `--wait 9000 --hold ArrowUp:2000 --press KeyC ×n`; order is chase → tcam → cockpit → hood)**
+- Gates: typecheck clean, `npm test` 65/65, build OK, all shoots `errors: []`.
+- Cockpit before (`shots/S4-before-cam2.png`): camera over the nose, only the front-wing arch visible, no halo.
+  After (`shots/S4-cam2.png`): the halo's front pillar and arch frame the view, front tyres and wing visible either side, camera not inside
+  bodywork.
+- Nose cam before (`shots/S4-before-cam3.png`): empty road, no car part visible. After (`shots/S4-cam3.png`): the nose-cone tip rises at the
+  bottom centre of the frame.
+- T-cam after (`shots/S4-cam1.png`): view from the airbox over the halo, front wings and mirrors; before is `shots/S4-before-cam1.png`
+  (not opened — only the two views that changed most were compared).
+- Chase view is unchanged (it does not use these anchors).
+
+**NOT VERIFIED**
+- The plan asks that the steering wheel be visible in the cockpit view. I cannot confirm it: the frame shows the halo, nose and a dark
+  shape at the bottom centre that may be the wheel top or the dash. Needs a human look or a closer dev-page shot.
+- The street-car variant (`STREET_*` anchors in dimensions.ts) is not used by the rig; the rig does not know the car model.
+  Left as is (not in S4's scope).
+- Motion/feel of the cameras; stills only.
