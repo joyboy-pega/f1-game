@@ -12,6 +12,8 @@ import {
   TIRE_CONFIG,
   TYRE_COMPOUNDS,
   inPitBand,
+  PIT_LANE,
+  COLLISION_CONFIG,
   WeatherType,
   type TyreCompound,
 } from './constants';
@@ -218,7 +220,7 @@ export function findNearestTrackPoint(x: number, y: number, currentIdx: number):
       bi = i;
     }
   }
-  if (bd > 140 * 140) {
+  if (bd > 180 * 180) {
     for (let i = 0; i < N; i += 4) {
       const dx = x - trackSplinePoints[i][0];
       const dy = y - trackSplinePoints[i][1];
@@ -481,8 +483,10 @@ export function updateCarPhysics(
   car.wheelSlipRear = Math.min(1.0, gripSaturation * (biasRear / 0.44) * car.brakeInput);
 
   if (vf > BRAKE_CONFIG.lowSpeedCutoff) {
-    car.isReversing = false;
-    car.stoppedDuration = 0;
+    if (ctrl.throttle > 0.1 || vf > 8) {
+      car.isReversing = false;
+      car.stoppedDuration = 0;
+    }
     vf -= actualBrakeDecel * dt;
     if (vf < 0.2) vf = 0;
   } else if (vf < -BRAKE_CONFIG.lowSpeedCutoff) {
@@ -591,10 +595,13 @@ export function updateCarPhysics(
   // Yaw rotation
   let steerCoeff = weather === 'snow' ? 3.2 : 2.6;
   const ar = Math.abs(vf);
+  const baseTurnFactor = Math.min(ar / 220, 1);
+  const unstickAssist = ar < 15 && (ctrl.throttle > 0.05 || ctrl.brake > 0.05 || car.isReversing) ? 0.35 : 0;
+  const effectiveTurnFactor = Math.max(baseTurnFactor, unstickAssist);
   const baseTurnRate =
-    (car.steer * steerCoeff * steeringSensitivity * car.tires.frontGrip * Math.min(ar / 220, 1)) /
+    (car.steer * steerCoeff * steeringSensitivity * car.tires.frontGrip * effectiveTurnFactor) /
     (1 + ar / 620) *
-    (vf >= 0 ? 1 : -1);
+    (car.isReversing || vf < -1 ? -1 : 1);
   let finalYawRate = baseTurnRate;
 
   if (car.brakeInput > 0.04 && absSteer > 0.03 && vf > 25) {
@@ -640,32 +647,112 @@ export function updateCarPhysics(
   car.vl = vl;
   car.idx = ni;
 
-  // Guard Rail Collision & Bouncing
-  const GUARD_RAIL_MAX = HW + 82;
-  if (d > GUARD_RAIL_MAX) {
-    const pt = trackSplinePoints[ni];
-    const toCenter = [pt[0] - car.x, pt[1] - car.y];
-    const cLen = Math.hypot(toCenter[0], toCenter[1]) || 1;
-    const pen = d - GUARD_RAIL_MAX;
-    car.x += (toCenter[0] / cLen) * pen;
-    car.y += (toCenter[1] / cLen) * pen;
+  // Guard Rail Collision & Bouncing with multi-circle body resolution
+  const GUARD_RAIL_MAX = inPitLane ? (HW + 96) : (HW + 82);
+  const pt = trackSplinePoints[ni];
+  const { offsets, radius, restitution, friction } = COLLISION_CONFIG;
 
-    const velDot = (car.vx * toCenter[0] + car.vy * toCenter[1]) / cLen;
-    if (velDot < 0) {
-      car.vx -= 1.45 * velDot * (toCenter[0] / cLen);
-      car.vy -= 1.45 * velDot * (toCenter[1] / cLen);
+  let maxPen = 0;
+  let pushX = 0;
+  let pushY = 0;
+  let yawTorque = 0;
+
+  for (let k = 0; k < offsets.length; k++) {
+    const off = offsets[k];
+    const cx = car.x + c2 * off;
+    const cy = car.y + s2 * off;
+    const dx = cx - pt[0];
+    const dy = cy - pt[1];
+    const cDist = Math.hypot(dx, dy) || 1;
+    const cNx = dx / cDist;
+    const cNy = dy / cDist;
+    const cPen = (cDist + radius) - GUARD_RAIL_MAX;
+
+    if (cPen > 0) {
+      if (cPen > maxPen) {
+        maxPen = cPen;
+        pushX = -cNx;
+        pushY = -cNy;
+      }
+      const rx = c2 * off;
+      const ry = s2 * off;
+      const fx = -cNx * cPen;
+      const fy = -cNy * cPen;
+      yawTorque += (rx * fy - ry * fx);
     }
-    car.vx *= 0.68;
-    car.vy *= 0.68;
-    car.guardRailSparks = Math.min(1.0, car.guardRailSparks + 0.5);
+  }
+
+  // Also check pit wall between main track and pit lane
+  const pitWallSpan = ((PIT_LANE.exitIdx - 26 - (PIT_LANE.entryIdx + 26)) + N) % N;
+  const pitWallK = (ni - (PIT_LANE.entryIdx + 26) + N) % N;
+  if (pitWallK <= pitWallSpan) {
+    const pitSide = PIT_LANE.side;
+    const wallLat = pitSide * PIT_LANE.wallOffset;
+    for (let k = 0; k < offsets.length; k++) {
+      const off = offsets[k];
+      const cx = car.x + c2 * off;
+      const cy = car.y + s2 * off;
+      const lat = (cx - pt[0]) * nn[0] + (cy - pt[1]) * nn[1];
+      if (inPitLane) {
+        const pen = (wallLat + radius * pitSide) * pitSide - (lat * pitSide);
+        if (pen > 0 && pen > maxPen) {
+          maxPen = pen;
+          pushX = nn[0] * pitSide;
+          pushY = nn[1] * pitSide;
+        }
+      } else {
+        const pen = (lat * pitSide) - (wallLat - radius * pitSide) * pitSide;
+        if (pen > 0 && pen > maxPen) {
+          maxPen = pen;
+          pushX = -nn[0] * pitSide;
+          pushY = -nn[1] * pitSide;
+        }
+      }
+    }
+  }
+
+  if (maxPen > 0) {
+    // 1. Positional correction: move car completely back inside the barrier
+    const corr = maxPen + 0.15;
+    car.x += pushX * corr;
+    car.y += pushY * corr;
+
+    // 2. Yaw deflection kick: naturally deflect heading away/parallel from barrier
+    const yawKick = Math.max(-0.45, Math.min(0.45, yawTorque * 0.004));
+    car.a += yawKick;
+
+    // 3. Velocity resolution: bounce normal velocity with restitution, apply friction to tangent
+    const vn = car.vx * pushX + car.vy * pushY; // pushX/pushY is inward normal
+    if (vn < 0) {
+      const tx = -pushY;
+      const ty = pushX;
+      const vt = car.vx * tx + car.vy * ty;
+      const bounceVn = -restitution * vn;
+      const slideVt = vt * friction;
+      car.vx = bounceVn * pushX + slideVt * tx;
+      car.vy = bounceVn * pushY + slideVt * ty;
+    } else {
+      car.vx *= 0.92;
+      car.vy *= 0.92;
+    }
+
+    // 4. Synchronize local velocities and speedometer
+    const cPost = Math.cos(car.a);
+    const sPost = Math.sin(car.a);
+    vf = car.vx * cPost + car.vy * sPost;
+    vl = -car.vx * sPost + car.vy * cPost;
+    car.vf = vf;
+    car.vl = vl;
+
+    car.guardRailSparks = Math.min(1.0, car.guardRailSparks + 0.4 + maxPen * 0.05);
   } else {
     car.guardRailSparks = Math.max(0, car.guardRailSparks - dt * 3.2);
   }
 
   // Speedometer, Gear & RPM
-  const kmh = Math.abs(vf) * 0.37;
+  const kmh = Math.abs(car.vf) * 0.37;
   car.kmh = kmh;
-  const g = vf < -5 ? 'R' : kmh < 8 ? 'N' : Math.min(8, 1 + Math.floor(kmh / 42));
+  const g = car.vf < -5 ? 'R' : kmh < 8 ? 'N' : Math.min(8, 1 + Math.floor(kmh / 42));
   car.gear = g;
   const inG = typeof g === 'number' ? (kmh - (g - 1) * 42) / 42 : 0;
   car.rpm = typeof g === 'number' ? 5200 + Math.max(0, Math.min(1, inG)) * 5800 : 3900;
@@ -674,5 +761,6 @@ export function updateCarPhysics(
   car.pitch = (car.brakeInput * 0.04) - ctrl.throttle * 0.025;
   car.roll = -(car.steer * 0.05) - (vl * 0.0003);
 
-  return { onTrack, gravel, nearestIdx: ni, nearestDist: d, inPitLane, drsClosedReason };
+  const finalDist = Math.hypot(car.x - pt[0], car.y - pt[1]);
+  return { onTrack, gravel, nearestIdx: ni, nearestDist: finalDist, inPitLane, drsClosedReason };
 }
