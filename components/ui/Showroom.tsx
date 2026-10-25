@@ -6,9 +6,11 @@ import { ContactShadows, Environment, Lightformer, OrbitControls } from '@react-
 import * as THREE from 'three';
 import { F1Car } from '@/components/game/car/F1Car';
 import type { Livery, TyreCompound, VehicleModelType } from '@/lib/game/constants';
+import type { WeatherType } from '@/lib/game/gameState';
 import { createInitialCarState } from '@/lib/game/physics';
 import { makeCar } from '@/lib/game/sim/world';
 import { useGameStore } from '@/lib/game/store';
+import { ShowroomWeather } from './ShowroomWeather';
 
 type PresetId = 'front34' | 'side' | 'cockpit' | 'rear' | 'wheel';
 
@@ -113,11 +115,15 @@ export default function Showroom({
   model,
   livery,
   compound,
+  weather,
 }: {
   model: VehicleModelType;
   livery: Livery;
   compound: TyreCompound;
+  weather?: WeatherType;
 }) {
+  const storeWeather = useGameStore((s) => s.settings.weather);
+  const activeWeather = weather ?? storeWeather;
   const setSettings = useGameStore((s) => s.setSettings);
   const [freeMode, setFreeMode] = useState(false);
   const [activePreset, setActivePreset] = useState<PresetId | null>(null);
@@ -236,12 +242,17 @@ export default function Showroom({
             scale={[20, 20, 1]}
           />
         </Environment>
-        <directionalLight position={[30, 60, 40]} intensity={1.4} />
+        <directionalLight position={[30, 60, 40]} intensity={activeWeather === 'rain' ? 1.05 : 1.4} />
         <mesh rotation-x={-Math.PI / 2} position={[0, -0.05, 0]}>
           <circleGeometry args={[70, 64]} />
-          <meshStandardMaterial color="#171a20" roughness={0.85} metalness={0.1} />
+          <meshStandardMaterial
+            color={activeWeather === 'rain' ? '#0f1218' : activeWeather === 'snow' ? '#181d26' : '#171a20'}
+            roughness={activeWeather === 'rain' ? 0.28 : activeWeather === 'snow' ? 0.72 : 0.85}
+            metalness={activeWeather === 'rain' ? 0.35 : 0.1}
+          />
         </mesh>
         <ContactShadows position={[0, 0.02, 0]} opacity={0.55} scale={90} blur={2.4} far={30} />
+        <ShowroomWeather weather={activeWeather} />
         <Turntable livery={livery} compound={compound} spinning={!freeMode} />
         <CameraController
           freeMode={freeMode}

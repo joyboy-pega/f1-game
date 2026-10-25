@@ -30,15 +30,22 @@ const interval = Number(opt('interval', '1500'));
 const width = Number(opt('width', flag('mobile') ? '390' : '1440'));
 const height = Number(opt('height', flag('mobile') ? '844' : '900'));
 
-const CHROME =
-  process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const defaultChrome = process.platform === 'win32'
+  ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+  : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CHROME = process.env.CHROME_PATH || defaultChrome;
 
 fs.mkdirSync(path.dirname(out) || '.', { recursive: true });
 
 const browser = await chromium.launch({
   executablePath: CHROME,
   headless: true,
-  args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-angle=metal', '--autoplay-policy=no-user-gesture-required'],
+  args: [
+    '--enable-unsafe-swiftshader',
+    '--ignore-gpu-blocklist',
+    ...(process.platform === 'darwin' ? ['--use-angle=metal'] : []),
+    '--autoplay-policy=no-user-gesture-required',
+  ],
 });
 const context = await browser.newContext({
   viewport: { width, height },
@@ -49,7 +56,18 @@ const context = await browser.newContext({
 // Persisted game settings (zustand 'buddh-gp' key) injected before the page boots.
 const settingsJson = opt('settings', null);
 if (settingsJson) {
-  const patch = JSON.parse(settingsJson);
+  let patch;
+  try {
+    patch = JSON.parse(settingsJson);
+  } catch {
+    try {
+      const fixed = settingsJson.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":').replace(/:\s*([a-zA-Z0-9_]+)\s*([,}])/g, ':"$1"$2');
+      patch = JSON.parse(fixed);
+    } catch (e) {
+      console.error('Failed to parse settings JSON:', settingsJson);
+      throw e;
+    }
+  }
   await context.addInitScript((p) => {
     try {
       localStorage.setItem('buddh-gp', JSON.stringify({ state: { settings: p }, version: 1 }));

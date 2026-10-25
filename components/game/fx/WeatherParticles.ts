@@ -10,42 +10,50 @@ import { fxTime } from './ParticlePool';
 const VERT = /* glsl */ `
   attribute vec4 aSeed;
   uniform float uTime;
-  uniform vec3 uCam;
   uniform vec3 uCamVel;
-  uniform vec3 uBox;
   uniform float uFall;
   uniform float uShutter;
   uniform float uSwirl;
-  uniform float uMinWidth;
-  uniform float uWidthPerDist;
+  uniform float uRain;
   varying vec2 vUv;
   varying float vFade;
-  varying float vSeed;
+
   void main() {
-    vec3 p0 = aSeed.xyz * uBox + vec3(0.0, -uFall * uTime, 0.0);
-    p0.xz += uSwirl * vec2(sin(uTime * 0.7 + aSeed.w * 6.28), cos(uTime * 0.55 + aSeed.w * 9.0));
-    vec3 rel = mod(p0 - uCam + 0.5 * uBox, uBox) - 0.5 * uBox;
-    vec3 head = uCam + rel;
-    vec3 rv = vec3(0.0, -uFall, 0.0) - uCamVel;
-    float rl = length(rv);
-    vec3 tail = head - rv * min(uShutter, 40.0 / max(rl, 0.001));
-    vec4 a = viewMatrix * vec4(head, 1.0);
-    vec4 b = viewMatrix * vec4(tail, 1.0);
-    float t = position.y + 0.5;
-    vec3 m = mix(a.xyz, b.xyz, t);
-    vec3 axis = b.xyz - a.xyz;
-    vec3 side = cross(axis, m);
-    float sl = length(side);
-    side = sl > 1e-5 ? side / sl : vec3(1.0, 0.0, 0.0);
-    float dist = length(m);
-    float width = max(uMinWidth, uWidthPerDist * dist) * (0.7 + 0.6 * aSeed.w);
-    m += side * position.x * width;
-    // Near-camera drops would smear across the whole screen; fade them and the far fringe of the box.
-    vFade = smoothstep(6.0, 30.0, dist) * (1.0 - smoothstep(0.38, 0.5, length(rel.xz / uBox.xz)));
-    if (m.z > -0.6) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+    // 3D depth in front of the camera: 6.0 to 20.0 units
+    float dist = 6.0 + aSeed.z * 14.0;
+    float z = -dist;
+
+    // Frustum half-extents at distance dist (FOV ~65 deg)
+    float halfH = dist * 0.62;
+    float halfW = dist * 0.84;
+
+    // Faster fall cycle for rain, gentler drift for snow
+    float fallRate = (uRain > 0.5) ? 1.5 : 0.45;
+    float yCycle = fract(aSeed.y + uTime * fallRate);
+    float y = (1.0 - yCycle * 2.0) * halfH;
+
+    // Wind swirl and horizontal spread
+    float swirl = uSwirl * sin(uTime * 1.5 + aSeed.w * 6.283) * ((uRain > 0.5) ? 0.08 : 0.75);
+    float x = (aSeed.x * 2.0 - 1.0) * halfW + swirl;
+
+    // Streak orientation: slight natural wind tilt + camera motion
+    float windTilt = (uRain > 0.5) ? (0.09 * sin(uTime * 0.4) + 0.05) : 0.0;
+    vec2 dir = normalize(vec2(windTilt, 1.0));
+    vec2 perp = vec2(-dir.y, dir.x);
+
+    // Stretched fine needle streak for rain, round soft flake for snow
+    float w = (uRain > 0.5) ? (0.0022 * dist + 0.022) : (0.015 * dist + 0.08);
+    float len = (uRain > 0.5) ? (0.045 * dist + 0.55) : w;
+
+    vec4 mvPos = vec4(x, y, z, 1.0);
+    mvPos.xy += dir * (position.y * len) + perp * (position.x * w);
+
+    float edgeY = smoothstep(0.0, 0.05, yCycle) * (1.0 - smoothstep(0.95, 1.0, yCycle));
+    float edgeZ = smoothstep(6.0, 8.0, dist) * (1.0 - smoothstep(18.0, 20.0, dist));
+    vFade = edgeY * edgeZ;
+
     vUv = position.xy + 0.5;
-    vSeed = aSeed.w;
-    gl_Position = projectionMatrix * vec4(m, 1.0);
+    gl_Position = projectionMatrix * mvPos;
   }
 `;
 
@@ -55,15 +63,22 @@ const FRAG = /* glsl */ `
   uniform float uRain;
   varying vec2 vUv;
   varying float vFade;
-  varying float vSeed;
+
   void main() {
     vec2 c = vUv * 2.0 - 1.0;
-    float across = 1.0 - abs(c.x);
-    float along = 1.0 - pow(abs(c.y), 3.0);
-    // Rain is brighter at the leading end (uv.y = 0 is the drop head); flakes are uniform soft capsules.
-    float grad = mix(1.0, mix(1.0, 0.25, vUv.y), uRain);
-    float a = pow(across, 1.4) * along * grad * uAlpha * vFade;
-    if (a < 0.004) discard;
+    
+    // Rain: aerodynamic streak with bright core
+    float rainAcross = 1.0 - pow(abs(c.x), 2.0);
+    float rainAlong = 1.0 - pow(abs(c.y), 2.5);
+    float rainAlpha = max(0.0, rainAcross * rainAlong);
+
+    // Snow: fluffy round snowflake
+    float r = length(c);
+    float snowAlpha = smoothstep(1.0, 0.2, r);
+
+    float a = mix(snowAlpha, rainAlpha, uRain) * uAlpha * vFade;
+    if (a < 0.01) discard;
+
     gl_FragColor = vec4(uColor, a);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -94,26 +109,26 @@ export class WeatherParticles {
     g.setAttribute('aSeed', new THREE.InstancedBufferAttribute(seed, 4));
     this.geometry = g;
     const rain = kind === 'rain';
-    this.baseColor = rain ? new THREE.Color(0.72, 0.8, 0.92) : new THREE.Color(1, 1, 1);
+    this.baseColor = rain ? new THREE.Color(0.85, 0.92, 1.0) : new THREE.Color(1, 1, 1);
     this.material = new THREE.ShaderMaterial({
       uniforms: {
         uTime: fxTime,
-        uCam: { value: new THREE.Vector3() },
         uCamVel: { value: this.camVel },
-        uBox: { value: rain ? new THREE.Vector3(420, 220, 420) : new THREE.Vector3(360, 200, 360) },
-        uFall: { value: rain ? 95 : 22 },
-        uShutter: { value: rain ? 0.028 : 0.014 },
-        uSwirl: { value: rain ? 0 : 14 },
-        uMinWidth: { value: rain ? 0.05 : 0.35 },
-        uWidthPerDist: { value: rain ? 0.0016 : 0.0032 },
-        uColor: { value: rain ? new THREE.Color(0.72, 0.8, 0.92) : new THREE.Color(1, 1, 1) },
-        uAlpha: { value: rain ? 0.34 : 0.85 },
+        uFall: { value: rain ? 130 : 22 },
+        uShutter: { value: rain ? 0.048 : 0.015 },
+        uSwirl: { value: rain ? 1.5 : 14.0 },
+        uMinWidth: { value: rain ? 0.32 : 0.65 },
+        uWidthPerDist: { value: rain ? 0.016 : 0.025 },
+        uColor: { value: this.baseColor.clone() },
+        uAlpha: { value: rain ? 0.38 : 0.85 },
         uRain: { value: rain ? 1 : 0 },
       },
       vertexShader: VERT,
       fragmentShader: FRAG,
       transparent: true,
       depthWrite: false,
+      depthTest: true,
+      side: THREE.DoubleSide,
     });
     this.mesh = new THREE.Mesh(g, this.material);
     this.mesh.frustumCulled = false;
@@ -122,7 +137,6 @@ export class WeatherParticles {
 
   update(dt: number, cam: THREE.Vector3, light: number) {
     const u = this.material.uniforms;
-    (u.uCam.value as THREE.Vector3).copy(cam);
     if (this.first) {
       this.prevCam.copy(cam);
       this.first = false;
@@ -135,8 +149,8 @@ export class WeatherParticles {
       this.camVel.z += ((cam.z - this.prevCam.z) / dt - this.camVel.z) * k;
     }
     this.prevCam.copy(cam);
-    // Night dims the drops (they would otherwise glow white against a black sky); floodlights keep a floor.
-    (u.uColor.value as THREE.Color).copy(this.baseColor).multiplyScalar(Math.max(0.45, light));
+    // Keep a solid brightness floor so particles catch the light against dark/rainy skies
+    (u.uColor.value as THREE.Color).copy(this.baseColor).multiplyScalar(Math.max(0.65, light));
   }
 
   dispose() {

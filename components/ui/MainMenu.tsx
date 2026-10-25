@@ -89,10 +89,16 @@ export function MainMenu() {
       </header>
 
       <div className="l-grid">
-        <section className="l-stage" aria-label="Your car">
+        <section className={`l-stage ${s.weather === 'rain' ? 'is-rain' : s.weather === 'snow' ? 'is-snow' : ''}`} aria-label="Your car">
           <div className="l-showroom">
-            <Showroom model={s.carModel} livery={s.livery} compound={s.startCompound} />
+            <Showroom model={s.carModel} livery={s.livery} compound={s.startCompound} weather={s.weather} />
           </div>
+          {(s.weather === 'rain' || s.weather === 'snow') && (
+            <div className={`l-weather-pill ${s.weather}`} aria-live="polite">
+              <span className="l-weather-pill-dot" />
+              <span>{s.weather === 'rain' ? '🌧️ Wet Weather Active' : '❄️ Snow Conditions Active'}</span>
+            </div>
+          )}
           <div className="l-stage-cap">
             <span className="l-num">#{s.livery.number}</span>
             <div>
