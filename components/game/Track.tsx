@@ -304,14 +304,14 @@ export function Track() {
   }, []);
 
   const tex = useMemo(() => {
-    const road = getRoadTextures();
+    const road = getRoadTextures(snow);
     const ground = getGrassPlain(snow).clone();
     ground.repeat.set(200, 200);
     ground.needsUpdate = true;
     return {
       road,
       wetRough: getWetRough(),
-      kerb: getKerb(),
+      kerb: getKerb(snow),
       tarmac: getTarmac(),
       grass: getGrassStripes(snow),
       gravel: getGravel(snow),
@@ -322,18 +322,34 @@ export function Track() {
   }, [snow]);
 
   const roadRough = wet > 0.05 ? tex.wetRough : tex.road.rough;
-  const roadTint = new THREE.Color().setScalar(1 - wet * 0.38);
-  const pitTint = new THREE.Color().setScalar(1 - wet * 0.3);
+  const roadTint = snow
+    ? new THREE.Color(0.92, 0.95, 1.0)
+    : new THREE.Color().setScalar(1 - wet * 0.35);
+  const pitTint = snow
+    ? new THREE.Color(0.88, 0.92, 0.98)
+    : new THREE.Color().setScalar(1 - wet * 0.28);
 
   return (
     <group name="track">
       <mesh geometry={g.road} receiveShadow>
-        <meshStandardMaterial map={tex.road.map} roughnessMap={roadRough} roughness={1 - wet * 0.55} metalness={0.05} color={roadTint} envMapIntensity={0.4 + wet * 1.2} />
+        <meshStandardMaterial
+          map={tex.road.map}
+          roughnessMap={roadRough}
+          roughness={Math.max(0.14, 0.92 - wet * 0.74)}
+          metalness={0.05 + wet * 0.22}
+          color={roadTint}
+          envMapIntensity={0.4 + wet * 2.2}
+        />
       </mesh>
 
       {g.kerbs && (
         <mesh geometry={g.kerbs} receiveShadow>
-          <meshStandardMaterial map={tex.kerb} roughness={0.6 - wet * 0.25} side={THREE.DoubleSide} />
+          <meshStandardMaterial
+            map={tex.kerb}
+            roughness={snow ? 0.75 : Math.max(0.18, 0.6 - wet * 0.4)}
+            metalness={wet > 0.5 ? 0.18 : 0}
+            side={THREE.DoubleSide}
+          />
         </mesh>
       )}
 

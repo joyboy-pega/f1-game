@@ -226,7 +226,11 @@ export function TrackProps() {
   // ---- distant hills ring ----
   const hills = useMemo(() => {
     const rand = rng(99);
-    const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshStandardMaterial({ color: '#6a7d62', roughness: 1, fog: true }), 60);
+    const mesh = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(1, 12, 8),
+      new THREE.MeshStandardMaterial({ color: L.snow ? '#e6eff8' : '#6a7d62', roughness: 1, fog: true }),
+      60
+    );
     const dummy = new THREE.Object3D();
     for (let i = 0; i < 60; i++) {
       const a = (i / 60) * Math.PI * 2 + rand() * 0.1;
@@ -238,7 +242,7 @@ export function TrackProps() {
       mesh.setMatrixAt(i, dummy.matrix);
     }
     return mesh;
-  }, []);
+  }, [L.snow]);
 
   const night = L.nightFactor;
 

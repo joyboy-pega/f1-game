@@ -84,33 +84,56 @@ function grain(ctx: CanvasRenderingContext2D, w: number, h: number, amp: number,
 }
 
 // --- asphalt ----------------------------------------------------------------
-/** Racing tarmac, 130 x 512 units per tile: edge lines, tyre-rubber lanes, dust shoulders. */
-export function getRoadTextures() {
-  return cached('road', () => {
+/** Racing tarmac, 130 x 512 units per tile: edge lines, tyre-rubber lanes, dust shoulders, snow dusting. */
+export function getRoadTextures(snow = false) {
+  return cached(`road_${snow}`, () => {
     const W = 512, H = 2048;
     const rand = rng(11);
     const [c, ctx] = mk(W, H);
-    ctx.fillStyle = '#34373c';
+    ctx.fillStyle = snow ? '#42474f' : '#34373c';
     ctx.fillRect(0, 0, W, H);
     for (let i = 0; i < 380; i++) {
       const dark = rand() < 0.55;
       blob(ctx, W, H, rand() * W, rand() * H, 20 + rand() * 110, 20 + rand() * 160, dark ? `rgba(0,0,0,${0.04 + rand() * 0.06})` : `rgba(210,210,215,${0.02 + rand() * 0.035})`);
     }
-    // dusty shoulders where cars rarely run
-    for (const [x0, x1] of [[0, 70], [442, 512]]) {
-      const g = ctx.createLinearGradient(x0, 0, x1, 0);
-      const a = x0 === 0;
-      g.addColorStop(0, a ? 'rgba(150,150,150,0.14)' : 'rgba(150,150,150,0)');
-      g.addColorStop(1, a ? 'rgba(150,150,150,0)' : 'rgba(150,150,150,0.14)');
-      ctx.fillStyle = g;
-      ctx.fillRect(x0, 0, x1 - x0, H);
+
+    if (snow) {
+      // Heavy snow accumulation on the shoulders and outside margins
+      for (const [x0, x1] of [[0, 115], [397, 512]]) {
+        const g = ctx.createLinearGradient(x0, 0, x1, 0);
+        const a = x0 === 0;
+        g.addColorStop(0, a ? 'rgba(235,242,250,0.92)' : 'rgba(235,242,250,0)');
+        g.addColorStop(0.7, a ? 'rgba(225,235,245,0.75)' : 'rgba(225,235,245,0.1)');
+        g.addColorStop(1, a ? 'rgba(235,242,250,0)' : 'rgba(235,242,250,0.92)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x0, 0, x1 - x0, H);
+      }
+      // Snow drifts and frost patches scattered outside the main racing groove
+      for (let i = 0; i < 420; i++) {
+        const x = rand() * W;
+        // Less snow in the primary racing groove
+        const inGroove = Math.abs(x - W * 0.5) < W * 0.18;
+        if (inGroove && rand() > 0.15) continue;
+        blob(ctx, W, H, x, rand() * H, 15 + rand() * 65, 20 + rand() * 95, `rgba(240,246,255,${0.25 + rand() * 0.45})`);
+      }
+    } else {
+      // dusty shoulders where cars rarely run
+      for (const [x0, x1] of [[0, 70], [442, 512]]) {
+        const g = ctx.createLinearGradient(x0, 0, x1, 0);
+        const a = x0 === 0;
+        g.addColorStop(0, a ? 'rgba(150,150,150,0.14)' : 'rgba(150,150,150,0)');
+        g.addColorStop(1, a ? 'rgba(150,150,150,0)' : 'rgba(150,150,150,0.14)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x0, 0, x1 - x0, H);
+      }
     }
-    // rubbered-in lanes
+
+    // rubbered-in lanes (cars clear snow or lay down rubber)
     for (const cx of [0.3, 0.7, 0.5]) {
       const w = cx === 0.5 ? 0.07 : 0.1;
       const g = ctx.createLinearGradient((cx - w) * W, 0, (cx + w) * W, 0);
       g.addColorStop(0, 'rgba(8,8,10,0)');
-      g.addColorStop(0.5, `rgba(8,8,10,${cx === 0.5 ? 0.12 : 0.3})`);
+      g.addColorStop(0.5, `rgba(8,8,10,${cx === 0.5 ? (snow ? 0.35 : 0.12) : (snow ? 0.5 : 0.3)})`);
       g.addColorStop(1, 'rgba(8,8,10,0)');
       ctx.fillStyle = g;
       ctx.fillRect((cx - w) * W, 0, w * 2 * W, H);
@@ -119,7 +142,7 @@ export function getRoadTextures() {
     ctx.fillStyle = 'rgba(236,236,230,1)';
     ctx.fillRect(10, 0, 14, H);
     ctx.fillRect(W - 24, 0, 14, H);
-    const rc = grain(ctx, W, H, 26, rand, 188, 0.5);
+    const rc = grain(ctx, W, H, snow ? 18 : 26, rand, snow ? 150 : 188, 0.5);
     return { map: toTex(c), rough: toTex(rc, { srgb: false }) };
   });
 }
@@ -129,9 +152,15 @@ export function getWetRough() {
     const W = 512, H = 2048;
     const rand = rng(21);
     const [c, ctx] = mk(W, H);
-    ctx.fillStyle = '#a8a8a8';
+    // Base damp tarmac roughness
+    ctx.fillStyle = '#656565';
     ctx.fillRect(0, 0, W, H);
-    for (let i = 0; i < 110; i++) blob(ctx, W, H, rand() * W, rand() * H, 25 + rand() * 60, 40 + rand() * 180, `rgba(10,10,10,${0.5 + rand() * 0.4})`);
+    // Standing water puddles (very dark = mirror-smooth specular reflections)
+    for (let i = 0; i < 160; i++) {
+      const rx = 30 + rand() * 85;
+      const ry = 60 + rand() * 240;
+      blob(ctx, W, H, rand() * W, rand() * H, rx, ry, `rgba(8,8,8,${0.65 + rand() * 0.35})`);
+    }
     return toTex(c, { srgb: false });
   });
 }
@@ -229,8 +258,8 @@ export function getMacroNoise() {
 
 // --- kerbs, walls, fences -----------------------------------------------------
 /** Red/white kerb: u across (14 units), v along (40 units per red+white pair). */
-export function getKerb() {
-  return cached('kerb', () => {
+export function getKerb(snow = false) {
+  return cached(`kerb_${snow}`, () => {
     const W = 64, H = 128;
     const rand = rng(71);
     const [c, ctx] = mk(W, H);
@@ -248,6 +277,15 @@ export function getKerb() {
     for (let i = 0; i < 700; i++) {
       ctx.fillStyle = `rgba(0,0,0,${rand() * 0.12})`;
       ctx.fillRect(rand() * W, rand() * H, 2, 2);
+    }
+    if (snow) {
+      // White snow crust along the outer kerb edge and ridges
+      const sg = ctx.createLinearGradient(0, 0, W, 0);
+      sg.addColorStop(0, 'rgba(240,245,255,0)');
+      sg.addColorStop(0.6, 'rgba(240,245,255,0.4)');
+      sg.addColorStop(1, 'rgba(245,250,255,0.9)');
+      ctx.fillStyle = sg;
+      ctx.fillRect(0, 0, W, H);
     }
     return toTex(c);
   });
