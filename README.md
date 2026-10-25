@@ -103,7 +103,7 @@ Open the HTML files directly in a browser to run them. Some pages load libraries
 
 - **Joy Kujur**
 - **Nirav Thakur**
-- **Advit Patel**
+- **Advait Patil**
 - **Disha Methani**
 
 ## Credits
