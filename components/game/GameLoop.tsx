@@ -102,6 +102,7 @@ export function GameLoop() {
     if (input.telemetryToggleRequested) st.toggleTelemetry();
 
     world.paused = st.paused || !!st.results;
+    world.updateSettings(st.settings);
     world.step(dt, input);
     recorder.capture(world);
     ghostRecorder.capture(world);

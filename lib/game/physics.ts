@@ -276,8 +276,10 @@ export function updateCarPhysics(
   const gravel = !inPitLane && d > HW + 40;
   let drsClosedReason: string | undefined;
 
-  // Steering target (sticks respond faster than digital keys)
-  const steerRate = ctrl.analogSteer ? 20 : 8.5;
+  const sens = Number.isFinite(steeringSensitivity) && steeringSensitivity > 0 ? steeringSensitivity : 1.0;
+
+  // Steering target (sticks respond faster than digital keys, scaled by steering sensitivity)
+  const steerRate = (ctrl.analogSteer ? 20 : 8.5) * sens;
   car.steer += (ctrl.steer - car.steer) * Math.min(1, steerRate * dt);
 
   // Local velocity projection
@@ -599,7 +601,7 @@ export function updateCarPhysics(
   const unstickAssist = ar < 15 && (ctrl.throttle > 0.05 || ctrl.brake > 0.05 || car.isReversing) ? 0.35 : 0;
   const effectiveTurnFactor = Math.max(baseTurnFactor, unstickAssist);
   const baseTurnRate =
-    (car.steer * steerCoeff * steeringSensitivity * car.tires.frontGrip * effectiveTurnFactor) /
+    (car.steer * steerCoeff * sens * car.tires.frontGrip * effectiveTurnFactor) /
     (1 + ar / 620) *
     (car.isReversing || vf < -1 ? -1 : 1);
   let finalYawRate = baseTurnRate;
@@ -619,7 +621,7 @@ export function updateCarPhysics(
     const oversteerYaw = (vl !== 0 ? -Math.sign(vl) : -car.driftDir) * Math.min(1.2, Math.abs(vl) / 120) * DRIFT_CONFIG.oversteerYawRate;
     finalYawRate += oversteerYaw;
     if (isCounterSteer) {
-      finalYawRate += car.steer * 2.2 * steeringSensitivity;
+      finalYawRate += car.steer * 2.2 * sens;
     }
   }
 

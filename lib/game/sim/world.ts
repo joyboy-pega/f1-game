@@ -106,6 +106,10 @@ export class GameWorld {
     return this.settings.mode === 'race';
   }
 
+  updateSettings(patch: Partial<GameSettings>) {
+    this.settings = { ...this.settings, ...patch };
+  }
+
   setup(settings: GameSettings) {
     this.settings = settings;
     this.rand = makeRng(this.seed ?? Math.floor(Math.random() * 4294967296));

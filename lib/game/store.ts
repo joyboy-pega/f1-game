@@ -11,6 +11,7 @@ import {
   type GameMode,
   type CameraViewMode,
 } from './gameState';
+import { world } from './sim/world';
 
 export interface Records {
   /** Best lap per mode+weather key, e.g. "timetrial:sunny". */
@@ -67,16 +68,36 @@ interface GameStore {
 
 const CAMERA_CYCLE: CameraViewMode[] = ['chase', 'tcam', 'cockpit', 'hood'];
 
+const memoryStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+};
+
+function getStorage() {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) return window.localStorage;
+  } catch {
+    // ignore
+  }
+  return memoryStorage;
+}
+
 export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({
       settings: DEFAULT_SETTINGS,
-      setSettings: (patch) =>
+      setSettings: (patch) => {
         set((s) => ({
           settings: { ...s.settings, ...patch },
           ...(patch.showTelemetry !== undefined ? { telemetryOpen: patch.showTelemetry } : {}),
-        })),
-      resetSettings: () => set({ settings: DEFAULT_SETTINGS }),
+        }));
+        world.updateSettings(patch);
+      },
+      resetSettings: () => {
+        set({ settings: DEFAULT_SETTINGS });
+        world.updateSettings(DEFAULT_SETTINGS);
+      },
 
       records: EMPTY_RECORDS,
       submitLap: (key, time) => {
@@ -147,7 +168,7 @@ export const useGameStore = create<GameStore>()(
     {
       name: 'buddh-gp',
       version: 1,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => getStorage()),
       partialize: (s) => ({ settings: s.settings, records: s.records }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<Pick<GameStore, 'settings' | 'records'>>;
@@ -165,6 +186,11 @@ export const useGameStore = create<GameStore>()(
           telemetryOpen: mergedSettings.showTelemetry,
           records: { ...EMPTY_RECORDS, ...p.records },
         };
+      },
+      onRehydrateStorage: () => (state) => {
+        if (state?.settings) {
+          world.updateSettings(state.settings);
+        }
       },
     }
   )

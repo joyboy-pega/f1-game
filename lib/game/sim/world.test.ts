@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, type GameSettings } from '../gameState';
 import { NEUTRAL_CONTROLS } from '../controls';
 import { DRIVER_ROSTER } from '../constants';
-import { GameWorld, FIXED_DT } from './world';
+import { GameWorld, FIXED_DT, world } from './world';
 import { createBrain } from './ai';
+import { createInitialCarState, updateCarPhysics } from '../physics';
+import { useGameStore } from '../store';
 
 function raceSettings(patch: Partial<GameSettings> = {}): GameSettings {
   return { ...DEFAULT_SETTINGS, mode: 'race', totalLaps: 2, aiCount: 5, gridPosition: 3, ...patch };
@@ -103,5 +105,33 @@ describe('GameWorld race session', () => {
     run(w, 400, () => laps.length >= 2);
     expect(laps.length).toBe(2);
     expect(w.player.timing.bestLapTrace).not.toBeNull();
+  });
+
+  it('updates live settings dynamically via updateSettings and store', () => {
+    const w = new GameWorld();
+    w.setup(raceSettings());
+    expect(w.settings.steeringSensitivity).toBe(1.0);
+
+    w.updateSettings({ steeringSensitivity: 1.45 });
+    expect(w.settings.steeringSensitivity).toBe(1.45);
+
+    useGameStore.getState().setSettings({ steeringSensitivity: 0.75 });
+    expect(world.settings.steeringSensitivity).toBe(0.75);
+  });
+
+  it('changes steering response rate and yaw rate when steering sensitivity changes', () => {
+    const lowCar = createInitialCarState(0);
+    const highCar = createInitialCarState(0);
+    const steerRight = { ...NEUTRAL_CONTROLS, steer: 1 };
+    const dt = 1 / 60;
+
+    lowCar.vx = 100;
+    highCar.vx = 100;
+
+    updateCarPhysics(lowCar, steerRight, dt, 'sunny', 0.6);
+    updateCarPhysics(highCar, steerRight, dt, 'sunny', 1.6);
+
+    expect(highCar.steer).toBeGreaterThan(lowCar.steer);
+    expect(highCar.a).toBeGreaterThan(lowCar.a);
   });
 });
