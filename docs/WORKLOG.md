@@ -1263,3 +1263,25 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — Task 35: G5, G7 Car Visuals & Post Stack (branch `main`)
+
+**Files:** `components/game/car/f1Geometry.ts`, `components/game/car/f1Geometry.test.ts`, `components/game/car/livery.ts`, `components/game/fx/PostFX.tsx`, `lib/game/performance.ts`.
+
+**Changes & Acceptance:**
+- **G5: Procedural F1 Silhouette & Liveries:**
+  - 2022+ aerodynamic silhouette: floor edges, sidepod undercut, beam wing, diffuser strakes, halo structure, front/rear wing endplates.
+  - Geometry budget strictly satisfied: **4,452 triangles total** across body (2016), carbon (2188), flap (64), steering wheel (124), and brake light (60) — well under the 10k tris budget.
+  - Livery texture atlas (`livery.ts`): sponsor blocks (`AXON`, `NOVA OIL`, `VOLTEX`, `ZENITH`, etc.), nose roundel and engine cover car number, driver helmet accent coloring.
+  - Unit tests added in `components/game/car/f1Geometry.test.ts`.
+- **G7: Post-Processing Stack & Resolution Scaling:**
+  - PostFX stack: ACES_FILMIC ToneMapping, SMAA, emissive Bloom (with daylight threshold $> 1.1$ and rain boost), Vignette tunnel speed effect (smoothly deepening $> 250$ km/h), and per-weather Color Grade (BrightnessContrast + HueSaturation).
+  - Adaptive resolution scaling (`lib/game/performance.ts`): DPR floor ratio 0.6, adaptive governor lowering resolution before shedding features to maintain 60 fps target.
+
+**Verification:**
+- Test suite: **34/34 test files passed, 241/241 unit tests passed**.
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).
