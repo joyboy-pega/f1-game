@@ -207,18 +207,21 @@ export function isCarInDrsZone(idx: number): boolean {
   return isInDrsZone(idx);
 }
 
-export function findNearestTrackPoint(x: number, y: number, currentIdx: number): [number, number] {
+export function findNearestTrackPoint(x: number, y: number, currentIdx: number, z?: number): [number, number] {
   const T = track.current;
   const N = T.N;
   const px = T.px;
   const py = T.py;
+  const pz = T.pz;
+  const hasZ = z !== undefined && pz && pz.length === N;
   let bi = currentIdx;
   let bd = 1e18;
   for (let k = -30; k <= 30; k++) {
     const i = (currentIdx + k + N) % N;
     const dx = x - px[i];
     const dy = y - py[i];
-    const d = dx * dx + dy * dy;
+    const dz = hasZ ? z - pz[i] : 0;
+    const d = dx * dx + dy * dy + dz * dz * 4;
     if (d < bd) {
       bd = d;
       bi = i;
@@ -228,7 +231,8 @@ export function findNearestTrackPoint(x: number, y: number, currentIdx: number):
     for (let i = 0; i < N; i += 4) {
       const dx = x - px[i];
       const dy = y - py[i];
-      const d = dx * dx + dy * dy;
+      const dz = hasZ ? z - pz[i] : 0;
+      const d = dx * dx + dy * dy + dz * dz * 4;
       if (d < bd) {
         bd = d;
         bi = i;

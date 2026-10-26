@@ -1176,3 +1176,54 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — T6.3–T6.5 Additional Circuits: Silverstone, Spa-Francorchamps, and Suzuka Integration (Task 33)
+
+**Completed Task:**
+- **Task 33 (T6.3–T6.5: Circuit Integrations — Silverstone, Spa, Suzuka):**
+  - **Silverstone Circuit (`lib/game/tracks/silverstone.ts`, `gb-1948.geojson`):**
+    - Official length: 5891 m, 18 turns, 2356 points at 2.5 m spacing.
+    - Official lap record: 1:27.097 (Max Verstappen, 2020).
+    - Variable track width: 13.0 m to 15.0 m across Becketts/Maggotts, Wellington straight, and Copse.
+    - Two authentic DRS zones: Wellington Straight (detection 850 m, activation 1050–1650 m) and Hangar Straight (detection 3950 m, activation 4150–4950 m).
+    - Pit lane on Hamilton Straight (right side, 80 km/h speed limit).
+    - QSS racing line lap time estimate: 99.75 s.
+  - **Circuit de Spa-Francorchamps (`lib/game/tracks/spa.ts`, `be-1925.geojson`):**
+    - Official length: 7004 m, 19 turns, 2802 points at 2.5 m spacing.
+    - Official lap record: 1:46.286 (Valtteri Bottas, 2018).
+    - Authentic 102 m Ardennes roller-coaster elevation change:
+      - Start/finish: 0.0 m baseline.
+      - Eau Rouge bottom compression: -18.0 m.
+      - Raidillon uphill climb and crest summit: +48.0 m.
+      - Kemmel Straight / Les Combes peak: +84.0 m.
+      - Stavelot valley floor: -18.0 m.
+    - Two authentic DRS zones: Kemmel Straight and Main Pit Straight.
+    - QSS racing line lap time estimate: 112.72 s.
+  - **Suzuka International Racing Course (`lib/game/tracks/suzuka.ts`, `jp-1962.geojson`):**
+    - Official length: 5807 m, 18 turns, 2323 points at 2.5 m spacing.
+    - Official lap record: 1:30.983 (Lewis Hamilton, 2019).
+    - Figure-of-eight crossover bridge geometry:
+      - Underpass at index 929 ($s \approx 2322$ m, elevation $z = 8.1$ m).
+      - Overpass bridge at index 1877 ($s \approx 4692$ m, elevation $z = 31.9$ m).
+      - Authentic 23.8 m vertical clearance between bridge deck and underpass.
+    - Height-aware track centreline search (`findNearestTrackPoint` in `lib/game/physics.ts`): incorporates $\Delta z$ vertical separation when $z$ is provided, guaranteeing 0 cross-talk or index jumping between the overpass bridge and underpass.
+    - QSS racing line lap time estimate: 98.51 s.
+  - **Track Registry & Credits (`lib/game/track/registry.ts`, `CREDITS.md`):**
+    - Added Silverstone, Spa, and Suzuka to the track catalog and lazy loader table (`lazyModules`), downloading track geometry on-demand without bloating initial bundle size.
+    - Attributed geometry to Tomislav Bacinger (MIT) and OpenStreetMap contributors in `CREDITS.md`.
+  - **Unit Testing (`lib/game/track/silverstone.test.ts`, `lib/game/track/spa.test.ts`, `lib/game/track/suzuka.test.ts`):**
+    - 13 comprehensive unit tests verifying:
+      1. Official track catalog facts and turn counts.
+      2. TrackRuntime geometry, elevation ranges (102 m on Spa, 40 m on Suzuka, 11 m on Silverstone), and bridge clearance ($> 15$ m on Suzuka).
+      3. Height-aware nearest point search distinguishing bridge from underpass.
+      4. QSS racing line generation and realistic lap time estimates for all 3 circuits.
+      5. Full multi-car headless AI races on all 3 circuits without off-track excursions or crashes.
+
+**Verification:**
+- Full test suite: **32/32 test files passed, 223/223 unit tests passed** (including Silverstone, Spa, and Suzuka tests).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

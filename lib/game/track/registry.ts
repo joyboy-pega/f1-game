@@ -50,12 +50,39 @@ const CATALOG: TrackCatalogEntry[] = [
     turns: 10,
     lapRecord: { time: 65.619, driver: 'Carlos Sainz', year: 2020 },
   },
+  {
+    id: 'silverstone',
+    name: 'Silverstone Circuit',
+    country: 'Great Britain',
+    lengthM: 5891,
+    turns: 18,
+    lapRecord: { time: 87.097, driver: 'Max Verstappen', year: 2020 },
+  },
+  {
+    id: 'spa',
+    name: 'Circuit de Spa-Francorchamps',
+    country: 'Belgium',
+    lengthM: 7004,
+    turns: 19,
+    lapRecord: { time: 106.286, driver: 'Valtteri Bottas', year: 2018 },
+  },
+  {
+    id: 'suzuka',
+    name: 'Suzuka International Racing Course',
+    country: 'Japan',
+    lengthM: 5807,
+    turns: 18,
+    lapRecord: { time: 90.983, driver: 'Lewis Hamilton', year: 2019 },
+  },
 ];
 
 /** Lazy loaders for non-bundled tracks (T6 adds entries like `monza: () => import('../tracks/monza')`). */
 const lazyModules: Record<string, () => Promise<TrackModule>> = {
   monza: () => import('../tracks/monza').then((m) => m.default),
   redbullring: () => import('../tracks/redbullring').then((m) => m.default),
+  silverstone: () => import('../tracks/silverstone').then((m) => m.default),
+  spa: () => import('../tracks/spa').then((m) => m.default),
+  suzuka: () => import('../tracks/suzuka').then((m) => m.default),
 };
 
 const bundled: Record<string, () => TrackRuntime> = {

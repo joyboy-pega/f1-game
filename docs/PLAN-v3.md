@@ -727,7 +727,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 | 30 | R2 qualifying | R1 | M | ✅ |
 | 31 | R3 flags/SC/VSC | A2 | L | ✅ |
 | 32 | R7 dynamic weather | V3 | L | ✅ |
-| 33 | T6.3–T6.5 Silverstone, Spa, Suzuka | T6.2 | M each | ⏳ |
+| 33 | T6.3–T6.5 Silverstone, Spa, Suzuka | T6.2 | M each | ✅ |
 | 34 | R5, R6, R8–R12 | as listed | — | ⏳ |
 | 35 | G5, G7 | — | M | ⏳ |
 | 36 | R13 multiplayer (WebRTC room lobby + sync) | R4, S2 | L | ⏳ |
