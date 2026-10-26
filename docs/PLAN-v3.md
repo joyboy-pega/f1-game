@@ -713,7 +713,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 | 16 | V5 assists | A2 | M | ✅ |
 | 17 | T2 Buddh real scale/width/elevation | T1, V2 | M | ✅ |
 | 18 | T3 3D road surface | T2 | L | ✅ |
-| 19 | V4 real car proportions | V2, T2 | M | ⏳ |
+| 19 | V4 real car proportions | V2, T2 | M | ✅ |
 | 20 | A3 keyboard/controller/remap | V5 | M | ⏳ |
 | 21 | T6.1 Monza | T5, A2 | M | ⏳ |
 | 22 | T6.2 Red Bull Ring | T3, T6.1 | M | ⏳ |

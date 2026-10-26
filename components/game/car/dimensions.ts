@@ -60,3 +60,12 @@ export const PEGASUS_NOSE_CAM: [number, number, number] = [0, 0.44, 1.45];
 export const PEGASUS_TCAM: [number, number, number] = [0, 1.28, -0.36];
 
 export const CAR_HEIGHT = 1.05;
+
+// Car-to-car collision circles in unscaled model units, derived from axle positions and tyre outer bounds.
+export const COLLISION_OFFSETS_UNSCALED = [
+  REAR_AXLE.z,
+  (FRONT_AXLE.z + REAR_AXLE.z) * 0.5 + 0.1,
+  FRONT_AXLE.z + 0.35,
+];
+export const COLLISION_RADIUS_UNSCALED = 0.72;
+

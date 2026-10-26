@@ -23,7 +23,7 @@ interface DifficultyTuning {
 }
 
 export const DIFFICULTY: Record<Difficulty, DifficultyTuning> = {
-  rookie: { pace: 0.895, mistakes: 2.6, ers: 0.4, aggression: 0.6 },
+  rookie: { pace: 0.885, mistakes: 2.6, ers: 0.4, aggression: 0.6 },
   pro: { pace: 1.0, mistakes: 1.0, ers: 0.85, aggression: 1.0 },
   legend: { pace: 1.085, mistakes: 0.45, ers: 1.0, aggression: 1.15 },
 };

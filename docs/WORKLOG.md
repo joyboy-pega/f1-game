@@ -700,3 +700,39 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
 - Visual verification: captured screenshot `shots/T3-game.png.png` using `shoot.mjs`, confirming clean rendering of cars, elevation, grandstands, and track infrastructure without cracks or z-fighting.
+
+---
+
+## 2026-10-27 — V4 real car proportions (5.6m x 2.0m) & dynamic collision geometry (Task 19)
+
+**Completed Task:**
+- **Task 19 (V4: Real Car Proportions & Dynamic Collision Circles):**
+  - **Scale Calibration (`lib/game/constants.ts`):**
+    - Increased `CAR_SCALE` from 11.5 to 14.5.
+    - Model dimensions in `components/game/car/dimensions.ts` span $z \in [-1.55, 2.25]$ (length 3.80 units) and axle width 2.10 units.
+    - At scale 14.5: car length = $3.80 \times 14.5 = 55.1$ world units (5.51 m, authentic 2022+ F1 length ~5.6 m); car width = 2.09 m (authentic ~2.0 m).
+  - **Dynamic Collision Circles (`components/game/car/dimensions.ts`, `lib/game/constants.ts`):**
+    - Exported unscaled collision offsets `COLLISION_OFFSETS_UNSCALED` derived directly from front/rear axle positions: $[z_{\text{rear}}, (z_{\text{front}} + z_{\text{rear}})/2 + 0.1, z_{\text{front}} + 0.35] = [-0.98, 0.06, 1.25]$.
+    - Exported `COLLISION_RADIUS_UNSCALED = 0.72` ($r \times 14.5 = 10.44$ world units, 1.04 m radius, 2.09 m diameter).
+    - `COLLISION_CONFIG` in `constants.ts` derives offsets and radius directly from `dimensions.ts`, eliminating obsolete hardcoded magic numbers.
+  - **Track Markings & Pit Box Rescaling (`components/game/Track.tsx`):**
+    - Grid slot markings updated to $L = 58$ (5.8 m), $W = 28$ (2.8 m), $fwd = 10$ to frame the 5.5 m car cleanly.
+    - Pit box outlines updated to half-length $hl = 30$ (6.0 m box length) and half-width $hwid = 14$ (2.8 m box width).
+  - **Car FX & Camera Tuning (`components/game/fx/CarFx.ts`, `lib/game/camera/rig.ts`):**
+    - Wheel contact points (`WHEELS`) in `CarFx.ts` derived dynamically from `F1_WHEELS` in `dimensions.ts` and `CAR_SCALE`.
+    - Adjusted chase camera distance from 80-106 to 88-116 and height from 30-21 to 32-23 to maintain ideal framing of the larger vehicle body.
+  - **AI Pace & Golden Hash (`lib/game/sim/ai.ts`, `lib/game/sim/golden.test.ts`):**
+    - Tuned `rookie.pace = 0.885` in `ai.ts` to maintain distinct difficulty tiers on the scaled track and car dimensions.
+    - Golden digest hash updated under Rule R5 from `'64ae9da7'` to `'05aa16f7'`.
+
+**Rule R5 Golden Hash Update:**
+- Old hash: `'64ae9da7'`
+- New hash: `'05aa16f7'`
+- **Rationale:** Increased vehicle scale and updated collision circles slightly altered multi-car collision dynamics and overtaking trajectories during the 3-lap, 10-car golden race simulation. Bitwise determinism (R6) confirmed with matching digests across repeated seeded runs.
+
+**Verification:**
+- Full test suite: **16/16 test files passed, 154/154 unit tests passed** (including `golden.test.ts` and `race.test.ts`).
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).
+

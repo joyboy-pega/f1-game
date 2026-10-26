@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { HW } from '@/lib/game/constants';
+import { CAR_SCALE, HW } from '@/lib/game/constants';
+import { F1_WHEELS } from '@/components/game/car/dimensions';
 import { track } from '@/lib/game/track';
 import { surfaceHeight } from '@/lib/game/track/surface';
 import { world } from '@/lib/game/sim/world';
@@ -10,13 +11,12 @@ import type { FxEnv } from '@/lib/game/fx/env';
 import { ParticlePool } from './ParticlePool';
 import { SkidTrails } from './SkidTrails';
 
-// Wheel contact points in car space (world units; car forward = +f, left = +l). Tyre half widths for skid ribbons.
-const WHEELS = [
-  { f: 10.4, l: 9.4, hw: 1.7 }, // FL
-  { f: 10.4, l: -9.4, hw: 1.7 }, // FR
-  { f: -11.3, l: 9.9, hw: 2.2 }, // RL
-  { f: -11.3, l: -9.9, hw: 2.2 }, // RR
-] as const;
+// Wheel contact points in car space (world units; car forward = +f, left = +l) derived from dimensions.ts.
+const WHEELS = F1_WHEELS.map((w) => ({
+  f: w.z * CAR_SCALE,
+  l: w.x * CAR_SCALE,
+  hw: (w.width / 2) * CAR_SCALE,
+}));
 
 // Per-car accumulator slots (Float32Array, no per-frame allocation).
 const A_SMOKE = 0; // 0..3 one per wheel

@@ -234,8 +234,8 @@ function buildPit() {
     const cx = x + nx * boxLat;
     const cz = z + nz * boxLat;
     const baseY = surfaceHeight(idx, boxLat);
-    const hl = 24; // half length along the track
-    const hwid = 12; // half width
+    const hl = 30; // half length along the track (6.0 m for 5.6 m car)
+    const hwid = 14; // half width (2.8 m for 2.0 m car)
     const P = (a: number, b: number, y: number): [number, number, number] => [cx + tx * a + nx * b, y, cz + tz * a + nz * b];
     fills.quad(P(-hl, -hwid, baseY + 0.085), P(hl, -hwid, baseY + 0.085), P(hl, hwid, baseY + 0.085), P(-hl, hwid, baseY + 0.085), [c[0] * 0.55, c[1] * 0.55, c[2] * 0.55, 1]);
     outlines.quad(P(-hl, -hwid, baseY + 0.095), P(hl, -hwid, baseY + 0.095), P(hl, hwid, baseY + 0.095), P(-hl, hwid, baseY + 0.095));
@@ -285,10 +285,10 @@ function buildMarkings() {
     const idx = gridSlotIndex(slot);
     const hw = rt.halfWidth[idx];
     const lat = (slot % 2 === 0 ? -1 : 1) * hw * 0.42;
-    const L = 46;
-    const W = 27;
-    const t = 1.1;
-    const fwd = 8;
+    const L = 58;
+    const W = 28;
+    const t = 1.2;
+    const fwd = 10;
     strip(white, idx, fwd - L / 2, fwd + L / 2, lat - W / 2, lat - W / 2 + t, WHITE);
     strip(white, idx, fwd - L / 2, fwd + L / 2, lat + W / 2 - t, lat + W / 2, WHITE);
     strip(white, idx, fwd - L / 2, fwd - L / 2 + t, lat - W / 2, lat + W / 2, WHITE);

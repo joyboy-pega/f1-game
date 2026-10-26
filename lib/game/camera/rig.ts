@@ -283,14 +283,14 @@ export class CameraRig {
     const yaw = base + this.yawLag + this.lb * Math.PI;
 
     const gLon = clamp(this.accLon / G, -2, 1.5);
-    const dist = lerp(80, 106, sm) + gLon * 9;
-    const h = lerp(30, 21, sm) - Math.abs(gLon) * 0.5;
+    const dist = lerp(88, 116, sm) + gLon * 9;
+    const h = lerp(32, 23, sm) - Math.abs(gLon) * 0.5;
     const tx = -Math.cos(yaw) * dist;
     const tz = -Math.sin(yaw) * dist;
 
     const look = base + this.lb * Math.PI;
-    const lx = Math.cos(look) * 38;
-    const lz = Math.sin(look) * 38;
+    const lx = Math.cos(look) * 42;
+    const lz = Math.sin(look) * 42;
 
     if (!this.chaseSeeded) {
       this.chaseSeeded = true;

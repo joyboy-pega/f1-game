@@ -1,9 +1,11 @@
 // Car / physics configuration. Track geometry and metadata live in lib/game/track (PLAN-v3 T1); the active track is
 // `track.current` from '@/lib/game/track'.
 
+import { COLLISION_OFFSETS_UNSCALED, COLLISION_RADIUS_UNSCALED } from '../../components/game/car/dimensions';
+
 export const TW = 130; // track width (world units); T2 replaces it with per-index widths
 export const HW = TW / 2; // 65
-export const CAR_SCALE = 11.5;
+export const CAR_SCALE = 14.5; // ~5.6 m long, ~2.0 m wide in world units (PLAN-v3 §5.3 V4)
 
 // Vehicle Drift Config
 export const DRIFT_CONFIG = {
@@ -206,10 +208,10 @@ export const WEATHER_ICONS: Record<WeatherType, string> = {
   snow: '❄️',
 };
 
-// Car-to-car collision shape: three circles along the heading.
+// Car-to-car collision shape: three circles along the heading derived from dimensions.ts (PLAN-v3 §5.3 V4).
 export const COLLISION_CONFIG = {
-  offsets: [-1.2, 0.2, 1.5].map((k) => k * CAR_SCALE),
-  radius: 0.75 * CAR_SCALE,
+  offsets: COLLISION_OFFSETS_UNSCALED.map((k) => k * CAR_SCALE),
+  radius: COLLISION_RADIUS_UNSCALED * CAR_SCALE,
   restitution: 0.2,
   friction: 0.25,
   yawGain: 0.0016,
