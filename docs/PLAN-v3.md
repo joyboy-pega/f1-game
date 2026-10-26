@@ -684,6 +684,7 @@ union (`lib/game/sim/events.ts`); toasts/audio subscribe as today.
 | R10 | Car setup (simple) | Front/rear wing (ClA/CdA trade), brake bias default, diff on/off-throttle, ride height (ClA vs bottoming on kerbs), tyre pressures (temp/grip window shift). Presets: low/medium/high downforce. | Each setting moves the probe metric in the expected direction. |
 | R11 | Telemetry | Lap compare chart (speed/throttle/brake vs distance against best lap or ghost) in pause menu; CSV export of laps/sectors. Data from the existing recorder. | CSV format test. |
 | R12 | 2026 ruleset (optional) | Setting "Regulations: 2022–25 / 2026". 2026: no DRS; active aero straight mode on designated straights (lower CdA and ClA); overtake mode within 1 s at detection point (extra electrical energy); min weight 768 kg. See §10.5 sources. Only after V-phase is stable. | Probe: straight-mode top speed gain; overtake-mode eligibility test. |
+| R13 | Multiplayer mode | Real-time online multiplayer over WebRTC DataChannels (host-authoritative room architecture). Room code creation & join via public STUN/signaling channel; host runs 120 Hz deterministic simulation, syncing car snapshots (position, velocity, angle, yaw rate, inputs, lap times, gaps) at 20-30 Hz to peers; client cars rendered via timestamped snapshot interpolation (`interp.ts`); lobby UI with driver/car selection, circuit choice, and ready-check; latency compensation and disconnect graceful fallback to AI. | Packet serialization/deserialization tests; snapshot interpolation jitter test; room state machine tests. |
 
 ---
 
@@ -729,6 +730,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 | 33 | T6.3–T6.5 Silverstone, Spa, Suzuka | T6.2 | M each | ⏳ |
 | 34 | R5, R6, R8–R12 | as listed | — | ⏳ |
 | 35 | G5, G7 | — | M | ⏳ |
+| 36 | R13 multiplayer (WebRTC room lobby + sync) | R4, S2 | L | ⏳ |
 
 Added by the human mid-run: **U1** unit-scale alignment (KMH_PER_UNIT 0.37 → 0.36), ✅ e548d09. Human also asked for no screenshots (they verify visuals), so
 visual acceptance lines are 🟡 until they confirm.
