@@ -964,3 +964,28 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — G4 Lighting & shadows: texel-snapped dynamic shadow camera, circuit sun azimuth rotation, aerial perspective (Task 27)
+
+**Completed Task:**
+- **Task 27 (G4: Lighting & Shadows Pipeline Upgrades):**
+  - **Circuit Sun Azimuth Alignment (`lib/game/visuals/lighting.ts`, `components/game/Environment.tsx`):**
+    - Added `rotateSunByAzimuth(dir, deg)` rotating sun vector in the XZ plane around Y by `track.current.meta.sunAzimuthDeg`.
+    - Applied circuit-specific solar azimuths (Buddh 125°, Monza 210°, Red Bull Ring 165°), aligning sun angles and shadows to real-world circuit orientations.
+  - **Texel-Snapped Dynamic Shadow Camera (`components/game/Environment.tsx`):**
+    - Snapped player tracking target to exact integer multiples of `texelSize = 1200 / shadowMapSize`, completely eliminating sub-pixel shadow edge shimmering and swimming artifacts during driving.
+    - Tightened shadow frustum bounds to 120 m (`[-600, 600]` world units) with near/far depth framing (10 to 1100), maximizing effective shadow resolution across cars and asphalt.
+  - **Analytic Aerial Perspective & 2-Octave Cloud Layer (`components/game/world/SkyDome.tsx`):**
+    - Implemented forward-scattering solar atmospheric haze in the sky dome shader (`sd^3.5` in-scattering) smoothly fading into horizon fog.
+    - Added high-altitude 2nd octave cirrus variation into the procedural cloud layer.
+  - **Unit Testing (`lib/game/visuals/lighting.test.ts`):**
+    - 3 unit tests verifying azimuth rotation math, unit norm preservation, lighting preset integrity across all times-of-day & weather, and texel-snapped shadow alignment bounds.
+
+**Verification:**
+- Full test suite: **24/24 test files passed, 194/194 unit tests passed** (including `lighting.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

@@ -60,6 +60,17 @@ const norm = (v: [number, number, number]): [number, number, number] => {
   return [v[0] / l, v[1] / l, v[2] / l];
 };
 
+/** Rotates a sun direction vector in the XZ plane around Y by azimuth degrees (PLAN-v3 §7 G4). */
+export function rotateSunByAzimuth(dir: [number, number, number], deg = 0): [number, number, number] {
+  if (!deg) return dir;
+  const rad = (deg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const x = dir[0] * cos - dir[2] * sin;
+  const z = dir[0] * sin + dir[2] * cos;
+  return [x, dir[1], z];
+}
+
 interface Base extends Omit<Lighting, 'tod' | 'weather' | 'wetness' | 'cloudCover' | 'snow'> {
   cloudCover: number;
 }

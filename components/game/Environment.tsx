@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Environment as DreiEnvironment, Lightformer } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '@/lib/game/store';
 import { world } from '@/lib/game/sim/world';
+import { track } from '@/lib/game/track';
 import { QUALITY_PRESETS } from '@/lib/game/performance';
-import { useLighting, type Lighting } from '@/lib/game/visuals/lighting';
+import { useLighting, rotateSunByAzimuth, type Lighting } from '@/lib/game/visuals/lighting';
 import { SkyDome } from './world/SkyDome';
 
 /** Procedural image-based lighting: the sky dome plus a few softboxes. No network. */
@@ -43,27 +44,45 @@ export function Environment() {
   const sunTargetRef = useRef<THREE.Object3D>(null);
   const gl = useThree((s) => s.gl);
 
+  // Rotate sun direction by circuit azimuth (PLAN-v3 §7 G4)
+  const sunAzimuth = track.current.meta.sunAzimuthDeg ?? 0;
+  const sunDir = useMemo(() => rotateSunByAzimuth(L.sunDir, sunAzimuth), [L.sunDir, sunAzimuth]);
+
   useEffect(() => {
     gl.toneMappingExposure = L.exposure;
   }, [gl, L.exposure]);
 
-  // Keep the sun and its shadow frustum centred on the player.
+  // Keep the sun and its shadow frustum snapped to shadow texels (P4/G4) around the player.
   useFrame(() => {
     const p = world.player.phys;
     const light = sunLightRef.current;
     const target = sunTargetRef.current;
     if (!light || !target) return;
+
+    // Tight 120 m bounds around the player ([-600, 600] world units)
+    const bounds = 600;
+    const shadowRes = shadowMapSize || 2048;
+    const texelSize = (bounds * 2) / shadowRes;
+
+    // Snapping player position to texel units eliminates shadow edge shimmering/swimming
+    const snappedX = Math.floor(p.x / texelSize) * texelSize;
+    const snappedZ = Math.floor(p.y / texelSize) * texelSize;
+
     light.target = target;
-    target.position.set(p.x, 0, p.y);
-    light.position.set(p.x + L.sunDir[0] * 500, L.sunDir[1] * 500, p.y + L.sunDir[2] * 500);
+    target.position.set(snappedX, 0, snappedZ);
+    light.position.set(
+      snappedX + sunDir[0] * 500,
+      sunDir[1] * 500,
+      snappedZ + sunDir[2] * 500
+    );
   });
 
   return (
     <>
       <color attach="background" args={[L.skyHorizon]} />
       <fogExp2 attach="fog" args={[L.fogColor, L.fogDensity]} />
-      <SkyDome lighting={L} />
-      <Ibl L={L} />
+      <SkyDome lighting={{ ...L, sunDir }} />
+      <Ibl L={{ ...L, sunDir }} />
 
       <hemisphereLight color={L.hemiSky} groundColor={L.hemiGround} intensity={L.hemiIntensity} />
 
@@ -75,14 +94,14 @@ export function Environment() {
         castShadow={shadows}
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
-        shadow-camera-near={5}
-        shadow-camera-far={1400}
-        shadow-camera-left={-300}
-        shadow-camera-right={300}
-        shadow-camera-top={300}
-        shadow-camera-bottom={-300}
-        shadow-bias={-0.0004}
-        shadow-normalBias={0.6}
+        shadow-camera-near={10}
+        shadow-camera-far={1100}
+        shadow-camera-left={-600}
+        shadow-camera-right={600}
+        shadow-camera-top={600}
+        shadow-camera-bottom={-600}
+        shadow-bias={-0.0003}
+        shadow-normalBias={0.5}
       />
     </>
   );

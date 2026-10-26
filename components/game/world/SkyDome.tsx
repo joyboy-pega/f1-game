@@ -45,6 +45,11 @@ void main() {
   col += uSunColor * glow * (1.0 - uCloud * 0.75) * (1.0 - uNight * 0.8);
   col += uSunColor * smoothstep(0.9993, 0.9998, sd) * 14.0 * uSunDisc * (1.0 - uCloud * 0.9);
 
+  // Analytic aerial perspective: forward-scattering sun haze across horizon (PLAN-v3 §7 G4)
+  float forwardScatter = pow(sd, 3.5);
+  vec3 aerialHaze = uSunColor * forwardScatter * 0.24 * (1.0 - uNight * 0.9) * (1.0 - smoothstep(0.0, 0.35, h));
+  col += aerialHaze;
+
   // stars
   if (uStars > 0.01 && h > 0.0) {
     vec3 sp = d * 260.0;
@@ -55,10 +60,13 @@ void main() {
     col += vec3(0.85, 0.9, 1.0) * star * uStars * (0.6 + 0.8 * hash3(id + 3.1)) * smoothstep(0.0, 0.2, h) * (1.0 - uCloud * 0.9);
   }
 
-  // clouds on a flat layer
+  // clouds on a flat layer (2 octaves: base cumulus + high-altitude cirrus)
   if (uCloud > 0.02 && h > 0.0) {
     vec2 uv = d.xz / (h + 0.18) * 1.4 + vec2(uTime * 0.004, uTime * 0.0015);
     float n = fbm(uv);
+    vec2 uv2 = d.xz / (h + 0.26) * 2.6 - vec2(uTime * 0.002, uTime * 0.003);
+    float n2 = fbm(uv2);
+    n = mix(n, n2, 0.28);
     float cover = smoothstep(1.0 - uCloud * 0.85 - 0.12, 1.0 - uCloud * 0.85 + 0.25, n);
     cover *= smoothstep(0.0, 0.14, h);
     vec3 lit = mix(uHorizon, vec3(1.0), 0.55) * (1.0 - uNight * 0.92);
