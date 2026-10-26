@@ -130,6 +130,8 @@ export interface Assists {
   brakingAssist: boolean;
   steeringAssist: boolean;
   tractionControl: boolean;
+  abs?: boolean;
+  stabilityControl?: boolean;
 }
 
 export type QualityChoice = 'AUTO' | 'LOW' | 'MEDIUM' | 'HIGH';
@@ -178,7 +180,14 @@ export const DEFAULT_SETTINGS: GameSettings = {
   driverName: 'You',
   driverCode: 'YOU',
   livery: { body: '#e10600', accent: '#121212', rim: '#c0c0c0', number: 7 },
-  assists: { racingLine: 'corners', brakingAssist: false, steeringAssist: false, tractionControl: true },
+  assists: {
+    racingLine: 'corners',
+    brakingAssist: false,
+    steeringAssist: false,
+    tractionControl: true,
+    abs: true,
+    stabilityControl: false,
+  },
   damage: true,
   audioEnabled: true,
   volume: 0.75,

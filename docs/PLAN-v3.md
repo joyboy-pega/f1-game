@@ -710,7 +710,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 | 13 | A1 racing line from envelope | V2 | M | ✅ |
 | 14 | A2 AI on new model | A1 | L | ✅ |
 | 15 | V3 wet/tyres/fuel/damage | V2 | M | ✅ |
-| 16 | V5 assists | A2 | M | ⏳ |
+| 16 | V5 assists | A2 | M | ✅ |
 | 17 | T2 Buddh real scale/width/elevation | T1, V2 | M | ⏳ |
 | 18 | T3 3D road surface | T2 | L | ⏳ |
 | 19 | V4 real car proportions | V2, T2 | M | ⏳ |

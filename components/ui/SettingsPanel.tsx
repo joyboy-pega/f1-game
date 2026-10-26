@@ -93,6 +93,12 @@ export function SettingsPanel() {
       <Field label="Traction control">
         <Switch checked={s.assists.tractionControl} onChange={(v) => setAssist({ tractionControl: v })} label="Traction control" />
       </Field>
+      <Field label="Anti-lock brakes (ABS)">
+        <Switch checked={s.assists.abs ?? true} onChange={(v) => setAssist({ abs: v })} label="ABS" />
+      </Field>
+      <Field label="Stability assist">
+        <Switch checked={s.assists.stabilityControl ?? true} onChange={(v) => setAssist({ stabilityControl: v })} label="Stability control" />
+      </Field>
 
       <h3 className="k-section-title">Handling</h3>
       <Field label="Steering sens." value={`${s.steeringSensitivity.toFixed(2)}x`}>

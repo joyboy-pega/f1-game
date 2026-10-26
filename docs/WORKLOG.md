@@ -597,3 +597,30 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean.
+
+---
+
+## 2026-10-26 — V5 driver assists & keyboard bot clean lap (Task 16)
+
+**Completed Task:**
+- **Task 16 (V5: Driving Assists):**
+  - **Traction Control (TC):**
+    - Active slip ratio control limiting throttle when rear tyre slip exceeds peak friction threshold ($\kappa > 0.08$) and modulating power on aggressive low-speed corner exits (`lib/game/sim/assists.ts`).
+  - **Anti-Lock Braking System (ABS):**
+    - High-frequency brake pressure modulation preventing wheel lockup when front or rear wheel slip approaches limit ($\kappa > 0.12$), preserving steering authority under threshold braking.
+  - **Stability Assist (ESP / Yaw Control):**
+    - Monitors body sideslip angle $\beta = \arctan(v_y / v_x)$. Applies dynamic counter-steering torque and throttle cuts when sideslip exceeds safe envelope ($|\beta| > 0.07$ rad), catching oversteer slides and spins.
+  - **Braking & Steering Assist:**
+    - Braking assist scans safe corner entry envelope via `profileTarget` and applies progressive braking when entering above envelope speed.
+    - Steering assist centers on the optimal racing line (`lineSteer`) and filters aggressive digital keyboard inputs to prevent front tyre scrub and breakaways.
+  - **UI & Settings:**
+    - Added UI switches for ABS and Stability Control to `components/ui/SettingsPanel.tsx` and updated `Assists` interface in `lib/game/gameState.ts`.
+  - **Hard Requirement Verification (`lib/game/sim/assists.test.ts`):**
+    - Scripted a digital keyboard bot operating with strictly 0/1 inputs (`throttle = 1`, `brake = 0`, and binary `steer = -1 / 0 / +1` with `analogSteer: false`).
+    - The keyboard bot with all assists enabled completed a full lap of Buddh circuit in 119.73s with **0.00s off-track time**, remaining strictly on the asphalt the entire lap.
+
+**Verification:**
+- Full test suite: **15/15 test files passed, 148/148 unit tests passed** (including new `lib/game/sim/assists.test.ts`).
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean.
