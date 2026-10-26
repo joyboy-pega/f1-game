@@ -38,6 +38,10 @@ export interface CarTiming {
   penaltySec: number;
   trackLimitWarnings: number;
   pitStops: number;
+  /** False if track limits or a chicane cut occurred during this lap (PLAN-v3 §8 R1). */
+  lapValid: boolean;
+  /** True if an infraction in the final sector carries over to invalidate the next lap. */
+  nextLapInvalid: boolean;
 }
 
 export interface DriverInfo {
@@ -157,4 +161,7 @@ export interface LimitsState {
   /** Corner id in which the last warning was issued (-1 none). */
   lastCornerId: number;
   exempt: boolean;
+  /** Arc position when leaving track (for chicane cut detection). */
+  cutStartS: number;
+  cutStartTime: number;
 }

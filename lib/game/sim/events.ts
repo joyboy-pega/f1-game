@@ -4,7 +4,9 @@ import type { TyreCompound } from '../constants';
 export type SimEvent =
   | { type: 'lightsOn'; count: number }
   | { type: 'lightsOut' }
-  | { type: 'lap'; carId: number; lap: number; time: number; personalBest: boolean; overallBest: boolean }
+  | { type: 'lap'; carId: number; lap: number; time: number; personalBest: boolean; overallBest: boolean; valid?: boolean }
+  | { type: 'lapInvalid'; carId: number; lap: number; reason: string }
+  | { type: 'chicaneCut'; carId: number; gainedSec: number }
   | { type: 'sector'; carId: number; sector: number; time: number; status: SectorStatus }
   | { type: 'positionChange'; carId: number; from: number; to: number }
   | { type: 'drs'; carId: number; open: boolean; reason?: string }

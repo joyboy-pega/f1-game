@@ -722,7 +722,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 | 25 | G2 surface | T3 | M | ✅ |
 | 26 | G6 car instancing + LOD | S6 | L | ✅ |
 | 27 | G4 lighting & shadows | G1 | M | ✅ |
-| 28 | R1 lap validity | T1 | S | ⏳ |
+| 28 | R1 lap validity | T1 | S | ✅ |
 | 29 | R4 full grid | G6, A2 | M | ⏳ |
 | 30 | R2 qualifying | R1 | M | ⏳ |
 | 31 | R3 flags/SC/VSC | A2 | L | ⏳ |

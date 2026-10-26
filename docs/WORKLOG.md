@@ -989,3 +989,35 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — R1 Lap validity, track limits everywhere and chicane cut detection (Task 28)
+
+**Completed Task:**
+- **Task 28 (R1: Lap Validity, Track Limits Everywhere & Chicane Cut Penalties):**
+  - **Audit B6 Fix & Universal Track Limits Enforcement (`lib/game/sim/world.ts`, `lib/game/sim/penalties.ts`):**
+    - Enabled track limits checking across all sessions (`lctx.enabled = true` in `world.ts`), resolving Audit B6 where Time Trial and practice previously ignored track excursions.
+    - Exceeding track limits (all four wheels over white lines in corner zones for $\ge 0.2$ s) immediately sets `timing.lapValid = false` and emits `lapInvalid` event.
+    - If the infraction occurred in Sector 3 (the final sector), `timing.nextLapInvalid = true` is set, carrying invalidation into the next lap so drivers cannot gain launch speed onto the main straight.
+  - **Chicane Shortcut Detection (`lib/game/sim/penalties.ts`):**
+    - Tracks corner zone arc progress when leaving the track (`cutStartS`, `cutStartTime`).
+    - Detects severe corner cuts where a car traverses $\ge 180$ units ($\ge 18$ m) while off-track and rejoins at full throttle having gained $\ge 0.35$ s without backing off.
+    - Automatically awards a +5s time penalty (`penaltySec += 5`) and invalidates current (and next if Sector 3) lap.
+  - **Lap Time Records Protection (`lib/game/sim/race.ts`):**
+    - Invalid laps (`!lapValid`) are strictly barred from updating `bestLap`, `bestLapTrace`, or `overallBest`, ensuring ghosts and leaderboards are never polluted by invalid laps.
+    - Transmitted `valid?: boolean` field on `lap` event to UI.
+  - **In-Game Toasts (`components/game/GameLoop.tsx`):**
+    - Subscribed to `lapInvalid` and `chicaneCut` events to display clear HUD steward notifications: "LAP DELETED — TRACK LIMITS" and "PENALTY +5S — CHICANE CUT (GAINED +X.XXs)".
+  - **Unit Testing (`lib/game/sim/lapValidity.test.ts`):**
+    - 3 unit tests verifying:
+      1. Time Trial lap invalidation upon track limits excursion, preventing ghost/record updates.
+      2. Final-sector infraction carrying invalidation forward into the subsequent flying lap upon crossing the start/finish line.
+      3. Chicane shortcut detection and automatic +5 s penalty application.
+
+**Verification:**
+- Full test suite: **25/25 test files passed, 197/197 unit tests passed** (including `lapValidity.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

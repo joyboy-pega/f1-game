@@ -67,6 +67,12 @@ function handleEvent(e: SimEvent) {
     case 'trackLimits':
       if (e.carId === pid) toast({ id: 'tl', type: 'penalty', title: 'TRACK LIMITS', subtitle: `WARNING ${e.warnings}/3`, duration: 2 });
       break;
+    case 'lapInvalid':
+      if (e.carId === pid) toast({ id: 'lap-invalid', type: 'penalty', title: 'LAP DELETED', subtitle: e.reason, duration: 2.5 });
+      break;
+    case 'chicaneCut':
+      if (e.carId === pid) toast({ id: 'chicane-cut', type: 'penalty', title: 'CHICANE CUT', subtitle: `+${e.gainedSec.toFixed(2)}s ADVANTAGE`, duration: 2.5 });
+      break;
     case 'chequered':
       toast({ id: 'chequered', type: 'info', title: 'CHEQUERED FLAG', duration: 2.5 });
       break;

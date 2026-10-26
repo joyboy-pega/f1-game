@@ -76,7 +76,7 @@ export function makeCar(id: number, isPlayer: boolean, idx: number, lateral: num
     fuelKg: 10,
     lastCollisionTime: -99,
     draft: 0,
-    limits: { offTime: 0, counted: false, lastCornerId: -1, exempt: false },
+    limits: { offTime: 0, counted: false, lastCornerId: -1, exempt: false, cutStartS: -1, cutStartTime: -1 },
     drsDetect: { lastG: -1, zoneActive: -1 },
     offTrackTime: 0,
   };
@@ -359,7 +359,7 @@ export class GameWorld {
     const lctx = this.limitsCtx;
     lctx.raceTime = this.raceTime;
     lctx.dt = dt;
-    lctx.enabled = this.isRace;
+    lctx.enabled = true;
     for (const car of this.cars) updateTrackLimits(car, lctx);
 
     this.updateOrder(dt);

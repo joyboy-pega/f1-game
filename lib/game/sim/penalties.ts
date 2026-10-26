@@ -75,7 +75,37 @@ export function updateTrackLimits(car: WorldCar, ctx: LimitsContext): void {
   // Leaving the corner clears the "already warned" latch
   if (L.lastCornerId >= 0 && inCorner !== L.lastCornerId) L.lastCornerId = -1;
 
+  // Chicane shortcut detection: start recording arc progress when leaving track in a corner
+  if (off && inCorner >= 0 && L.cutStartS < 0) {
+    L.cutStartS = track.current.cumulativeS[idx];
+    L.cutStartTime = ctx.raceTime;
+  }
+
   if (!off || car.inPit || inPitBand(idx, car.lateral)) {
+    // When rejoining, check if an unpunished chicane shortcut occurred
+    if (!off && L.cutStartS >= 0) {
+      const currentS = track.current.cumulativeS[idx];
+      let deltaS = currentS - L.cutStartS;
+      if (deltaS < -track.current.length / 2) deltaS += track.current.length;
+      const elapsed = ctx.raceTime - L.cutStartTime;
+      L.cutStartS = -1;
+      L.cutStartTime = -1;
+
+      // Traversed > 180 units (~18m) across the corner zone while off track
+      if (deltaS > 180 && elapsed > 0.05) {
+        const expectedTime = deltaS / 38; // ~137 km/h expected traversing speed
+        const gained = expectedTime - elapsed;
+        // If driver carried speed on throttle without giving the time back
+        if (gained > 0.35 && car.ctrl.throttle > 0.45) {
+          t.lapValid = false;
+          if (t.currentSector === 2) t.nextLapInvalid = true;
+          t.penaltySec += 5;
+          ctx.events.emit({ type: 'penalty', carId: car.id, seconds: 5, reason: 'CHICANE CUT' });
+          ctx.events.emit({ type: 'chicaneCut', carId: car.id, gainedSec: gained });
+        }
+      }
+    }
+
     L.offTime = 0;
     L.counted = false;
     L.exempt = false;
@@ -91,6 +121,11 @@ export function updateTrackLimits(car: WorldCar, ctx: LimitsContext): void {
   if (car.surface.gravel || car.phys.kmh < 60) return; // lost time anyway
   if (inCorner === L.lastCornerId) return; // one warning per corner incident
   L.lastCornerId = inCorner;
+
+  // Invalidate current lap (and next lap if in final sector)
+  t.lapValid = false;
+  if (t.currentSector === 2) t.nextLapInvalid = true;
+  ctx.events.emit({ type: 'lapInvalid', carId: car.id, lap: t.lapsCompleted + 1, reason: 'TRACK LIMITS' });
 
   t.trackLimitWarnings++;
   ctx.events.emit({ type: 'trackLimits', carId: car.id, warnings: t.trackLimitWarnings });

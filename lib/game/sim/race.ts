@@ -74,6 +74,8 @@ export function createTiming(s: number, behindLine: boolean): CarTiming {
     penaltySec: 0,
     trackLimitWarnings: 0,
     pitStops: 0,
+    lapValid: true,
+    nextLapInvalid: false,
   };
 }
 
@@ -148,8 +150,9 @@ export function advanceTiming(car: WorldCar, s: number, ctx: TimingContext): Tim
         if (lapNow >= 1 && t.lapStartTime !== null) {
           completeSector(car, 2, tCross, ctx);
           const lapTime = tCross - t.lapStartTime;
-          const personalBest = t.bestLap === null || lapTime < t.bestLap;
-          const overallBest = ctx.overall.bestLap === null || lapTime < ctx.overall.bestLap;
+          const isValid = t.lapValid;
+          const personalBest = isValid && (t.bestLap === null || lapTime < t.bestLap);
+          const overallBest = isValid && (ctx.overall.bestLap === null || lapTime < ctx.overall.bestLap);
           t.lapTimes.push(lapTime);
           t.lastLap = lapTime;
           if (personalBest) {
@@ -161,7 +164,15 @@ export function advanceTiming(car: WorldCar, s: number, ctx: TimingContext): Tim
             ctx.overall.bestLapCarId = car.id;
           }
           t.lastSectorTimes = t.sectorTimes.slice();
-          ctx.events.emit({ type: 'lap', carId: car.id, lap: lapNow, time: lapTime, personalBest, overallBest });
+          ctx.events.emit({
+            type: 'lap',
+            carId: car.id,
+            lap: lapNow,
+            time: lapTime,
+            personalBest,
+            overallBest,
+            valid: isValid,
+          });
           result.lapCompleted = true;
           result.crossTime = tCross;
         }
@@ -172,6 +183,8 @@ export function advanceTiming(car: WorldCar, s: number, ctx: TimingContext): Tim
         t.sectorTimes = [null, null, null];
         t.currentSector = 0;
         t.sectorStartTime = t.lapStartTime;
+        t.lapValid = !t.nextLapInvalid;
+        t.nextLapInvalid = false;
       }
     }
 
