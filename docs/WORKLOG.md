@@ -1285,3 +1285,35 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Golden race hash: bit-identical match to `'05aa16f7'`.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — Task 36: R13 Real-time Multiplayer (WebRTC Room Lobby + Sync) (branch `main`)
+
+**Files:** `lib/game/multiplayer/protocol.ts`, `lib/game/multiplayer/interpolator.ts`, `lib/game/multiplayer/room.ts`, `lib/game/multiplayer/multiplayer.test.ts`, `components/ui/MultiplayerLobby.tsx`, `components/ui/MainMenu.tsx`, `components/ui/format.ts`, `lib/game/constants.ts`.
+
+**Changes & Acceptance:**
+- **Packet Protocol (`lib/game/multiplayer/protocol.ts`):**
+  - Typed packet union: `ClientInputPacket` (seq, controls, timestamp), `ServerSnapshotPacket` (multi-car pose and telemetry snapshot), `RoomSyncPacket` (room state, host, player grid list, settings), `PingPacket`, `PongPacket`.
+  - Serializer & deserializer with malformed payload protection.
+- **Snapshot Interpolator & Jitter Buffering (`lib/game/multiplayer/interpolator.ts`):**
+  - Ring buffer (32 snapshots capacity) for each car ID.
+  - Linear/Hermite interpolation between adjacent snapshots with angular unwrapping across $[-\pi, \pi]$ preventing visual 360-degree rotation glitches.
+  - Forward dead-reckoning extrapolation using forward velocity ($vf$) and yaw rate ($yawRate$) for up to 250 ms during network packet latency/jitter.
+- **Room State Machine & AI Fallback (`lib/game/multiplayer/room.ts`):**
+  - Host authoritative sim architecture: host executes 120 Hz deterministic physics and broadcasts 25 Hz state snapshots.
+  - Client sends 60 Hz input packets to host.
+  - Graceful disconnect handling: if a peer heartbeat lapses for $> 3000$ ms, host dynamically attaches AI controller (`car.ai = createBrain(...)`), ensuring seamless racing without stranded or ghost cars.
+- **Lobby UI (`components/ui/MultiplayerLobby.tsx`):**
+  - Built strictly to design tokens (`var(--ink)`, `var(--lime)`, `var(--panel)`), typography (Anton, Archivo, JetBrains Mono), and clip-path geometry.
+  - Generates 6-character room codes with one-click copy, live player roster with latency indicators and ready checks, and host controls for circuit, weather, and distance selection.
+- **Unit Testing (`lib/game/multiplayer/multiplayer.test.ts`):**
+  - 8 comprehensive tests verifying packet serialization/deserialization, linear position interpolation, angular unwrapping, dead reckoning extrapolation, room state transitions, and disconnect fallback to AI.
+
+**Verification:**
+- Full test suite: **35/35 test files passed, 249/249 unit tests passed**.
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Micro-benchmark: 12 cars simulation cost 7.97 ms per simulated second.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

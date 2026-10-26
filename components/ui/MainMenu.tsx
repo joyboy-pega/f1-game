@@ -25,6 +25,7 @@ const MODES: { id: GameMode; name: string; sub: string }[] = [
   { id: 'qualifying', name: 'Qualifying', sub: 'One-shot / 12-min · sets race grid' },
   { id: 'timetrial', name: 'Time Trial', sub: 'Solo · chase your ghost' },
   { id: 'practice', name: 'Free Practice', sub: 'No pressure · test tyres' },
+  { id: 'multiplayer', name: 'Multiplayer', sub: 'P2P WebRTC room · real-time racing' },
 ];
 
 const PRESETS: { name: string; livery: Omit<Livery, 'number'> }[] = [

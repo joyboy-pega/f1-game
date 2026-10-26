@@ -78,9 +78,9 @@ export function checkPitSpeeding(car: WorldCar, events: EventBus): boolean {
   return false;
 }
 
-/** Check mandatory two dry tyre compounds rule in dry races >= 5 laps (PLAN-v3 §8 R6). */
+/** Check mandatory two dry tyre compounds rule in dry races >= 10 laps (PLAN-v3 §8 R6 / F1 Sporting Regs Art 30.5). */
 export function checkTwoCompoundRule(car: WorldCar, totalLaps: number, isDryRace: boolean, events: EventBus): boolean {
-  if (!isDryRace || totalLaps < 5) return true;
+  if (!isDryRace || totalLaps < 10) return true;
   // Count dry compounds (soft, medium, hard) used
   const dryMask = car.compoundsUsedMask & 0b00111;
   const dryCount = (dryMask & 1 ? 1 : 0) + (dryMask & 2 ? 1 : 0) + (dryMask & 4 ? 1 : 0);

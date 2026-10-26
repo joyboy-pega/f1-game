@@ -730,7 +730,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 | 33 | T6.3–T6.5 Silverstone, Spa, Suzuka | T6.2 | M each | ✅ |
 | 34 | R5, R6, R8–R12 | as listed | — | ✅ |
 | 35 | G5, G7 | — | M | ✅ |
-| 36 | R13 multiplayer (WebRTC room lobby + sync) | R4, S2 | L | ⏳ |
+| 36 | R13 multiplayer (WebRTC room lobby + sync) | R4, S2 | L | ✅ |
 
 Added by the human mid-run: **U1** unit-scale alignment (KMH_PER_UNIT 0.37 → 0.36), ✅ e548d09. Human also asked for no screenshots (they verify visuals), so
 visual acceptance lines are 🟡 until they confirm.

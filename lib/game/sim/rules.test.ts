@@ -93,12 +93,12 @@ describe('R6: Pit lane speeding & Mandatory two-compound rules', () => {
     expect(car.timing.penaltySec).toBe(0);
   });
 
-  it('penalizes failure to use two dry tyre compounds in dry races >= 5 laps', () => {
+  it('penalizes failure to use two dry tyre compounds in dry races >= 10 laps', () => {
     const car = makeCar(0, true, 0, 0, 'soft');
     const events = new EventBus();
     car.compoundsUsedMask = compoundToBit('soft'); // only soft used
 
-    const passed = checkTwoCompoundRule(car, 5, true, events);
+    const passed = checkTwoCompoundRule(car, 10, true, events);
     expect(passed).toBe(false);
     expect(car.timing.penaltySec).toBe(20);
   });
@@ -108,20 +108,20 @@ describe('R6: Pit lane speeding & Mandatory two-compound rules', () => {
     const events = new EventBus();
     car.compoundsUsedMask = compoundToBit('soft') | compoundToBit('medium');
 
-    const passed = checkTwoCompoundRule(car, 5, true, events);
+    const passed = checkTwoCompoundRule(car, 10, true, events);
     expect(passed).toBe(true);
     expect(car.timing.penaltySec).toBe(0);
   });
 
-  it('does not enforce two-compound rule in wet races or short sprints (< 5 laps)', () => {
+  it('does not enforce two-compound rule in wet races or short sprints (< 10 laps)', () => {
     const car = makeCar(0, true, 0, 0, 'soft');
     const events = new EventBus();
     car.compoundsUsedMask = compoundToBit('soft');
 
     // Wet race
-    expect(checkTwoCompoundRule(car, 10, false, events)).toBe(true);
-    // Short race (3 laps)
-    expect(checkTwoCompoundRule(car, 3, true, events)).toBe(true);
+    expect(checkTwoCompoundRule(car, 15, false, events)).toBe(true);
+    // Short sprint (5 laps)
+    expect(checkTwoCompoundRule(car, 5, true, events)).toBe(true);
     expect(car.timing.penaltySec).toBe(0);
   });
 });

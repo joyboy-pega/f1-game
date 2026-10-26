@@ -16,6 +16,7 @@ export const MODE_NAMES: Record<GameMode, string> = {
   qualifying: 'QUALIFYING',
   timetrial: 'TIME TRIAL',
   practice: 'FREE PRACTICE',
+  multiplayer: 'MULTIPLAYER',
 };
 
 export const WEATHER_LABEL: Record<WeatherType, string> = {
