@@ -57,13 +57,16 @@ function optimiseOffsets(rt: TrackRuntime, lineOffset: Float32Array) {
   // Projected Gauss-Seidel (SOR) on sum |q[i-1] - 2 q[i] + q[i+1]|^2 with q = p + o n.
   // Solved coarse-to-fine so long-wavelength corners converge in few sweeps.
   const solve = (stride: number, o: Float64Array, sweeps: number, omega: number) => {
-    const M = N / stride;
+    const M = Math.max(16, Math.floor(N / stride));
     const qx = new Float64Array(M);
     const qy = new Float64Array(M);
     const dx = new Float64Array(M);
     const dy = new Float64Array(M);
+    const idx = new Int32Array(M);
+    const step = N / M;
     for (let k = 0; k < M; k++) {
-      const i = k * stride;
+      const i = Math.min(N - 1, Math.floor(k * step));
+      idx[k] = i;
       qx[k] = px[i] + nx[i] * o[i];
       qy[k] = py[i] + ny[i] * o[i];
     }
@@ -76,7 +79,7 @@ function optimiseOffsets(rt: TrackRuntime, lineOffset: Float32Array) {
     for (let k = 0; k < M; k++) d2(k);
     for (let it = 0; it < sweeps; it++) {
       for (let k = 0; k < M; k++) {
-        const i = k * stride;
+        const i = idx[k];
         const a = (k + M - 1) % M;
         const b = (k + 1) % M;
         const gx = dx[a] - 2 * dx[k] + dx[b];
@@ -101,14 +104,15 @@ function optimiseOffsets(rt: TrackRuntime, lineOffset: Float32Array) {
 
   const o = new Float64Array(N);
   const stride = 8;
-  solve(stride, o, 500, 1.85);
+  const M = solve(stride, o, 500, 1.85);
   // Interpolate coarse offsets to all points
-  const coarse = new Float64Array(N / stride);
-  for (let k = 0; k < coarse.length; k++) coarse[k] = o[k * stride];
+  const coarse = new Float64Array(M);
+  const step = N / M;
+  for (let k = 0; k < M; k++) coarse[k] = o[Math.min(N - 1, Math.floor(k * step))];
   for (let i = 0; i < N; i++) {
-    const f = i / stride;
-    const k0 = Math.floor(f) % coarse.length;
-    const k1 = (k0 + 1) % coarse.length;
+    const f = i / step;
+    const k0 = Math.floor(f) % M;
+    const k1 = (k0 + 1) % M;
     const t = f - Math.floor(f);
     const tt = t * t * (3 - 2 * t);
     o[i] = coarse[k0] * (1 - tt) + coarse[k1] * tt;

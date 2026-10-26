@@ -34,10 +34,20 @@ const CATALOG: TrackCatalogEntry[] = [
     turns: 16,
     lapRecord: { time: 87.249, driver: 'Sebastian Vettel', year: 2011 },
   },
+  {
+    id: 'monza',
+    name: 'Autodromo Nazionale Monza',
+    country: 'Italy',
+    lengthM: 5793,
+    turns: 11,
+    lapRecord: { time: 81.046, driver: 'Rubens Barrichello', year: 2004 },
+  },
 ];
 
 /** Lazy loaders for non-bundled tracks (T6 adds entries like `monza: () => import('../tracks/monza')`). */
-const lazyModules: Record<string, () => Promise<TrackModule>> = {};
+const lazyModules: Record<string, () => Promise<TrackModule>> = {
+  monza: () => import('../tracks/monza').then((m) => m.default),
+};
 
 const bundled: Record<string, () => TrackRuntime> = {
   buddh: () => buildTrack(buddhMeta, buddhControlPoints),

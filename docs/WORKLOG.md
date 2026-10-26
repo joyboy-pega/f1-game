@@ -768,4 +768,35 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
 
+---
+
+## 2026-10-27 — T6.1 Autodromo Nazionale Monza circuit integration (Task 21)
+
+**Completed Task:**
+- **Task 21 (T6.1: Monza Circuit Integration — 5793 m, 11 Turns):**
+  - **Circuit Registry & Lazy Module (`lib/game/track/registry.ts`):**
+    - Registered Monza in `CATALOG` with official length 5793 m, 11 turns, lap record 1:21.046 (Rubens Barrichello 2004).
+    - Registered lazy importer `monza: () => import('../tracks/monza').then((m) => m.default)`.
+  - **Authentic Circuit Metadata & Geometry (`lib/game/tracks/monza.ts`):**
+    - Authored variable track width keyframes: 15 m pit straight, 14 m Variante del Rettifilo & Curva Grande, 13 m Roggia & Lesmos, 14 m Serraglio, 13 m Ascari, 14 m Parabolica.
+    - Authored rolling parkland elevation profile (14 m total range across royal parkland).
+    - Authored banking keyframes: +1.5° Curva Grande inward banking, +2.0° Curva Parabolica banking.
+    - Configured official FIA sectors: S1 (0–1700 m, Rettifilo to Lesmo 1), S2 (1700–3800 m, Lesmo 1 to Ascari exit), S3 (3800–5793 m, straight and Parabolica).
+    - Configured official DRS zones: Zone 1 Pit Straight (detection 5250 m before Parabolica, activation 5680–1000 m across start/finish line); Zone 2 Serraglio (detection 3100 m, activation 3270–3950 m into Ascari).
+    - Configured pit lane: side +1 (right), entry 5450 m, exit 400 m, boxes 5580–5740 m, speed limit 80 km/h.
+  - **Racing Line Generalization (`lib/game/sim/racingLine.ts`):**
+    - Fixed coarse SOR Gauss-Seidel solver for tracks where $N$ is not an exact multiple of stride (e.g. Monza $N = 2317$), eliminating array out-of-bounds `NaN`s while preserving bit-identical behaviour on Buddh.
+    - Computed optimal racing line for Monza: estimated lap time 89.08 s (matching realistic high-speed QSS profile).
+  - **Unit Testing & AI Race Verification (`lib/game/track/monza.test.ts`):**
+    - Authored 4 unit tests in `monza.test.ts` verifying catalog entry, TrackRuntime geometry, DRS wrapping zone, elevation, camber, racing line estimate, and multi-car 2-lap AI race.
+    - Multi-car race completed with $<5\%$ off-track time and 0 respawns.
+
+**Verification:**
+- Full test suite: **18/18 test files passed, 173/173 unit tests passed** (including `monza.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).
+
+
 
