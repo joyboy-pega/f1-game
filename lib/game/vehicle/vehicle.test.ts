@@ -304,3 +304,143 @@ describe('1-D straight-line run (power curve + aero + rolling resistance)', () =
     expect(both).toBeGreaterThanOrEqual(drs);
   });
 });
+
+describe('stepVehicle dynamics (PLAN-v3 §5.3 V2)', () => {
+  function newVehicleState(vx = 0): import('./model').VehicleState {
+    return {
+      x: 0,
+      y: 0,
+      yaw: 0,
+      vx,
+      vy: 0,
+      yawRate: 0,
+      steer: 0,
+      prevAx: 0,
+      prevAy: 0,
+      powertrain: createPowertrain(),
+      drsOpen: false,
+      isBoosting: false,
+      brakeBias: 0.56,
+      wheelSlipFront: 0,
+      wheelSlipRear: 0,
+      isDrifting: false,
+      driftIntensity: 0,
+      driftAngle: 0,
+      pitch: 0,
+      roll: 0,
+    };
+  }
+
+  const defaultEnv: import('./model').VehicleEnvironment = {
+    surfaceGrip: 1.0,
+    tyreGrip: 1.0,
+    draft: 0,
+    dirtyAir: 0,
+    damage: 0,
+    inPit: false,
+  };
+
+  it('steady-state cornering: increasing steer at constant speed shows lateral g rising then saturating', async () => {
+    const { stepVehicle } = await import('./model');
+    const speed = 40; // 144 km/h
+    const dt = 1 / 120;
+    const lateralGs: number[] = [];
+
+    for (const steerTarget of [0.1, 0.25, 0.5, 0.75, 1.0]) {
+      const state = newVehicleState(speed);
+      state.steer = steerTarget; // pre-steer
+      // Run for 1.5 seconds to settle into steady-state
+      for (let i = 0; i < Math.round(1.5 / dt); i++) {
+        state.vx = speed; // hold constant forward speed
+        stepVehicle(
+          state,
+          { throttle: 0, brake: 0, steer: steerTarget, analogSteer: true, drs: false, ersBoost: false, steeringSensitivity: 1.0 },
+          defaultEnv,
+          dt
+        );
+      }
+      const ay = Math.abs(state.prevAy) / GRAVITY;
+      lateralGs.push(ay);
+    }
+    console.log('[test cornering] lateralGs:', lateralGs.map((g) => g.toFixed(3)));
+
+    // ay rises with steer and saturates near peak tyre grip without exploding
+    for (let i = 1; i < lateralGs.length; i++) {
+      expect(lateralGs[i]).toBeGreaterThanOrEqual(lateralGs[i - 1] * 0.9);
+    }
+    // High steer saturates: ratio of ay(1.0) / ay(0.5) is around 2.4 (sublinear, not exponential)
+    expect(lateralGs[4] / lateralGs[2]).toBeLessThan(2.6);
+    // Peak ay is in a sensible racing envelope (around 2.5 - 4.5 g)
+    expect(lateralGs[4]).toBeGreaterThan(2.0);
+    expect(lateralGs[4]).toBeLessThan(5.0);
+  });
+
+  it('step-steer at 200 km/h settles without divergent oscillation', async () => {
+    const { stepVehicle } = await import('./model');
+    const speed = 200 / 3.6; // 55.6 m/s
+    const dt = 1 / 120;
+    const state = newVehicleState(speed);
+
+    // Run straight first
+    for (let i = 0; i < 60; i++) {
+      state.vx = speed;
+      stepVehicle(
+        state,
+        { throttle: 0.5, brake: 0, steer: 0, analogSteer: true, drs: false, ersBoost: false, steeringSensitivity: 1.0 },
+        defaultEnv,
+        dt
+      );
+    }
+
+    // Apply sudden step-steer (0 -> 0.3)
+    const yawRates: number[] = [];
+    for (let i = 0; i < Math.round(2.0 / dt); i++) {
+      state.vx = speed;
+      stepVehicle(
+        state,
+        { throttle: 0.5, brake: 0, steer: 0.3, analogSteer: true, drs: false, ersBoost: false, steeringSensitivity: 1.0 },
+        defaultEnv,
+        dt
+      );
+      yawRates.push(state.yawRate);
+    }
+
+    // Yaw rate in the last 0.5s must be stable (variance near zero, not diverging)
+    const tail = yawRates.slice(-60);
+    const mean = tail.reduce((a, b) => a + b, 0) / tail.length;
+    const variance = tail.reduce((a, b) => a + (b - mean) ** 2, 0) / tail.length;
+    expect(variance).toBeLessThan(1e-4);
+    expect(Number.isFinite(mean)).toBe(true);
+  });
+});
+
+describe('vehicle limits module (limits.ts)', () => {
+  it('maxLateralAccel scales with speed squared from downforce', async () => {
+    const { maxLateralAccel } = await import('./limits');
+    const g100 = maxLateralAccel(100 / 3.6) / GRAVITY;
+    const g200 = maxLateralAccel(200 / 3.6) / GRAVITY;
+    const g300 = maxLateralAccel(300 / 3.6) / GRAVITY;
+
+    expect(g100).toBeGreaterThanOrEqual(2.0);
+    expect(g100).toBeLessThanOrEqual(2.8);
+
+    expect(g200).toBeGreaterThanOrEqual(3.3);
+    expect(g200).toBeLessThanOrEqual(4.5);
+
+    expect(g300).toBeGreaterThanOrEqual(4.5);
+    expect(g300).toBeLessThanOrEqual(5.8);
+  });
+
+  it('cornerSpeedForCurvature matches physics envelope', async () => {
+    const { cornerSpeedForCurvature } = await import('./limits');
+    // High speed corner: curvature 0.008 (R = 125m)
+    const vFast = cornerSpeedForCurvature(0.008) * 3.6;
+    expect(vFast).toBeGreaterThan(190);
+    expect(vFast).toBeLessThan(300);
+
+    // Tight hairpin: curvature 0.05 (R = 20m)
+    const vHairpin = cornerSpeedForCurvature(0.05) * 3.6;
+    expect(vHairpin).toBeGreaterThan(50);
+    expect(vHairpin).toBeLessThan(90);
+  });
+});

@@ -11,7 +11,7 @@ import { getRacingLine, PROFILE_BRAKE_DECEL } from './racingLine';
 // as the player: pure-pursuit steering on the optimal line, a braking-point speed scan from the line's
 // corner limits, traffic awareness (follow / overtake / defend), driver errors, DRS and ERS.
 
-export const CORNER_SAFETY = 0.92;
+export const CORNER_SAFETY = 0.76;
 const SPEED_CAP = 840; // straight-line target cap before pace scaling
 
 interface DifficultyTuning {
@@ -22,7 +22,7 @@ interface DifficultyTuning {
 }
 
 export const DIFFICULTY: Record<Difficulty, DifficultyTuning> = {
-  rookie: { pace: 0.915, mistakes: 2.6, ers: 0.4, aggression: 0.6 },
+  rookie: { pace: 0.895, mistakes: 2.6, ers: 0.4, aggression: 0.6 },
   pro: { pace: 1.0, mistakes: 1.0, ers: 0.85, aggression: 1.0 },
   legend: { pace: 1.085, mistakes: 0.45, ers: 1.0, aggression: 1.15 },
 };
@@ -38,11 +38,11 @@ export interface AIContext {
 const WEATHER_GRIP: Record<WeatherType, number> = { sunny: 1, cloudy: 0.95, rain: 0.65, snow: 0.35 };
 
 const CAR_R = 8.6;
-const PASS_GAP = 2 * CAR_R + 10; // lateral distance kept while passing
-const MAX_LAT = HW - 11;
+const PASS_GAP = 2 * CAR_R + 8; // lateral distance kept while passing
+const MAX_LAT = HW - 20;
 const SHIFT_RATE = 48; // lateral units/s
 const STEER_K_E = 1.6;
-const STEER_K_H = 3.5;
+const STEER_K_H = 1.4;
 
 export function createBrain(slot: number, seed: number = slot * 7919 + 17): AIBrain {
   const rng = makeRng(seed);
@@ -106,6 +106,17 @@ export function respawnOnLine(car: WorldCar, speed = 120) {
   p.isDrifting = false;
   p.driftIntensity = 0;
   p.drsOpen = false;
+  if (p._veh) {
+    p._veh.x = p.x / 10;
+    p._veh.y = p.y / 10;
+    p._veh.yaw = p.a;
+    p._veh.vx = p.vf / 10;
+    p._veh.vy = 0;
+    p._veh.yawRate = 0;
+    p._veh.steer = 0;
+    p._veh.prevAx = 0;
+    p._veh.prevAy = 0;
+  }
   snapRenderPose(car);
 }
 
@@ -115,7 +126,7 @@ function nextCorner(idx: number, maxIdx: number): { dist: number; dir: number } 
   const lineCurv = getRacingLine().curv;
   for (let k = 4; k < maxIdx; k += 2) {
     const c = lineCurv[(idx + k) % N];
-    if (Math.abs(c) > 0.0028) return { dist: k, dir: c > 0 ? 1 : -1 };
+    if (Math.abs(c) > 0.0018) return { dist: k, dir: c > 0 ? 1 : -1 };
   }
   return { dist: -1, dir: 0 };
 }
@@ -130,17 +141,42 @@ export function lineSteer(car: WorldCar, shift: number): number {
   const p = car.phys;
   const idx = p.idx;
   const v = Math.max(0, p.vf);
-  const ahd = Math.min(6, 1 + Math.round((v * 0.07) / 24));
+  const u = Math.max(1.0, v / 10); // speed in m/s
+
+  // Max steer angle (rad) matches vehicle model's speed-sensitive steering
+  const steerCoeff = 2.6 + 2.0 * Math.max(0, 1 - u / 35);
+  const maxSteerRad = Math.min(0.32, steerCoeff / Math.max(4.0, u));
+
+  // Kinematic Ackermann feed-forward (wheelbase = 3.6 m = 36 units)
+  const ahd = Math.min(6, 1 + Math.round((v * 0.08) / 24));
   const kappa = RL.curv[(idx + ahd) % N];
-  const e = car.lateral - (RL.offset[idx] + shift);
-  const velAng = v > 40 ? Math.atan2(p.vy, p.vx) : p.a;
-  const wantAng = RL.heading[idx] - Math.atan2(STEER_K_E * e, v + 40);
-  let herr = wantAng - velAng;
+  const deltaFf = 36 * kappa;
+
+  // Cross-track error (e in track units, e/10 in meters)
+  const e = clamp(car.lateral - (RL.offset[idx] + shift), -50, 50);
+  const deltaCross = -Math.atan2(1.2 * (e / 10), u + 2.0);
+
+  // Track boundary repulsion: smooth gentle inward bias when near the track edge
+  let deltaEdge = 0;
+  const latAbs = Math.abs(car.lateral);
+  if (latAbs > HW - 22 && !car.inPit) {
+    const excess = (latAbs - (HW - 22)) / 10; // meters into boundary zone
+    const maxEdgeAngle = Math.min(0.06, 1.5 / u);
+    deltaEdge = -Math.sign(car.lateral) * Math.min(maxEdgeAngle, excess * 0.035);
+  }
+
+  // Heading error
+  let herr = RL.heading[idx] - p.a;
   herr = Math.atan2(Math.sin(herr), Math.cos(herr));
-  const yawCmd = v * kappa + STEER_K_H * herr;
-  const vv = Math.max(v, 60);
-  const yawPerSteer = (2.6 * Math.max(0.3, p.tires.frontGrip) * Math.min(vv / 220, 1)) / (1 + vv / 620);
-  return clamp(yawCmd / yawPerSteer, -1, 1);
+  const deltaHead = clamp(herr, -0.4, 0.4);
+
+  // Yaw rate damping relative to path yaw rate
+  const rPath = u * (kappa * 10);
+  const rActual = p._veh ? p._veh.yawRate : 0;
+  const rDamp = clamp(-0.12 * (rActual - rPath), -0.15, 0.15);
+
+  const deltaTotal = deltaFf + 0.85 * deltaHead + deltaCross + deltaEdge + rDamp;
+  return clamp(deltaTotal / maxSteerRad, -1, 1);
 }
 
 /** Highest speed allowed here such that every corner ahead can still be taken (braking-point scan). */
@@ -150,13 +186,15 @@ export function profileTarget(idx: number, pace: number, gripF: number, aBrake: 
   const cap = SPEED_CAP * pace;
   let target = cap;
   let d = 0;
-  for (let k = 0; k < 40; k++) {
+  for (let k = 0; k < 120; k++) {
     const i = (idx + k) % N;
     const vc = Math.min(cap, RL.cornerSpeed[i] * CORNER_SAFETY * pace * gripF);
-    const allowed = Math.sqrt(vc * vc + 2 * aBrake * d);
+    // Low and medium speed corners have less aero downforce, so need more braking distance
+    const effBrake = vc < 320 ? aBrake * 0.44 : vc < 450 ? aBrake * 0.56 : aBrake * 0.74;
+    const allowed = Math.sqrt(vc * vc + 2 * effBrake * d);
     if (allowed < target) target = allowed;
     d += RL.seg[i];
-    if (d > 1000) break;
+    if (d > 2800) break;
   }
   return target;
 }
@@ -202,7 +240,8 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
     // Compare current and intended lines: cars on converging paths count as being in the way
     const oPlan = o.ai ? RL.offset[o.phys.idx] + o.ai.shift : o.lateral;
     const overlap = Math.min(Math.abs(dl), Math.abs(o.lateral - car.lateral), Math.abs(oPlan - planned), Math.abs(oPlan - car.lateral));
-    if (ds > 0 && ds < 700 && ds < aheadGap && overlap < 22) {
+    const overlapMax = (t < 35 || Math.abs(RL.curv[idx]) > 0.0020) ? 36 : 22;
+    if (ds > 0 && ds < 700 && ds < aheadGap && overlap < overlapMax) {
       ahead = o;
       aheadGap = ds;
     }
@@ -226,7 +265,7 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   const curvHere = Math.abs(RL.curv[idx]);
 
   const nc = nextCorner(idx, 16);
-  const cornerSoon = curvHere > 0.0035 || nc.dist > 0 || brain.targetSpeed < v - 20;
+  const cornerSoon = curvHere > 0.0018 || nc.dist > 0 || brain.targetSpeed < v - 30;
 
   // end of an overtake
   if (brain.passSide !== 0) {
@@ -243,7 +282,7 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   brain.decisionTimer -= dt;
   if (ahead && brain.passSide === 0 && brain.decisionTimer <= 0 && ctx.isRace && t > 10 && !cornerSoon) {
     brain.decisionTimer = 0.35;
-    const held = aheadGap < 260 && aheadGap > 30 && brain.targetSpeed > ahead.phys.vf + 6;
+    const held = aheadGap < 320 && aheadGap > 25 && brain.targetSpeed > ahead.phys.vf + 4;
     if (held && rng() < 0.2 + 0.8 * aggression) {
       const corner = nextCorner(idx, 30);
       let best: -1 | 1 = 1;
@@ -280,7 +319,7 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   }
   if (t < brain.defendUntil) shiftTarget = brain.defendShift;
   // in a corner everybody uses the line unless a car is alongside
-  if (curvHere > 0.0035 && !hasNeighbour && brain.mistakeKind !== 2) shiftTarget = 0;
+  if (curvHere > 0.0018 && !hasNeighbour && brain.mistakeKind !== 2) shiftTarget = 0;
 
   if (brain.mistakeKind === 2) shiftTarget += brain.mistakeShift;
 
@@ -295,10 +334,13 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   }
 
   // never squeeze a car alongside
-  const finalAbs = clamp(baseOff + shiftTarget, Math.max(-MAX_LAT, lowBound), Math.min(MAX_LAT, highBound));
+  const lo = Math.min(MAX_LAT, Math.max(-MAX_LAT, lowBound));
+  const hi = Math.max(-MAX_LAT, Math.min(MAX_LAT, highBound));
+  const finalAbs = clamp(baseOff + shiftTarget, Math.min(lo, hi), Math.max(lo, hi));
   shiftTarget = lowBound > highBound ? car.lateral - baseOff : finalAbs - baseOff;
   const dShift = shiftTarget - brain.shift;
   brain.shift += clamp(dShift, -SHIFT_RATE * dt, SHIFT_RATE * dt);
+  brain.shift = clamp(baseOff + brain.shift, -MAX_LAT, MAX_LAT) - baseOff;
 
   // ---- steering ------------------------------------------------------------------------------
   ctrl.steer = lineSteer(car, brain.shift);
@@ -306,24 +348,24 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
 
   // ---- speed target: braking-point scan along the line -------------------------------------
   const lockup = brain.mistakeKind === 1 && t < brain.mistakeUntil;
-  const aBrake = PROFILE_BRAKE_DECEL * (1.22 - skill.cornerBrake * 0.5);
+  const aBrake = PROFILE_BRAKE_DECEL * (0.80 + skill.cornerBrake * 0.15);
   let target = profileTarget(idx, pace, gripF, aBrake);
-  if (!car.surface.onTrack && !car.inPit) target = Math.min(target, 330);
+  if (!car.surface.onTrack && !car.inPit) target = Math.min(target, 180);
 
   // pit entry: arrive at the speed limit
   if (car.pitRequest) {
     const du = (PIT.entryIdx - idx + N) % N;
     if (du < 120) {
-      const lim = (PIT.speedLimitKmh / KMH_PER_UNIT) * 0.97;
+      const lim = (PIT.speedLimitKmh / KMH_PER_UNIT) * 0.95;
       const dist = du * 24;
-      target = Math.min(target, Math.sqrt(lim * lim + 2 * aBrake * dist));
+      target = Math.min(target, Math.sqrt(lim * lim + 2 * (aBrake * 0.70) * dist));
     }
   }
   brain.targetSpeed = target;
 
   // traffic: do not drive into the back of the car in front (bodies overlap laterally)
   if (ahead) {
-    const gmin = 76;
+    const gmin = t < 35 ? 96 : 76;
     const av = ahead.phys.vf;
     // brake lag eats distance: charge it against the room before computing a stopping speed
     const room = Math.max(0, aheadGap - gmin - 0.3 * Math.max(0, v - av));
@@ -331,13 +373,15 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
     target = Math.min(target, aheadGap < gmin ? av * 0.93 : followCap);
   }
   // side by side into a corner: the car on the outside gives way to the inside one
-  if (nc.dist > 0 && nc.dist < 14) {
+  const inOrNearCorner = Math.abs(RL.curv[idx]) > 0.0020 || (nc.dist > 0 && nc.dist < 26);
+  const cornerDir = nc.dir !== 0 ? nc.dir : (RL.curv[idx] > 0 ? 1 : -1);
+  if (inOrNearCorner && cornerDir !== 0) {
     for (let n = 0; n < ctx.cars.length; n++) {
       const o = ctx.cars[n];
       if (o === car || !!o.pit !== !!car.pit) continue;
       const ds = arcDelta(myS, o.timing.lastS);
-      if (ds > -30 && ds < 50 && Math.abs(o.lateral - car.lateral) < 45 && (o.lateral - car.lateral) * nc.dir > 0) {
-        target = Math.min(target, Math.max(60, o.phys.vf * 0.97));
+      if (ds > -35 && ds < 55 && Math.abs(o.lateral - car.lateral) < 45 && (o.lateral - car.lateral) * cornerDir > 0) {
+        target = Math.min(target, Math.max(50, o.phys.vf * 0.90));
       }
     }
   }
@@ -346,33 +390,52 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   const over = v - target;
   let brakeCmd = 0;
   let throttleCmd = 0;
-  if (over > 4) {
-    brakeCmd = clamp(over / 28, 0, 1);
+  if (over > 1) {
+    brakeCmd = clamp(over / 6, 0, 1);
   } else {
-    throttleCmd = clamp((target - v) / 22 + 0.12, 0, 1) * (0.93 + 0.07 * skill.accel);
+    throttleCmd = clamp((target - v) / 18 + 0.1, 0, 1) * (0.93 + 0.07 * skill.accel);
   }
   // Lower-consistency drivers sometimes lock up / run wide under heavy braking
   const braking = brakeCmd > 0.5;
   if (braking && !brain.wasBraking && brain.mistakeKind === 0 && v > 300) {
-    const pm = (1 - skill.consistency) * 0.55 * tun.mistakes;
+    const pm = t < 30 ? 0 : (1 - skill.consistency) * 0.25 * tun.mistakes;
     if (rng() < pm) {
       if (rng() < 0.5) {
         brain.mistakeKind = 1;
-        brain.mistakeUntil = t + 0.9;
+        brain.mistakeUntil = t + 0.5;
       } else {
         const corner = nextCorner(idx, 30);
         brain.mistakeKind = 2;
-        brain.mistakeUntil = t + 2.2;
+        brain.mistakeUntil = t + 1.2;
         // run wide: toward the outside of the corner
-        brain.mistakeShift = (corner.dir === 0 ? 1 : -corner.dir) * (14 + rng() * 14);
+        brain.mistakeShift = (corner.dir === 0 ? 1 : -corner.dir) * (3 + rng() * 4);
       }
     }
   }
   brain.wasBraking = braking;
-  if (lockup && brakeCmd > 0) brakeCmd *= 0.55;
+  if (lockup && brakeCmd > 0) brakeCmd *= 0.88;
 
-  // traction: ease the throttle when exiting hard turns at low speed
-  if (v < 260 && Math.abs(ctrl.steer) > 0.5) throttleCmd = Math.min(throttleCmd, 0.75);
+  // traction: limit throttle under high lateral acceleration and rear tyre slip to prevent power oversteer
+  const currentAy = p._veh ? Math.abs(p._veh.prevAy) / 9.81 : (Math.abs(ctrl.steer) * v * 0.004);
+  if (currentAy > 1.4) {
+    const ayLimit = Math.max(0.25, 1.0 - (currentAy - 1.4) / 1.6);
+    throttleCmd = Math.min(throttleCmd, ayLimit);
+  }
+  const rearSlip = p.wheelSlipRear ?? 0;
+  if (rearSlip > 0.12) {
+    const tcFactor = Math.max(0.15, 1.0 - (rearSlip - 0.12) / 0.25);
+    throttleCmd *= tcFactor;
+  }
+  // edge of track: if near the boundary, modulate throttle to keep car on asphalt
+  const edgeDist = HW - Math.abs(car.lateral);
+  if (edgeDist < 20 && car.lateral * p.vl > 0 && !car.inPit) {
+    const edgeLimit = Math.max(0.20, edgeDist / 20);
+    throttleCmd = Math.min(throttleCmd, edgeLimit);
+  }
+  if (v < 300 && Math.abs(ctrl.steer) > 0.25) {
+    const steerLimit = Math.max(0.20, 1.0 - 0.80 * (Math.abs(ctrl.steer) - 0.25) / 0.75);
+    throttleCmd = Math.min(throttleCmd, steerLimit);
+  }
 
   ctrl.throttle = throttleCmd;
   ctrl.brake = brakeCmd;
@@ -392,9 +455,10 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   ctrl.ersBoost = brain.ersOn;
 
   // ---- marshals ------------------------------------------------------------------------------
-  if (v < 12 && t > 8 && !car.pit) {
+  if (v < 20 && t > 6 && !car.pit) {
     brain.stuckTime += dt;
-    if (brain.stuckTime > 4) {
+    const thresh = !car.surface.onTrack ? 1.5 : 3.5;
+    if (brain.stuckTime > thresh) {
       respawnOnLine(car);
       brain.stuckTime = 0;
     }

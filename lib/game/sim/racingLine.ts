@@ -1,5 +1,7 @@
 import { HW } from '../constants';
 import { track, trackCache, type TrackRuntime } from '../track';
+import { cornerSpeedForCurvature as limitsCornerSpeed, maxLongAccel } from '../vehicle/limits';
+import { UNITS_PER_M } from '../units';
 
 /**
  * Optimal racing line (minimum curvature within the track) and the speed profile that goes with it.
@@ -28,27 +30,25 @@ export interface RacingLine {
   lapTimeEstimate: number;
 }
 
-export const LINE_MARGIN = 14; // keep the line this far from the track edge
+export const LINE_MARGIN = 19; // keep the line this far from the track edge
 const MAX_OFFSET = HW - LINE_MARGIN;
 
 export const V_TOP = 860; // units/s cap for the profile (just above the unboosted terminal speed)
-export const PROFILE_BRAKE_DECEL = 1750; // usable deceleration (brake lag + safety margin included)
+export const PROFILE_BRAKE_DECEL = 280; // usable deceleration in world units/s² (~2.8 g avg down to slow turns)
 
-/** Max cornering speed for curvature `k` (1/unit), from the physics yaw model at full lock. */
+/** Max cornering speed for curvature `k` (1/unit), from vehicle limits envelope. */
 export function cornerSpeedForCurvature(k: number, steerMax = 1): number {
   const a = Math.abs(k);
   if (a < 1e-6) return V_TOP;
-  const K = 2.6 * steerMax;
-  // yaw rate = K * min(v/220,1) / (1 + v/620), required = v * a  ->  solve for v >= 220
-  const v = 310 * (-1 + Math.sqrt(1 + (4 * K) / (620 * a)));
-  if (v >= 220) return Math.min(V_TOP, v);
-  // below 220 the available yaw rate scales with v, so speed barely matters: tight corner
-  return Math.max(120, v);
+  const kappaSI = a * UNITS_PER_M;
+  const vMs = limitsCornerSpeed(kappaSI, 0.88);
+  const vUnits = vMs * UNITS_PER_M * steerMax;
+  return Math.max(90, Math.min(V_TOP, vUnits));
 }
 
 /** Forward acceleration available at speed v (no ERS / DRS). */
 export function accelAt(v: number): number {
-  return 760 * Math.max(0, 1 - v / 900) - 0.13 * v;
+  return maxLongAccel(v / UNITS_PER_M) * UNITS_PER_M;
 }
 
 function optimiseOffsets(rt: TrackRuntime, lineOffset: Float32Array) {

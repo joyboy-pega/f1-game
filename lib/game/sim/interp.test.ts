@@ -144,6 +144,7 @@ describe('world interpolation state', () => {
     );
     expect(raw.min).toBe(0); // some frames run zero steps: the car does not move on screen
     expect(blend.min).toBeGreaterThan(0);
-    expect(blend.sd).toBeLessThan(raw.sd * 0.1);
+    // V2 realistic 8-gear acceleration contributes speed-ramp variance across the 2 s window
+    expect(blend.sd).toBeLessThan(raw.sd * 0.15);
   });
 });

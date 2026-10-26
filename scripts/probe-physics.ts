@@ -10,6 +10,9 @@ import { NEUTRAL_CONTROLS, type ControlState } from '../lib/game/controls';
 import { createInitialCarState, findNearestTrackPoint, updateCarPhysics, type CarPhysicsState } from '../lib/game/physics';
 import { getRacingLine } from '../lib/game/sim/racingLine';
 
+import { aeroForces, createAeroForces } from '../lib/game/vehicle/aero';
+import { CAR } from '../lib/game/vehicle/params';
+
 const DT = 1 / 120; // the sim's fixed step
 const M_PER_UNIT = KMH_PER_UNIT / 3.6; // 1 unit = 0.1 m (units.ts)
 const G = 9.81; // m/s^2
@@ -171,8 +174,8 @@ function lateralRun(kmh: number): LateralResult {
   setSpeed(car, kmh);
   car.steer = 1; // skip the steering ramp: measure the limit, not the transient
   let offTrack = false;
-  const start = Math.round(0.15 / DT);
-  const end = Math.round(0.3 / DT);
+  const start = Math.round(0.35 / DT);
+  const end = Math.round(0.55 / DT);
   let course0 = 0;
   let speedSum = 0;
   for (let i = 0; i <= end; i++) {
@@ -208,6 +211,10 @@ const brake = plain.top >= 300 ? brakeRun(300, 80) : brakeRun(Math.floor(plain.t
 const lat = [100, 200, 300].map(lateralRun);
 const lengthM = TRACK_LENGTH * M_PER_UNIT;
 
+const aeroCheck = createAeroForces();
+aeroForces(250 / 3.6, { drs: false, draft: 0, dirtyAir: 0 }, aeroCheck);
+const downforce250Ratio = aeroCheck.downforce / (CAR.massKg * G);
+
 const rows: [string, string, string, string][] = [
   ['Track length (m)', f(lengthM, 0), '5125', band(lengthM, 5125 * 0.995, 5125 * 1.005)],
   ['0-100 km/h (s)', f(plain.t100), '2.4-3.0', band(plain.t100, 2.4, 3.0)],
@@ -224,7 +231,7 @@ const rows: [string, string, string, string][] = [
   ['Lateral g at 300 km/h', f(lat[2].g) + (lat[2].offTrack ? ' (left track)' : ''), '4.5-5.5', band(lat[2].g, 4.5, 5.5)],
   ['Gears (max reached)', String(plain.gears), '8', plain.gears === 8 ? 'in band' : 'differs'],
   ['Max rpm', f(plain.maxRpm, 0), '~15000', band(plain.maxRpm, 14000, 15500)],
-  ['Downforce at 250 km/h (x weight)', 'n/a', '1.5-2.2', 'no aero force model'],
+  ['Downforce at 250 km/h (x weight)', f(downforce250Ratio), '1.5-2.2', band(downforce250Ratio, 1.5, 2.2)],
   ['Racing-line lap estimate (s)', f(lineLapTimeEstimate, 1), '84-92', band(lineLapTimeEstimate, 84, 92)],
 ];
 

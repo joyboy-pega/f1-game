@@ -145,6 +145,8 @@ export class CollisionSystem {
     pb.a += kickB * (iB / iSum) * 2;
     syncLocalVelocity(pa);
     syncLocalVelocity(pb);
+    syncVeh(pa);
+    syncVeh(pb);
 
     const closing = -vn;
     const last = this.cooldown.get(key) ?? -99;
@@ -175,4 +177,16 @@ function syncLocalVelocity(p: WorldCar['phys']) {
   const s = Math.sin(p.a);
   p.vf = p.vx * c + p.vy * s;
   p.vl = -p.vx * s + p.vy * c;
+}
+
+function syncVeh(p: WorldCar['phys']) {
+  if (p._veh) {
+    p._veh.x = p.x / 10;
+    p._veh.y = p.y / 10;
+    p._veh.yaw = p.a;
+    const c = Math.cos(p.a);
+    const s = Math.sin(p.a);
+    p._veh.vx = (p.vx * c + p.vy * s) / 10;
+    p._veh.vy = (-p.vx * s + p.vy * c) / 10;
+  }
 }

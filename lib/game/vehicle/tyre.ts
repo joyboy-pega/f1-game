@@ -38,9 +38,9 @@ const PEAK_ALPHA = (7 * Math.PI) / 180; // §5.2.2: ~7° lateral peak
 const PEAK_KAPPA = 0.1; // §5.2.2: ~10 % longitudinal slip peak
 
 export const TYRE: TyreParams = {
-  mu0: 2.05,
+  mu0: 2.0,
   fz0: (CAR.massKg * GRAVITY) / 4,
-  loadSensitivity: 0.18,
+  loadSensitivity: 0.2,
   lateral: { B: stiffnessFor(LAT_C, PEAK_ALPHA), C: LAT_C, E: 0 },
   longitudinal: { B: stiffnessFor(LON_C, PEAK_KAPPA), C: LON_C, E: 0 },
   peakSlipAngle: PEAK_ALPHA,

@@ -163,7 +163,7 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
   const boxArc = arcFromEntry(T.cumulativeS[pit.boxIdx]);
 
   // ---- stage transitions -----------------------------------------------------------------
-  if (pit.stage === 'enter' && sArc > boxArc - 330) pit.stage = 'approach';
+  if (pit.stage === 'enter' && (v <= LIMIT * 1.02 || sArc > boxArc - 180)) pit.stage = 'approach';
   if (pit.stage === 'depart' && sArc > boxArc + 130) pit.stage = 'exit';
 
   let target = LIMIT;
@@ -171,9 +171,9 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
 
   if (pit.stage === 'approach') {
     const dist = boxArc - sArc;
-    target = Math.min(LIMIT, Math.sqrt(2 * 450 * Math.max(0, dist - 2)));
-    if (dist < 6) target = 0;
-    if (v < 6 && dist < 24 && dist > -30) {
+    target = Math.min(LIMIT, Math.sqrt(2 * 180 * Math.max(0, dist - 12)));
+    if (dist < 4) target = 0;
+    if (p.kmh < 5 && dist < 45 && dist > -45) {
       pit.stage = 'service';
       pit.serviceTime = 2.2 + ctx.rand() * 1.3 + (ctx.rand() < 0.12 ? 1.5 + ctx.rand() * 2.5 : 0);
       pit.serviceLeft = pit.serviceTime;
@@ -185,6 +185,13 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
     target = 0;
     hold = true;
     pit.stationary += dt;
+    // Align car straight in the pit box
+    p.a = Math.atan2(T.ty[p.idx], T.tx[p.idx]);
+    if (p._veh) {
+      p._veh.yaw = p.a;
+      p._veh.yawRate = 0;
+      p._veh.vy = 0;
+    }
     if (pit.serviceLeft > 0) pit.serviceLeft -= dt;
     else if (!laneBusyBehind(car, ctx.cars) || pit.stationary > pit.serviceTime + 8) {
       // Tyres go on at the end of the stop; they start cool and warm up on track.
@@ -223,16 +230,17 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
   herr = Math.atan2(Math.sin(herr), Math.cos(herr));
   const vv = Math.max(v, 60);
   const yawPerSteer = (2.6 * Math.max(0.3, p.tires.frontGrip) * Math.min(vv / 220, 1)) / (1 + vv / 620);
-  ctrl.steer = hold ? 0 : clamp((4.0 * herr) / yawPerSteer, -1, 1);
+  // In the pit lane, clamp steering so cars never spin or turn sideways into the wall
+  ctrl.steer = hold ? 0 : clamp((2.5 * herr) / yawPerSteer, -0.25, 0.25);
   ctrl.analogSteer = true;
 
   // ---- speed ---------------------------------------------------------------------------------
   if (hold) {
     ctrl.throttle = 0;
     ctrl.brake = 1;
-  } else if (v > target + 3) {
+  } else if (v > target + 1) {
     ctrl.throttle = 0;
-    ctrl.brake = clamp((v - target) / 25, 0, 1);
+    ctrl.brake = clamp((v - target) / 10, 0, 1);
   } else {
     ctrl.brake = target <= 0 ? 1 : 0;
     ctrl.throttle = target <= 0 ? 0 : clamp((target - v) / 20 + 0.1, 0, 1);
@@ -273,7 +281,8 @@ export function aiPitStrategy(car: WorldCar, ctx: PitContext) {
   if (t.pitStops > 0 && lapsDone - ((car.ai.lastStopLap as number) ?? 0) < 2) return;
 
   const mismatch = compoundMismatch(car.compound, ctx.wetness);
-  const worn = car.phys.tires.avgWear > wearLimit;
+  // In short sprint races (< 6 laps), pitting costs 25+ seconds, so only pit if tyres are completely gone
+  const worn = (ctx.totalLaps >= 6) ? car.phys.tires.avgWear > wearLimit : car.phys.tires.avgWear > 0.88;
   const planned = ctx.totalLaps >= 8 && t.pitStops === 0 && lapsDone >= Math.round(ctx.totalLaps * plannedFrac);
   if (mismatch || worn || planned) {
     car.pitRequest = true;

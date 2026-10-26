@@ -303,9 +303,9 @@ export class GameWorld {
       // Who is driving: pit-lane controller, AI, or the human (with optional assists)
       if (car.pit) driveInPit(car, pitCtx, dt);
       else if (car.ai) {
-        if (strategyTick) aiPitStrategy(car, pitCtx);
+        if (strategyTick && !car.isPlayer) aiPitStrategy(car, pitCtx);
         driveAI(car, aiCtx, dt);
-      } else if (car.isPlayer) applyAssists(car, s.assists, s.weather);
+      } else if (car.isPlayer && s.assists) applyAssists(car, s.assists, s.weather);
 
       const wasDrs = p.drsOpen;
       const wasErs = p.isBoosting;
