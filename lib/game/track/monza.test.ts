@@ -79,6 +79,7 @@ describe('Monza circuit integration (PLAN-v3 §4.2 T6.1)', () => {
   it('runs a multi-car AI race on Monza without cars going off-track or crashing', async () => {
     await ensureTrack('monza');
 
+    world.seed = 4242;
     world.setup({
       ...DEFAULT_SETTINGS,
       trackId: 'monza',

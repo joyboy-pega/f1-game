@@ -800,3 +800,33 @@ the running game and the golden hash are untouched (full suite below). Folder is
 
 
 
+
+---
+
+## 2026-10-27 — T6.2 Red Bull Ring (Spielberg) circuit integration (Task 22)
+
+**Completed Task:**
+- **Task 22 (T6.2: Red Bull Ring Circuit Integration — 4318 m, 10 Turns, 65m Elevation):**
+  - **GeoJSON Ingestion & Processing (`scripts/tracks/data/at-1969.geojson`):**
+    - Imported authentic GPS coordinates from `bacinger/f1-circuits` (`at-1969.geojson`) via `import-geojson.ts`.
+    - Generated 1727 track sample points at ~2.5 m resolution, 4318 m length, clockwise layout, starting at the start/finish straight.
+  - **Authentic Circuit Metadata & Alpine Topography (`lib/game/tracks/redbullring.ts`):**
+    - Variable track width: 14 m pit straight, 13 m through T1 (Niki Lauda Kurve), 13 m climbing uphill into T3 (Remus), 14 m downhill into T4 (Rauch), 13 m through Infield T6–T8 (Würth & Jochen Rindt), 14 m onto start straight.
+    - Authentic Styrian alpine elevation profile: starts at 0 m baseline on pit straight, climbs steeply +65.0 m up the mountain into T3 Remus hairpin (highest point), drops steeply -60 m down into T4, undulating through T6–T10. Total measured elevation delta: 67.0 m.
+    - Realistic banking/camber: +2.5° banking in uphill T1, -2.0° off-camber crest at T4 braking zone, +2.0° compression banking in T9/T10.
+    - Official FIA sectors: S1 (0–1200 m, pit straight to T1), S2 (1200–2600 m, uphill straight and Remus hairpin to T4), S3 (2600–4318 m, sweeping downhill turns to pit entry).
+    - 3 DRS zones: Zone 1 Pit straight, Zone 2 T1 to T3 uphill run, Zone 3 T3 to T4 downhill run.
+    - Pit lane: right side (+1), entry 4050 m, exit 350 m, 80 km/h speed limit.
+  - **Circuit Registry & Attribution (`lib/game/track/registry.ts`, `CREDITS.md`):**
+    - Registered Red Bull Ring in `CATALOG` with official length 4318 m, 10 turns, lap record 1:05.619 (Carlos Sainz 2020).
+    - Attributed circuit geometry to Tomislav Bacinger and OpenStreetMap contributors in `CREDITS.md`.
+  - **Unit Testing & AI Race Verification (`lib/game/track/redbullring.test.ts`):**
+    - Authored 4 unit tests in `redbullring.test.ts` verifying catalog entry, TrackRuntime geometry, 67.0 m measured elevation delta, 71.50 s racing line lap time estimate, and multi-car 2-lap AI race through alpine elevation without crashing or leaving track.
+    - Cooperative test runner in `world.test.ts` yielding event loop to eliminate Vitest worker Birpc timeouts.
+
+**Verification:**
+- Full test suite: **19/19 test files passed, 177/177 unit tests passed** (including `redbullring.test.ts` and `monza.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

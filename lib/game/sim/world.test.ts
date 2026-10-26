@@ -18,12 +18,13 @@ function autopilotPlayer(w: GameWorld) {
   w.player.skill = DRIVER_ROSTER[0].skill;
 }
 
-function run(w: GameWorld, seconds: number, until?: () => boolean) {
+async function run(w: GameWorld, seconds: number, until?: () => boolean) {
   const steps = Math.round(seconds / FIXED_DT);
   for (let i = 0; i < steps; i++) {
     w.step(FIXED_DT, NEUTRAL_CONTROLS);
     w.events.flush();
     if (until?.()) return;
+    if (i % 300 === 0) await new Promise((r) => setImmediate(r));
   }
 }
 
@@ -37,7 +38,7 @@ describe('GameWorld race session', () => {
     expect(w.phase).toBe('grid');
   });
 
-  it('holds every car still until lights out', () => {
+  it('holds every car still until lights out', async () => {
     const w = new GameWorld();
     w.setup(raceSettings());
     const start = w.cars.map((c) => [c.phys.x, c.phys.y]);
@@ -55,11 +56,11 @@ describe('GameWorld race session', () => {
       expect(c.phys.x).toBeCloseTo(start[i][0]);
       expect(c.phys.y).toBeCloseTo(start[i][1]);
     });
-    run(w, 3, () => w.phase === 'racing');
+    await run(w, 3, () => w.phase === 'racing');
     expect(w.phase).toBe('racing');
   });
 
-  it('runs a full race: laps, finish order and classification are consistent', () => {
+  it('runs a full race: laps, finish order and classification are consistent', async () => {
     const w = new GameWorld();
     w.setup(raceSettings());
     autopilotPlayer(w);
@@ -67,7 +68,7 @@ describe('GameWorld race session', () => {
     w.events.subscribe((e) => {
       if (e.type === 'lap') laps.push(e.time);
     });
-    run(w, 600, () => w.cars.every((c) => c.timing.finished));
+    await run(w, 600, () => w.cars.every((c) => c.timing.finished));
 
     expect(w.cars.every((c) => c.timing.finished)).toBe(true);
     expect(laps.length).toBeGreaterThanOrEqual(w.cars.length * 2);
@@ -83,17 +84,17 @@ describe('GameWorld race session', () => {
     expect(results.fastestLap).not.toBeNull();
   });
 
-  it('produces time gaps (not distances) in the timing tower', () => {
+  it('produces time gaps (not distances) in the timing tower', async () => {
     const w = new GameWorld();
     w.setup(raceSettings({ totalLaps: 3 }));
     autopilotPlayer(w);
-    run(w, 60);
+    await run(w, 60);
     const hud = w.buildHud();
     expect(hud.order[0].gapToLeader).toBe('LEADER');
     for (const row of hud.order.slice(1)) expect(row.gapToLeader).toMatch(/^\+\d+\.\d{3}$/);
   });
 
-  it('time trial starts racing immediately with an untimed out-lap', () => {
+  it('time trial starts racing immediately with an untimed out-lap', async () => {
     const w = new GameWorld();
     w.setup({ ...DEFAULT_SETTINGS, mode: 'timetrial' });
     autopilotPlayer(w);
@@ -103,7 +104,7 @@ describe('GameWorld race session', () => {
     w.events.subscribe((e) => {
       if (e.type === 'lap') laps.push(e.time);
     });
-    run(w, 400, () => laps.length >= 2);
+    await run(w, 400, () => laps.length >= 2);
     expect(laps.length).toBe(2);
     expect(w.player.timing.bestLapTrace).not.toBeNull();
   });
@@ -212,7 +213,7 @@ describe('GameWorld track selection', () => {
 });
 
 describe('pit lane speed limit (units)', () => {
-  it('an AI car in the pit lane stays under the 80 km/h limit once it is limited, and the stop completes', () => {
+  it('an AI car in the pit lane stays under the 80 km/h limit once it is limited, and the stop completes', async () => {
     const w = new GameWorld();
     w.seed = 4242;
     w.setup(raceSettings({ totalLaps: 3, aiCount: 3 }));
@@ -225,7 +226,7 @@ describe('pit lane speed limit (units)', () => {
     w.events.subscribe((e) => {
       if (e.type === 'pitExit' && e.carId === car.id) exited = true;
     });
-    run(w, 300, () => {
+    await run(w, 300, () => {
       if (car.pit) {
         pitSeen = true;
         // 'enter' takes the car over at race speed and brakes it down; the limiter applies from 'approach' on.

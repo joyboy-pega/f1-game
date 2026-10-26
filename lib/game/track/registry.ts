@@ -42,11 +42,20 @@ const CATALOG: TrackCatalogEntry[] = [
     turns: 11,
     lapRecord: { time: 81.046, driver: 'Rubens Barrichello', year: 2004 },
   },
+  {
+    id: 'redbullring',
+    name: 'Red Bull Ring',
+    country: 'Austria',
+    lengthM: 4318,
+    turns: 10,
+    lapRecord: { time: 65.619, driver: 'Carlos Sainz', year: 2020 },
+  },
 ];
 
 /** Lazy loaders for non-bundled tracks (T6 adds entries like `monza: () => import('../tracks/monza')`). */
 const lazyModules: Record<string, () => Promise<TrackModule>> = {
   monza: () => import('../tracks/monza').then((m) => m.default),
+  redbullring: () => import('../tracks/redbullring').then((m) => m.default),
 };
 
 const bundled: Record<string, () => TrackRuntime> = {

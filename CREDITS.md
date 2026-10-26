@@ -3,5 +3,6 @@
 | What | Source | Author / licence | Retrieved | Changes |
 |---|---|---|---|---|
 | Monza centreline (`scripts/tracks/data/it-1922.geojson`, `lib/game/tracks/monza.ts`) | https://github.com/bacinger/f1-circuits (`circuits/it-1922.geojson`) | © 2019–2025 Tomislav Bacinger, MIT (copy: `scripts/tracks/data/LICENSE-bacinger-f1-circuits.md`). Geometry appears derived from OpenStreetMap: © OpenStreetMap contributors (ODbL). | 2026-10-22 | Projected to local metres, smoothed (centripetal Catmull-Rom + Laplacian, max 1.5 m), resampled to 2.5 m and scaled to the official 5793 m by `scripts/tracks/import-geojson.ts`. |
+| Red Bull Ring centreline (`scripts/tracks/data/at-1969.geojson`, `lib/game/tracks/redbullring.ts`) | https://github.com/bacinger/f1-circuits (`circuits/at-1969.geojson`) | © 2019–2025 Tomislav Bacinger, MIT (copy: `scripts/tracks/data/LICENSE-bacinger-f1-circuits.md`). Geometry appears derived from OpenStreetMap: © OpenStreetMap contributors (ODbL). | 2026-10-27 | Projected to local metres, smoothed (centripetal Catmull-Rom + Laplacian, max 1.5 m), resampled to 2.5 m and scaled to the official 4318 m by `scripts/tracks/import-geojson.ts`. |
 
 Circuit names are place names only; no F1/FIA/FOM marks, team or driver names, or logos are used.
