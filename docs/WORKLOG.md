@@ -830,3 +830,40 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — G1 Procedural chunked terrain heightfield & mountain horizon ring (Task 23)
+
+**Completed Task:**
+- **Task 23 (G1: Terrain Heightfield Replacing Flat Ground Plane & Sphere Hills):**
+  - **Procedural Heightfield Sampler (`lib/game/visuals/terrain.ts`):**
+    - Created deterministic value noise & FBM sampler producing natural rolling landscape (wavelengths ~1 km and ~300 m).
+    - Track corridor flattening: within wall distance (`halfWidth + 82` units), terrain is flattened exactly to `roadHeight - 0.3 m` (`rt.pz - 3.0` units).
+    - Smooth Hermite cubic blend between `wallDist` and `wallDist + 380` units (38 m transition) into the natural landscape.
+    - Outer perimeter ridges: elevation smoothly climbs into natural ridge lines (+180..+440 units) near the 1.5 km margin boundary.
+  - **Chunked Terrain Geometry & Frustum Culling (`lib/game/visuals/terrain.ts`):**
+    - Built 4 quadrant chunks (SW, SE, NW, NE) covering track bounds + 1.5 km margin (each 60×60 quads = 7,200 tris).
+    - Per-vertex attributes: positions, central-difference surface normals, detail tiling UV (`u, v` for 12 m tile), macro-variation UV (`uv2` normalized `[0..1]` across entire 4 km terrain).
+    - Vertex color encoding from surface slope (`1.0 - ny`) and elevation: meadow green on flats, dried earth/grass on embankments, warm rock on steep cuts, and crisp snow/scree in winter weather.
+    - Bounding spheres computed on each chunk for automatic Three.js frustum culling.
+  - **Macro-Variation Modulation (`lib/game/visuals/textures.ts`, `components/game/Terrain.tsx`):**
+    - Layered `getMacroNoise()` into `lightMap` with `lightMapIntensity = 0.65`, breaking repetitive grass texture tiling across kilometres with zero custom shaders.
+  - **Distant Mountain Horizon Ring (`lib/game/visuals/terrain.ts`):**
+    - Replaced the 60 instanced sphere hills in `TrackProps.tsx` with a continuous circular mountain silhouette (64 segments, 128 tris, 1 draw call) undulating up to +420..+780 units on the outer horizon.
+    - Blends into atmospheric exponential fog (`fogExp2` from `Environment.tsx`).
+  - **Budget Verification:**
+    - Total terrain draw calls: 4 quadrant chunks + 1 mountain ring = **5 draw calls** (≤ 6 draws budget).
+    - Total terrain triangles: 4 × 7,200 + 128 = **28,928 triangles** (≤ 150k tris budget).
+  - **Scene Integration & Cleanup (`components/game/Track.tsx`, `components/game/TrackProps.tsx`):**
+    - Mounted `<Terrain />` in `Track.tsx`, removing the legacy flat ground plane.
+    - Removed legacy 60 sphere hills from `TrackProps.tsx`.
+  - **Unit Testing (`lib/game/visuals/terrain.test.ts`):**
+    - 3 unit tests verifying flattened corridor at centerline & wall boundary, smooth natural landscape blending, vertex normal normalization, vertex color ranges, bounding spheres, snow palette, triangle count (28.9k ≤ 150k), and draw call count (5 ≤ 6).
+
+**Verification:**
+- Full test suite: **20/20 test files passed, 180/180 unit tests passed** (including `terrain.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

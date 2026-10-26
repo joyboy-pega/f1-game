@@ -9,6 +9,7 @@ import { surfaceHeight } from '@/lib/game/track/surface';
 import { gridSlotIndex } from '@/lib/game/sim/race';
 import { boxIndexFor } from '@/lib/game/sim/pit';
 import { useLighting } from '@/lib/game/visuals/lighting';
+import { Terrain } from './Terrain';
 import {
   getFence,
   getGrassPlain,
@@ -430,11 +431,8 @@ export function Track() {
         <meshBasicMaterial vertexColors transparent depthWrite={false} polygonOffset polygonOffsetFactor={-5} />
       </mesh>
 
-      {/* ground: lowered below lowest track elevation (-30) to prevent z-fighting until G1 terrain */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -45, 0]} receiveShadow>
-        <planeGeometry args={[36000, 36000]} />
-        <meshStandardMaterial map={tex.ground} roughness={1} color={snow ? '#ffffff' : '#9fb08f'} />
-      </mesh>
+      {/* G1 terrain: chunked procedural heightfield with flattened corridor + distant mountain ring */}
+      <Terrain />
     </group>
   );
 }

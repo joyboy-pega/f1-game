@@ -251,29 +251,6 @@ export function TrackProps() {
     mesh.computeBoundingSphere();
   }, [towers]);
 
-  // ---- distant hills ring ----
-  const hills = useMemo(() => {
-    const rand = rng(99);
-    const mesh = new THREE.InstancedMesh(
-      new THREE.SphereGeometry(1, 12, 8),
-      new THREE.MeshStandardMaterial({ color: L.snow ? '#e6eff8' : '#6a7d62', roughness: 1, fog: true }),
-      60
-    );
-    const dummy = new THREE.Object3D();
-    for (let i = 0; i < 60; i++) {
-      const a = (i / 60) * Math.PI * 2 + rand() * 0.1;
-      const r = 9000 + rand() * 2500;
-      const w = 1200 + rand() * 1400;
-      dummy.position.set(TRACK_BOUNDS.cx + Math.cos(a) * r, -w * 0.15, TRACK_BOUNDS.cz + Math.sin(a) * r);
-      dummy.scale.set(w, 300 + rand() * 650, w);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
-    }
-    return mesh;
-  }, [trackId, L.snow]);
-
-  useEffect(() => () => disposeInstanced(hills), [hills]);
-
   const night = L.nightFactor;
 
   return (
@@ -334,8 +311,6 @@ export function TrackProps() {
           <meshBasicMaterial map={b.tex} side={THREE.DoubleSide} toneMapped={false} />
         </mesh>
       ))}
-
-      <primitive object={hills} />
 
       {/* floodlights */}
       <mesh geometry={towers.poles}>
