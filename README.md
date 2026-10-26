@@ -1,6 +1,6 @@
-# Buddh GP
+# Simulart Tracks (Buddh GP)
 
-Buddh GP is a browser F1 racing game set on the Buddh International Circuit. Race a full grid of AI rivals around the track, manage tyres, pit stops, DRS and ERS, and watch the race back with TV-style cameras. It runs entirely in the browser on WebGL2, with no install step beyond the dev server.
+**Simulart Tracks** is a high-performance browser-based 3D racing simulation game set on the Buddh International Circuit, created by **Arigatoo Club**. Race a full grid of AI rivals around the track, manage tyres, pit stops, DRS and ERS, and watch the race back with TV-style cameras. It runs entirely in the browser on WebGL2, with no install step beyond the dev server.
 
 ## Features
 
@@ -99,6 +99,13 @@ The `legacy/` folder holds the original standalone HTML and JavaScript prototype
 
 Open the HTML files directly in a browser to run them. Some pages load libraries from a CDN, so they need an internet connection.
 
+## Developers
+
+- **Joy Kujur**
+- **Nirav Thakur**
+- **Advait Patil**
+- **Disha Methani**
+
 ## Credits
 
-Made by Arigatoo Club for fun. Teams and drivers are fictional. Circuit layout data is based on the Buddh International Circuit.
+Made by **Arigatoo Club** for fun. Teams and drivers are fictional. Circuit layout data is based on the Buddh International Circuit.

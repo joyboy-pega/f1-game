@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import type { CameraViewMode, QualityChoice } from '@/lib/game/gameState';
+import type { CameraViewMode, QualityChoice, WeatherType } from '@/lib/game/gameState';
 import { useGameStore } from '@/lib/game/store';
 import { Field, Seg, Slider, Switch } from './kit';
 import { useMounted } from './format';
@@ -21,6 +21,13 @@ const QUALITIES: { value: QualityChoice; label: string }[] = [
   { value: 'HIGH', label: 'High' },
 ];
 
+const WEATHERS: { value: WeatherType; label: string }[] = [
+  { value: 'sunny', label: 'Sunny' },
+  { value: 'cloudy', label: 'Cloudy' },
+  { value: 'rain', label: 'Rain' },
+  { value: 'snow', label: 'Snow' },
+];
+
 /** Live-tunable settings. Used in the pause menu and the lobby; reads and writes the persisted store. */
 export function SettingsPanel() {
   const mounted = useMounted();
@@ -32,6 +39,11 @@ export function SettingsPanel() {
 
   return (
     <div className="k-settings">
+      <h3 className="k-section-title">Track conditions</h3>
+      <Field label="Weather" hint={s.weather === 'rain' ? 'Wet track with rooster tails and reduced grip' : s.weather === 'snow' ? 'Snowy circuit with reduced traction' : undefined}>
+        <Seg label="Weather conditions" value={s.weather} options={WEATHERS} onChange={(v) => set({ weather: v })} />
+      </Field>
+
       <h3 className="k-section-title">Audio</h3>
       <Field label="Sound">
         <Switch checked={s.audioEnabled} onChange={(v) => set({ audioEnabled: v })} label="Sound enabled" />

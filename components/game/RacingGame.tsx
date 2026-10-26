@@ -40,7 +40,7 @@ export function RacingGame() {
   const results = useGameStore((s) => s.results);
   const paused = useGameStore((s) => s.paused);
   const replayActive = useGameStore((s) => s.replayActive);
-  const telemetryOpen = useGameStore((s) => s.telemetryOpen);
+  const telemetryOpen = useGameStore((s) => s.telemetryOpen || s.settings.showTelemetry);
   const showMinimap = useGameStore((s) => s.settings.showMinimap);
   const quality = useGameStore((s) => s.settings.quality);
   const audioEnabled = useGameStore((s) => s.settings.audioEnabled);
@@ -64,13 +64,18 @@ export function RacingGame() {
     else return useGameStore.persist.onFinishHydration(start);
   }, []);
 
-  // Touch controls for any coarse-pointer device (phones in landscape are wider than 640 px).
+  // Touch controls for any coarse-pointer device, mobile viewport, or touch interaction.
   useEffect(() => {
-    const mq = window.matchMedia('(pointer: coarse)');
-    setTouch(mq.matches);
-    const on = (e: MediaQueryListEvent) => setTouch(e.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
+    const checkTouch = () => {
+      const isCoarse = window.matchMedia('(pointer: coarse)').matches;
+      const hasTouch = 'ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+      const isMobileWidth = window.innerWidth <= 1024;
+      return Boolean(isCoarse || hasTouch || isMobileWidth);
+    };
+    setTouch(checkTouch());
+    const handleTouchStart = () => setTouch(true);
+    window.addEventListener('touchstart', handleTouchStart, { once: true });
+    return () => window.removeEventListener('touchstart', handleTouchStart);
   }, []);
 
   useEffect(() => {
@@ -101,7 +106,7 @@ export function RacingGame() {
   if (!ready) return null;
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black select-none font-sans">
+    <div className="fixed inset-0 w-full h-full min-h-[100dvh] overflow-hidden bg-black select-none font-sans touch-none">
       <GameCanvas key={sessionId} />
       {replayActive ? null : (
         <>

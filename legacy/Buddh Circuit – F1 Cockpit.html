@@ -1597,17 +1597,17 @@ const DRS_CONFIG = {
 // TUNABLE CONTROLLED BRAKING & BRAKE BALANCE CONFIGURATION
 // ==========================================================================
 const BRAKE_CONFIG = {
-  maxBrakeForce: 2150,            // Base peak deceleration force at 100% brake pedal
-  brakeResponse: 8.5,             // Pedal application ramp-up rate (units/s)
-  brakeReleaseRate: 14.0,         // Pedal release ramp-down rate (units/s)
+  maxBrakeForce: 350,             // Realistic F1 peak mechanical braking force
+  brakeResponse: 5.8,             // Progressive pedal ramp-up rate
+  brakeReleaseRate: 11.0,         // Smooth pedal release rate
   defaultBias: 0.56,              // Initial front brake bias (56% Front / 44% Rear)
   minBias: 0.45,                  // 45% Front bias minimum limit
   maxBias: 0.70,                  // 70% Front bias maximum limit
   biasStep: 0.01,                 // 1% per keypress adjustment
   reverseMaxSpeed: -120,          // Peak reverse velocity
-  reverseAccel: 450,              // Reverse acceleration rate
-  reverseDelay: 0.16,             // Brief stationary deadband before shifting to reverse
-  highSpeedAeroFactor: 0.35,      // Downforce braking assistance multiplier at top speed
+  reverseAccel: 380,              // Reverse acceleration rate
+  reverseDelay: 0.32,             // Brief stationary deadband before shifting to reverse
+  highSpeedAeroFactor: 0.55,      // Downforce braking assistance multiplier at top speed
   lowSpeedCutoff: 1.5,            // Low speed threshold for smooth exponential stop
   userBrakeForceMultiplier: (function(){
     const s = localStorage.getItem('formula_v_brake_force');
@@ -2362,44 +2362,6 @@ const gantryLights = [];
     });
   });
 
-  // Instanced Trees in Outfield (spaced safely outside the track and clear of the pit/grandstand area)
-  const trunkGeo = new THREE.CylinderGeometry(1.2, 1.8, 16, 6);
-  const foliageGeo = new THREE.ConeGeometry(9.5, 28, 7);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 0.9 });
-  const foliageMat = new THREE.MeshStandardMaterial({ color: 0x1b4324, roughness: 0.85 });
-
-  const treeIndices = [];
-  for (let i = 0; i < N; i += 18) {
-    if (i > N - 85 && i < N - 25) continue; // Clear trees near pit & grandstand
-    treeIndices.push({ idx: i, side: (i % 36 === 0 ? 1 : -1), dist: 175 + (i % 5) * 28 });
-  }
-
-  const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, treeIndices.length);
-  const foliageInst = new THREE.InstancedMesh(foliageGeo, foliageMat, treeIndices.length);
-  trunkInst.castShadow = true;
-  foliageInst.castShadow = true;
-
-  const tDummy = new THREE.Object3D();
-  treeIndices.forEach((t, k) => {
-    const p = pts[t.idx];
-    const bnx = nrm[t.idx][0], bny = nrm[t.idx][1];
-    const tx = p[0] + t.side * bnx * t.dist;
-    const tz = p[1] + t.side * bny * t.dist;
-
-    tDummy.position.set(tx, 8, tz);
-    tDummy.scale.set(1, 1, 1);
-    tDummy.updateMatrix();
-    trunkInst.setMatrixAt(k, tDummy.matrix);
-
-    tDummy.position.set(tx, 26, tz);
-    tDummy.scale.set(1, 1, 1);
-    tDummy.updateMatrix();
-    foliageInst.setMatrixAt(k, tDummy.matrix);
-  });
-  trunkInst.instanceMatrix.needsUpdate = true;
-  foliageInst.instanceMatrix.needsUpdate = true;
-  trackGroup.add(trunkInst);
-  trackGroup.add(foliageInst);
 
   // Giant Terrain Plane
   const terrainGeo = new THREE.PlaneGeometry(36000, 36000);

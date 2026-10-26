@@ -26,6 +26,7 @@ const MODES: { id: GameMode; name: string; sub: string }[] = [
 ];
 
 const PRESETS: { name: string; livery: Omit<Livery, 'number'> }[] = [
+  { name: 'Pegasus #53', livery: { body: '#f8fafc', accent: '#dc2626', rim: '#9a6b26' } },
   { name: 'Scarlet', livery: { body: '#e10600', accent: '#121212', rim: '#c0c0c0' } },
   { name: 'Papaya', livery: { body: '#ff8700', accent: '#0072bb', rim: '#1e1e1e' } },
   { name: 'Silver', livery: { body: '#d9dce1', accent: '#111111', rim: '#111111' } },
@@ -62,13 +63,13 @@ export function MainMenu() {
   const best = mounted ? records.bestLaps[bestKey] : undefined;
 
   return (
-    <main className="l-root" aria-label="Buddh GP lobby">
+    <main className="l-root" aria-label="Simulart Tracks lobby">
       <header className="l-top">
         <div className="l-brand">
           <span className="l-flag" aria-hidden="true" />
           <div>
-            <h1>Buddh GP</h1>
-            <p>Formula racing · {trackInfo.name}</p>
+            <h1>Simulart Tracks</h1>
+            <p>by Arigatoo Club · {trackInfo.name}</p>
           </div>
         </div>
         <div className="l-track">
@@ -97,15 +98,23 @@ export function MainMenu() {
       </header>
 
       <div className="l-grid">
-        <section className="l-stage" aria-label="Your car">
+        <section className={`l-stage ${s.weather === 'rain' ? 'is-rain' : s.weather === 'snow' ? 'is-snow' : ''}`} aria-label="Your car">
           <div className="l-showroom">
-            <Showroom model={s.carModel} livery={s.livery} compound={s.startCompound} />
+            <Showroom model={s.carModel} livery={s.livery} compound={s.startCompound} weather={s.weather} />
           </div>
+          {(s.weather === 'rain' || s.weather === 'snow') && (
+            <div className={`l-weather-pill ${s.weather}`} aria-live="polite">
+              <span className="l-weather-pill-dot" />
+              <span>{s.weather === 'rain' ? '🌧️ Wet Weather Active' : '❄️ Snow Conditions Active'}</span>
+            </div>
+          )}
           <div className="l-stage-cap">
             <span className="l-num">#{s.livery.number}</span>
             <div>
               <b>{s.driverName || 'You'}</b>
-              <small>{s.carModel === 'f1' ? 'Formula car' : 'Street coupe'} · {COMPOUNDS[s.startCompound].name} tyres</small>
+              <small>
+                {s.carModel === 'pegasus' ? 'Formula Student (SAE India) · Team Pegasus #53' : s.carModel === 'f1' ? 'Formula car' : 'Tesla Roadster'} · {COMPOUNDS[s.startCompound].name} tyres
+              </small>
             </div>
           </div>
         </section>
@@ -207,9 +216,21 @@ export function MainMenu() {
                     value={s.carModel}
                     options={[
                       { value: 'f1', label: 'Formula' },
-                      { value: 'street', label: 'Street' },
+                      { value: 'roadster', label: 'Tesla Roadster' },
+                      { value: 'pegasus', label: 'Pegasus #53' },
                     ]}
-                    onChange={(v) => set({ carModel: v })}
+                    onChange={(v) => {
+                      if (v === 'pegasus') {
+                        set({
+                          carModel: v,
+                          livery: { ...s.livery, number: 53, body: '#f8fafc', accent: '#dc2626', rim: '#9a6b26' },
+                          driverName: s.driverName === 'You' ? 'Pegasus #53' : s.driverName,
+                          driverCode: s.driverCode === 'YOU' ? 'PEG' : s.driverCode,
+                        });
+                      } else {
+                        set({ carModel: v });
+                      }
+                    }}
                   />
                 </Field>
                 <div className="l-presets" role="group" aria-label="Livery presets">

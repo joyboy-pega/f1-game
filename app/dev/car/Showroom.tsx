@@ -16,7 +16,8 @@ const SPACING = 30;
 interface Spec {
   livery: Livery;
   compound: TyreCompound;
-  street?: boolean;
+  roadster?: boolean;
+  pegasus?: boolean;
   drs?: boolean;
   brake?: number;
 }
@@ -26,7 +27,8 @@ const SPECS: Spec[] = [
   { livery: { body: '#DC0000', accent: '#FFFFFF', rim: '#DC0000', number: 16 }, compound: 'medium', brake: 1 },
   { livery: { body: '#F5F5F5', accent: '#E10600', rim: '#111111', number: 22 }, compound: 'hard' },
   { livery: { body: '#FF8700', accent: '#0072BB', rim: '#1E1E1E', number: 4 }, compound: 'inter' },
-  { livery: { body: '#6B21A8', accent: '#F59E0B', rim: '#F59E0B', number: 10 }, compound: 'wet', street: true },
+  { livery: { body: '#C00000', accent: '#111111', rim: '#111111', number: 10 }, compound: 'wet', roadster: true },
+  { livery: { body: '#F8FAFC', accent: '#DC2626', rim: '#9A6B26', number: 53 }, compound: 'soft', pegasus: true },
 ];
 
 function fakeCar(i: number, spec: Spec, anim: boolean): WorldCar {
@@ -39,9 +41,14 @@ function fakeCar(i: number, spec: Spec, anim: boolean): WorldCar {
     phys.brakeInput = spec.brake ?? 0;
     phys.drsOpen = !!spec.drs;
   }
-  const car = makeCar(i, !!spec.street, 0, 0, spec.compound);
+  const car = makeCar(i, !!spec.roadster, 0, 0, spec.compound);
   car.phys = phys;
-  car.driver = { name: 'Test', code: 'TST', team: 'Test', livery: spec.livery };
+  car.driver = {
+    name: spec.pegasus ? 'Team Pegasus' : 'Test',
+    code: spec.pegasus ? 'PEG' : 'TST',
+    team: spec.pegasus ? 'Pegasus' : 'Test',
+    livery: spec.livery,
+  };
   car.position = i + 1;
   return car;
 }
@@ -91,7 +98,7 @@ export default function Showroom() {
   const cars = useMemo(() => SPECS.map((s, i) => fakeCar(i, s, anim)), [anim]);
 
   useEffect(() => {
-    useGameStore.getState().setSettings({ carModel: 'street', ...(weather ? { weather: weather as 'rain' } : {}) });
+    useGameStore.getState().setSettings({ carModel: 'roadster', ...(weather ? { weather: weather as 'rain' } : {}) });
   }, [weather]);
 
   return (

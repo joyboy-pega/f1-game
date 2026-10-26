@@ -136,6 +136,10 @@ export class GameWorld {
     return this.settings.mode === 'race';
   }
 
+  updateSettings(patch: Partial<GameSettings>) {
+    this.settings = { ...this.settings, ...patch };
+  }
+
   setup(settings: GameSettings) {
     this.settings = settings;
     // Everything below (grid, cars, timing) is built against the active track, so switch it first.

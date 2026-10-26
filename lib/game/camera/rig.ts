@@ -159,7 +159,7 @@ export class CameraRig {
     const dt = clamp(rawDt, 1 / 1000, 0.1);
     this.time += dt;
 
-    if (!this.ready) this.snapTo(car);
+    if (!this.ready) this.snapTo(car, mode);
     this.kinematics(car, dt);
     this.lb += ((o.lookBack ? 1 : 0) - this.lb) * damp(dt, 9);
 
@@ -243,7 +243,7 @@ export class CameraRig {
 
   // -------------------------------------------------------------------------- internals
 
-  private snapTo(car: RigCar) {
+  private snapTo(car: RigCar, mode?: RigMode) {
     this.prevA = car.a;
     this.prevVf = car.vf;
     this.yawRate = 0;
@@ -256,7 +256,8 @@ export class CameraRig {
     this.lead.snap(0);
     this.rollS.snap(0);
     this.pitchS.snap(0);
-    this.fov = this.fovTarget = 60;
+    const initialFov = mode === 'intro' ? 44 : 60;
+    this.fov = this.fovTarget = initialFov;
   }
 
   /** Smoothed yaw rate and longitudinal acceleration, for head movement and chase pumping. */

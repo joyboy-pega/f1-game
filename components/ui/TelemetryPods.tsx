@@ -3,6 +3,7 @@
 import React from 'react';
 import { world } from '@/lib/game/sim/world';
 import { useTicker } from '@/lib/game/useTicker';
+import { useGameStore } from '@/lib/game/store';
 import { useWriter } from './domWrite';
 import { tempColor, tempWord } from './format';
 
@@ -19,13 +20,16 @@ export function TelemetryPods() {
 
   useTicker(() => {
     const car = world.player;
+    if (!car || !car.phys || !car.phys.tires) return;
     const p = car.phys;
     for (const t of TYRES) {
       const tyre = p.tires[t.id];
-      w.css(`tt-${t.id}`, '--tc', tempColor(tyre.temp));
-      w.text(`tt-${t.id}-t`, String(Math.round(tyre.temp)));
-      w.text(`tt-${t.id}-w`, `${Math.round(tyre.wear * 100)}% worn`);
-      w.text(`tt-${t.id}-g`, `${Math.round(tyre.grip * 100)}% grip`);
+      if (tyre) {
+        w.css(`tt-${t.id}`, '--tc', tempColor(tyre.temp));
+        w.text(`tt-${t.id}-t`, String(Math.round(tyre.temp)));
+        w.text(`tt-${t.id}-w`, `${Math.round(tyre.wear * 100)}% worn`);
+        w.text(`tt-${t.id}-g`, `${Math.round(tyre.grip * 100)}% grip`);
+      }
     }
     w.text('tele-state', tempWord(p.tires.avgTemp));
     w.css('brk', 'width', `${Math.round(p.brakeInput * 100)}%`);
@@ -44,7 +48,18 @@ export function TelemetryPods() {
       <aside className="h-tele" aria-label="Telemetry">
         <div className="h-tele-head">
           <span>TELEMETRY</span>
-          <span ref={w.ref('tele-state')}>OPTIMAL</span>
+          <div className="h-tele-actions">
+            <span ref={w.ref('tele-state')}>OPTIMAL</span>
+            <button
+              type="button"
+              className="h-tele-close"
+              onClick={() => useGameStore.getState().toggleTelemetry()}
+              aria-label="Close telemetry (T)"
+              title="Close telemetry (T)"
+            >
+              ✕
+            </button>
+          </div>
         </div>
         <div className="h-tele-tyres">
           {TYRES.map((t) => (

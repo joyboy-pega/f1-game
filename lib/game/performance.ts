@@ -46,16 +46,16 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
   },
   HIGH: {
     level: 'HIGH',
-    pixelRatio: 1.3,
+    pixelRatio: 1.15,
     shadows: true,
-    shadowMapSize: 2048,
+    shadowMapSize: 1024,
     particleDensity: 1.0,
-    maxDrawDistance: 14000,
+    maxDrawDistance: 12000,
     postProcessing: true,
     foliageDensity: 1.0,
     postTier: 'full',
-    weatherParticles: 2800,
-    skidSegments: 6000,
+    weatherParticles: 2400,
+    skidSegments: 5000,
   },
 };
 

@@ -8,12 +8,13 @@ import { useGameStore } from '@/lib/game/store';
 import type { WorldCar } from '@/lib/game/sim/types';
 import { world } from '@/lib/game/sim/world';
 import { renderPose, type Pose } from '@/lib/game/sim/interp';
-import { F1_WHEELS, STREET_WHEELS, type WheelSpec } from './dimensions';
+import { F1_WHEELS, ROADSTER_WHEELS, type WheelSpec } from './dimensions';
 import { getF1Geometries } from './f1Geometry';
-import { getStreetGeometries } from './streetGeometry';
+import { getRoadsterGeometries } from './roadsterGeometry';
 import { getLiveryMaterial } from './livery';
 import { createCarMaterials, getSharedMaterials } from './materials';
 import { getRimGeometry, getTyreGeometry } from './wheels';
+import { PegasusCar } from './PegasusCar';
 
 export interface F1CarProps {
   car: WorldCar;
@@ -24,12 +25,16 @@ export interface F1CarProps {
 /**
  * Renders one world car. Reads `car.phys` every frame; never re-renders from sim state.
  * Contract: root group placed at (phys.x, 0.05, phys.y), rotation.y = PI/2 - phys.a,
- * uniform CAR_SCALE. The player's car becomes a road supercar when settings.carModel === 'street'.
+ * uniform CAR_SCALE. Supports modern F1, Tesla Roadster, and Formula Student Pegasus #53.
  */
 export function F1Car({ car, interpolate = false }: F1CarProps) {
   const carModel = useGameStore((s) => s.settings.carModel);
-  const street = car.isPlayer && carModel === 'street';
-  return <CarRig key={street ? 'street' : 'f1'} car={car} street={street} interpolate={interpolate} />;
+  const isPegasus = (car.isPlayer && carModel === 'pegasus') || car.driver.team === 'Pegasus';
+  if (isPegasus) {
+    return <PegasusCar car={car} interpolate={interpolate} />;
+  }
+  const isRoadster = car.isPlayer && carModel === 'roadster';
+  return <CarRig key={isRoadster ? 'roadster' : 'f1'} car={car} roadster={isRoadster} interpolate={interpolate} />;
 }
 
 // Scratch for the per-frame render pose (cars update one after another, so one shared object is enough).
@@ -41,9 +46,9 @@ const DEG = Math.PI / 180;
 const FLAP_CLOSED = 25 * DEG;
 const FLAP_OPEN = -3 * DEG;
 
-function CarRig({ car, street, interpolate }: { car: WorldCar; street: boolean; interpolate: boolean }) {
+function CarRig({ car, roadster, interpolate }: { car: WorldCar; roadster: boolean; interpolate: boolean }) {
   const livery = car.driver.livery;
-  const wheels: WheelSpec[] = street ? STREET_WHEELS : F1_WHEELS;
+  const wheels: WheelSpec[] = roadster ? ROADSTER_WHEELS : F1_WHEELS;
 
   const liveryMat = useMemo(() => getLiveryMaterial(livery), [livery.body, livery.accent, livery.rim, livery.number]); // eslint-disable-line react-hooks/exhaustive-deps
   const shared = getSharedMaterials();
@@ -54,8 +59,8 @@ function CarRig({ car, street, interpolate }: { car: WorldCar; street: boolean; 
     mats.brakeLight.dispose();
   }, [mats]);
 
-  const f1 = useMemo(() => (street ? null : getF1Geometries()), [street]);
-  const st = useMemo(() => (street ? getStreetGeometries() : null), [street]);
+  const f1 = useMemo(() => (roadster ? null : getF1Geometries()), [roadster]);
+  const rd = useMemo(() => (roadster ? getRoadsterGeometries() : null), [roadster]);
   const rimGeo = useMemo(() => getRimGeometry(livery.rim), [livery.rim]);
   const tyreGeo0 = useMemo(() => getTyreGeometry(car.compound), []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -169,13 +174,16 @@ function CarRig({ car, street, interpolate }: { car: WorldCar; street: boolean; 
             <mesh geometry={f1.brakeLight} material={mats.brakeLight} position={[0, 0.355, -1.472]} />
           </>
         )}
-        {st && (
+        {rd && (
           <>
-            <mesh geometry={st.body} material={liveryMat} castShadow receiveShadow />
-            <mesh geometry={st.trim} material={shared.carbon} castShadow receiveShadow />
-            <mesh geometry={st.glass} material={shared.glass} />
-            <mesh geometry={st.lamps} material={shared.lamp} />
-            <mesh geometry={st.tailLight} material={mats.brakeLight} />
+            <mesh geometry={rd.body} material={liveryMat} castShadow receiveShadow />
+            <mesh geometry={rd.trim} material={shared.carbon} castShadow receiveShadow />
+            <mesh geometry={rd.glass} material={shared.glass} />
+            <mesh geometry={rd.lamps} material={shared.lamp} />
+            <mesh geometry={rd.tailLight} material={mats.brakeLight} />
+            <group position={[0.22, 0.54, 0.18]} rotation={[0.4, 0, 0]}>
+              <mesh ref={steerRef} geometry={rd.yoke} material={shared.carbon} />
+            </group>
           </>
         )}
       </group>

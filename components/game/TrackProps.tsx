@@ -141,13 +141,10 @@ function CrowdMesh({ crowd }: { crowd: Crowd }) {
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, crowd.matrices.length]}>
       <planeGeometry args={[1.9, 3.6]} />
-      <meshStandardMaterial roughness={0.9} side={THREE.DoubleSide} />
+      <meshBasicMaterial side={THREE.DoubleSide} toneMapped={false} />
     </instancedMesh>
   );
 }
-
-/** Trees at full density (PLAN-v3 S3: quality changes scale `count`, they never rebuild geometry). */
-const TREE_COUNT = 320;
 
 /** Free the geometry, material(s) and instance buffers of instanced meshes we built by hand. */
 function disposeInstanced(...meshes: THREE.InstancedMesh[]) {
@@ -208,52 +205,6 @@ export function TrackProps() {
     });
   }, [trackId]);
 
-  // ---- trees (instanced) ----
-  // Built ONCE at full density. The placement loop below consumes the random stream in order, so the instances for a lower
-  // density are exactly a prefix of this list: a quality change just changes `mesh.count` (no new geometry, nothing to leak).
-  const trees = useMemo(() => {
-    const rand = rng(5);
-    const count = TREE_COUNT;
-    const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.6, 2.4, 14, 6), new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.95 }), count);
-    const crown = new THREE.InstancedMesh(new THREE.ConeGeometry(9, 26, 7), new THREE.MeshStandardMaterial({ roughness: 0.85 }), count);
-    trunk.castShadow = crown.castShadow = true;
-    const dummy = new THREE.Object3D();
-    const col = new THREE.Color();
-    let n = 0;
-    for (let k = 0; k < count * 2 && n < count; k++) {
-      const f = rand() * N;
-      const side: 1 | -1 = rand() < 0.5 ? 1 : -1;
-      const idx = wrapIdx(f);
-      const d = WALL + 90 + rand() * 420;
-      // keep clear of the garages and the grandstands
-      const pitZone = side === PIT_SIDE && (idx >= PIT_LANE.entryIdx - 40 || idx <= PIT_LANE.exitIdx + 40);
-      const standZone = plan.some((s) => side === s.side && ((idx - wrapIdx(s.from) + N) % N) < s.count + 10 && d < s.d0 + 120);
-      if (pitZone || standZone) continue;
-      const [x, z] = place(f, side * d);
-      const sc = 0.8 + rand() * 0.9;
-      dummy.position.set(x, 7 * sc, z);
-      dummy.scale.setScalar(sc);
-      dummy.updateMatrix();
-      trunk.setMatrixAt(n, dummy.matrix);
-      dummy.position.set(x, 7 * sc + 20 * sc, z);
-      dummy.updateMatrix();
-      crown.setMatrixAt(n, dummy.matrix);
-      col.setHSL(0.27 + rand() * 0.06, 0.45, 0.17 + rand() * 0.1);
-      crown.setColorAt(n, col);
-      n++;
-    }
-    trunk.count = crown.count = n;
-    return { trunk, crown, placed: n };
-  }, [plan]);
-
-  useEffect(() => {
-    // Fewer trees at lower tiers: show a prefix of the placed instances.
-    trees.trunk.count = trees.crown.count = Math.min(trees.placed, Math.floor(TREE_COUNT * density));
-  }, [trees, density]);
-
-  // <primitive> objects are not disposed by R3F: free the GPU resources ourselves.
-  useEffect(() => () => disposeInstanced(trees.trunk, trees.crown), [trees]);
-
   // ---- floodlight towers (night) ----
   const towers = useMemo(() => {
     const poles = new GeoBuilder(3);
@@ -292,7 +243,11 @@ export function TrackProps() {
   // ---- distant hills ring ----
   const hills = useMemo(() => {
     const rand = rng(99);
-    const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshStandardMaterial({ color: '#6a7d62', roughness: 1, fog: true }), 60);
+    const mesh = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(1, 12, 8),
+      new THREE.MeshStandardMaterial({ color: L.snow ? '#e6eff8' : '#6a7d62', roughness: 1, fog: true }),
+      60
+    );
     const dummy = new THREE.Object3D();
     for (let i = 0; i < 60; i++) {
       const a = (i / 60) * Math.PI * 2 + rand() * 0.1;
@@ -304,7 +259,7 @@ export function TrackProps() {
       mesh.setMatrixAt(i, dummy.matrix);
     }
     return mesh;
-  }, [trackId]);
+  }, [trackId, L.snow]);
 
   useEffect(() => () => disposeInstanced(hills), [hills]);
 
@@ -353,8 +308,8 @@ export function TrackProps() {
 
       {/* grandstands */}
       {standGeo && (
-        <mesh geometry={standGeo} receiveShadow castShadow>
-          <meshStandardMaterial vertexColors roughness={0.8} side={THREE.DoubleSide} />
+        <mesh geometry={standGeo} receiveShadow>
+          <meshStandardMaterial vertexColors roughness={0.8} />
         </mesh>
       )}
       {crowd.map((c, i) => (
@@ -369,12 +324,10 @@ export function TrackProps() {
         </mesh>
       ))}
 
-      <primitive object={trees.trunk} />
-      <primitive object={trees.crown} />
       <primitive object={hills} />
 
       {/* floodlights */}
-      <mesh geometry={towers.poles} castShadow>
+      <mesh geometry={towers.poles}>
         <meshStandardMaterial vertexColors roughness={0.6} metalness={0.5} />
       </mesh>
       {night > 0.05 && (

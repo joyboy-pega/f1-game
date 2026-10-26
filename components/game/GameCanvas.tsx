@@ -1,8 +1,7 @@
 'use client';
 
-import React, { Suspense, useRef } from 'react';
-import dynamic from 'next/dynamic';
-import { Canvas } from '@react-three/fiber';
+import React, { Suspense, useEffect, useRef } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { QUALITY_PRESETS } from '@/lib/game/performance';
 import { useGameStore } from '@/lib/game/store';
@@ -17,10 +16,22 @@ import { GameLoop } from './GameLoop';
 import { DevStats } from './DevStats';
 import { AdaptiveQuality } from './AdaptiveQuality';
 import { AudioBridge } from './AudioBridge';
-// The composer pulls in the whole postprocessing library: load it after the scene is up.
-const PostFX = dynamic(() => import('./fx/PostFX').then((m) => m.PostFX), { ssr: false });
+import { PostFX } from './fx/PostFX';
 import { Ghost } from './Ghost';
 import { ReplayDirector } from './replay/ReplayDirector';
+
+/** Pre-warms the GPU shader cache for all scene materials so the cutscene doesn't hitch. */
+function PrewarmScene() {
+  const { gl, scene, camera } = useThree();
+  useEffect(() => {
+    try {
+      gl.compile(scene, camera);
+    } catch {
+      // Ignore if webgl context is busy
+    }
+  }, [gl, scene, camera]);
+  return null;
+}
 
 /**
  * Scene composition root. Each workstream mounts its components here:
@@ -62,6 +73,7 @@ export function GameCanvas() {
           <Camera />
           <ReplayDirector />
           <PostFX />
+          <PrewarmScene />
         </Suspense>
         <GameLoop />
         <AdaptiveQuality />

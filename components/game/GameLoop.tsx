@@ -120,6 +120,7 @@ export function GameLoop() {
     if (input.telemetryToggleRequested) st.toggleTelemetry();
 
     world.paused = st.paused || !!st.results;
+    world.updateSettings(st.settings);
     const simT0 = devStats.enabled ? performance.now() : 0;
     world.step(dt, input);
     if (devStats.enabled) devStats.addSim(performance.now() - simT0);

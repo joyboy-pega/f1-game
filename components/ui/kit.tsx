@@ -100,6 +100,7 @@ export function Slider({
       value={value}
       style={{ ['--fill' as string]: fill }}
       onChange={(e) => onChange(parseFloat(e.target.value))}
+      onInput={(e) => onChange(parseFloat((e.target as HTMLInputElement).value))}
     />
   );
 }

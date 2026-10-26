@@ -2875,19 +2875,7 @@ function draw(){
       if(f<NEAR)continue;
       const scale=focal/f,x=W/2+l/f*focal,base=hor+CAMH/f*focal;
       if(t===2){
-        // Trees with seasonal snow caps
-        const h=Math.max(2,76*scale),w=Math.max(2,32*scale),groundY=base;
-        ctx.fillStyle='#463b2a';ctx.fillRect(x-w*.09,groundY-h*.42,w*.18,h*.42);
-        ctx.fillStyle=isSnow?'#1a3d2c':'#173d24';ctx.beginPath();ctx.ellipse(x,groundY-h*.63,w*.48,h*.40,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=isSnow?'#2b573a':'#24552d';ctx.beginPath();ctx.ellipse(x-w*.18,groundY-h*.58,w*.30,h*.27,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=isSnow?'#f1f5f9':'rgba(113,151,66,.38)';ctx.beginPath();ctx.ellipse(x+w*.12,groundY-h*.75,w*.22,h*.13,0,0,Math.PI*2);ctx.fill();
-        if(isSnow){
-          // Snow cap on tree top
-          ctx.fillStyle='#ffffff';
-          ctx.beginPath();
-          ctx.ellipse(x,groundY-h*.78,w*.32,h*.12,0,0,Math.PI*2);
-          ctx.fill();
-        }
+        continue;
       }else{
         // Paddock & grandstands with snow on roofs
         const h=Math.max(2,38*scale),w=Math.max(3,118*scale),groundY=base;

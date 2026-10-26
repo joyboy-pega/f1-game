@@ -12,6 +12,7 @@ import {
   type GameMode,
   type CameraViewMode,
 } from './gameState';
+import { world } from './sim/world';
 
 export interface Records {
   /** Best lap per track+mode+weather key, e.g. "buddh:timetrial:sunny" (see records.ts). */
@@ -66,12 +67,36 @@ interface GameStore {
 
 const CAMERA_CYCLE: CameraViewMode[] = ['chase', 'tcam', 'cockpit', 'hood'];
 
+const memoryStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+};
+
+function getStorage() {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) return window.localStorage;
+  } catch {
+    // ignore
+  }
+  return memoryStorage;
+}
+
 export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({
       settings: DEFAULT_SETTINGS,
-      setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
-      resetSettings: () => set({ settings: DEFAULT_SETTINGS }),
+      setSettings: (patch) => {
+        set((s) => ({
+          settings: { ...s.settings, ...patch },
+          ...(patch.showTelemetry !== undefined ? { telemetryOpen: patch.showTelemetry } : {}),
+        }));
+        world.updateSettings(patch);
+      },
+      resetSettings: () => {
+        set({ settings: DEFAULT_SETTINGS });
+        world.updateSettings(DEFAULT_SETTINGS);
+      },
 
       records: EMPTY_RECORDS,
       submitLap: (key, time) => {
@@ -97,7 +122,7 @@ export const useGameStore = create<GameStore>()(
       results: null,
       toasts: [],
       quality: 'HIGH',
-      telemetryOpen: false,
+      telemetryOpen: DEFAULT_SETTINGS.showTelemetry,
       sessionId: 0,
       replayActive: false,
 
@@ -112,7 +137,14 @@ export const useGameStore = create<GameStore>()(
       },
       dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
       setQuality: (quality) => set({ quality }),
-      toggleTelemetry: () => set((s) => ({ telemetryOpen: !s.telemetryOpen })),
+      toggleTelemetry: () =>
+        set((s) => {
+          const next = !s.telemetryOpen;
+          return {
+            telemetryOpen: next,
+            settings: { ...s.settings, showTelemetry: next },
+          };
+        }),
       cycleCamera: () =>
         set((s) => {
           const i = CAMERA_CYCLE.indexOf(s.settings.cameraView);
@@ -127,6 +159,7 @@ export const useGameStore = create<GameStore>()(
           hud: EMPTY_HUD,
           lightsLit: 0,
           replayActive: false,
+          telemetryOpen: s.settings.showTelemetry,
           records: { ...s.records, racesStarted: s.records.racesStarted + 1 },
         })),
       setReplayActive: (replayActive) => set({ replayActive }),
@@ -135,15 +168,29 @@ export const useGameStore = create<GameStore>()(
       name: 'buddh-gp',
       version: STORE_VERSION,
       migrate: (persisted, version) => migrateStore(persisted, version) as GameStore,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => getStorage()),
       partialize: (s) => ({ settings: s.settings, records: s.records }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<Pick<GameStore, 'settings' | 'records'>>;
+        const mergedSettings = {
+          ...DEFAULT_SETTINGS,
+          ...p.settings,
+          assists: { ...DEFAULT_SETTINGS.assists, ...p.settings?.assists },
+        };
+        if ((mergedSettings.carModel as string) === 'street') {
+          mergedSettings.carModel = 'roadster';
+        }
         return {
           ...current,
-          settings: { ...DEFAULT_SETTINGS, ...p.settings, assists: { ...DEFAULT_SETTINGS.assists, ...p.settings?.assists } },
+          settings: mergedSettings,
+          telemetryOpen: mergedSettings.showTelemetry,
           records: { ...EMPTY_RECORDS, ...p.records },
         };
+      },
+      onRehydrateStorage: () => (state) => {
+        if (state?.settings) {
+          world.updateSettings(state.settings);
+        }
       },
     }
   )
