@@ -1021,3 +1021,44 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — R4 Full Grid: 20-car grid with 2-car fictional teams, 10 staggered rows (Task 29)
+
+**Completed Task:**
+- **Task 29 (R4: Full 20-Car Grid & 2-Car Fictional Teams):**
+  - **Expanded Driver Roster (`lib/game/constants.ts`):**
+    - Extended `DRIVER_ROSTER` with second drivers for all teams, creating complete 2-car fictional teams:
+      - Apex Dynamics: Rhys Calder (#1) & Liam Vance (#11)
+      - Nova Racing: Mateo Varga (#44) & Leo Santos (#77)
+      - Velocity GP: Kenji Arata (#4) & Gabriel Rossi (#8)
+      - Titan Corsa: Lucien Moreau (#16) & Carlos Vega (#55)
+      - Phantom F1: Sofia Lindqvist (#14) & Elena Rostova (#23)
+      - Orbit Motorsport: Dev Malhotra (#63) & Noah Davies (#31)
+      - Pulse Racing: Oscar Hale (#81) & Lucas Meyer (#18)
+      - Ion Racing: Yuki Tanabe (#22) & Tatsuya Sato (#30)
+      - Zenith Corse: Marco Bellini (#10) & Dante Ricci (#3)
+      - Helix Works: Aiden Brooks (#27) & Nils Berg (#9)
+      - Solaris: Priya Raman (#5) & Kimi Lindholm (#99)
+    - All 22 drivers have unique 3-letter timing codes and unique car numbers.
+    - Set `MAX_AI_CARS = 19`, enabling full 20-car races (19 AI + 1 player).
+  - **Lobby Configuration (`components/ui/MainMenu.tsx`):**
+    - Extended the opponents slider up to `MAX_AI_CARS = 19`, supporting full grids from 1 car up to 20 cars.
+  - **Grid Formation & Staggered Spacing (`lib/game/sim/world.ts`, `lib/game/sim/race.ts`):**
+    - 20 cars arranged across 10 staggered rows of 2 cars behind the start/finish line.
+    - Alternating lateral offsets ($\pm 0.42 \times \text{HW}$) with uniform 4 spline indices (~10 m) spacing between successive grid slots.
+  - **AI Instanced Rendering Support (`components/game/car/instancing.test.ts`):**
+    - Verified full 20-car grid rendering stays strictly within budget: 18 draw calls total (13 player + 5 instanced AI grid), beating $\le 40$ budget by 55%.
+  - **Unit Testing (`lib/game/sim/fullGrid.test.ts`):**
+    - 3 unit tests verifying:
+      1. Roster uniqueness and 2-car team completeness.
+      2. 20-car grid construction, 10 staggered rows, negative initial progress, and proper slot spacing.
+      3. Full 20-car race start (5-light sequence to lights out) and multi-car racing progression without collisions or jams.
+
+**Verification:**
+- Full test suite: **26/26 test files passed, 200/200 unit tests passed** (including `fullGrid.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

@@ -8,13 +8,13 @@ import { F1_WHEELS } from './dimensions';
 describe('AI Car Instancing system (PLAN-v3 §7 G6)', () => {
   it('instanced AI grid meets draw call budget (<= 40 draw calls for 20-car grid)', () => {
     const w = new GameWorld();
-    w.setup(raceSettings({ totalLaps: 2, aiCount: 11 }));
-    expect(w.cars.length).toBe(12);
+    w.setup(raceSettings({ totalLaps: 2, aiCount: 19 }));
+    expect(w.cars.length).toBe(20);
 
     const playerCar = w.player;
     const aiCars = w.cars.filter((c) => !c.isPlayer);
     expect(playerCar).toBeDefined();
-    expect(aiCars.length).toBe(11);
+    expect(aiCars.length).toBe(19);
 
     // High-detail player car: 1 body + 1 carbon + 1 flap + 1 steer + 1 light + 4 tyres + 4 rims = 13 draws
     const playerDrawCalls = 13;

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import type { Difficulty, GameMode, Livery, TimeOfDay, TyreCompound, WeatherType } from '@/lib/game/constants';
+import { MAX_AI_CARS } from '@/lib/game/constants';
 import { DEFAULT_SETTINGS, formatLapTime, type GameSettings } from '@/lib/game/gameState';
 import { recordKey, useGameStore } from '@/lib/game/store';
 import { ControlsPanel } from './ControlsPanel';
@@ -154,7 +155,7 @@ export function MainMenu() {
                       <Slider
                         label="Opponents"
                         min={0}
-                        max={11}
+                        max={MAX_AI_CARS}
                         step={1}
                         value={s.aiCount}
                         onChange={(v) => set({ aiCount: v, gridPosition: Math.min(s.gridPosition, v + 1) })}
