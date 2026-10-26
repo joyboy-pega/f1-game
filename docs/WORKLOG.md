@@ -736,3 +736,36 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
 
+---
+
+## 2026-10-27 — A3 keyboard/controller feel, progressive ramps, speed-sensitive steering & input remap (Task 20)
+
+**Completed Task:**
+- **Task 20 (A3: Keyboard/Controller Feel, Progressive Ramps & Input Remap UI):**
+  - **Progressive Keyboard Ramping (`lib/game/controls.ts`):**
+    - Implemented asymmetric throttle ramping: 0 $\to$ 1 in 0.25 s (attack rate 4.0/s); releases to 0 in 0.08 s (return rate 12.5/s) to prevent unwanted torque snap.
+    - Implemented progressive brake ramping: 0 $\to$ 1 in 0.12 s (attack rate 8.33/s); releases in 0.06 s (return rate 16.67/s).
+    - Speed-sensitive steering: `calculateSpeedSensitiveLock(speedKmh)` smoothly scales maximum steering lock from 1.0 at low speeds down to a 0.22 floor at top speed ($>300$ km/h), preventing high-speed digital snap spinouts.
+    - Asymmetric steering return: attack rate 4.54/s, return rate 10.0/s (recovering toward centre $>2\times$ faster than turning in).
+  - **Gamepad & Racing Wheel Deadzones & Curves (`lib/game/controls.ts`):**
+    - Configurable stick deadzone (`gamepadDeadzone`, default 0.08) and non-linearity response curve (`gamepadLinearity`, default 1.4).
+    - Trigger deadzone (`gamepadTriggerDeadzone`, default 0.05).
+    - Support for separate pedal axes (`throttleAxis`, `brakeAxis`) with axis inversion flags (`invertThrottleAxis`, `invertBrakeAxis`, `invertSteerAxis`) for Logitech, Thrustmaster, and Fanatec wheels.
+  - **Interactive Input Remapping & Hardware Diagnostics (`components/ui/ControlsPanel.tsx`):**
+    - Real-time Gamepad & Wheel hardware diagnostics banner with live visual deflection bars for steering, throttle, and brake.
+    - Remap action table: interactive capture modal that captures keyboard keydowns and Gamepad API button presses.
+    - Custom key and button mappings persisted to `useGameStore` with versioned migration.
+  - **Store Migration & Rehydration (`lib/game/store.ts`, `lib/game/storeMigrate.ts`):**
+    - Bumped `STORE_VERSION = 4`. Added migration step providing `DEFAULT_INPUT_SETTINGS` for pre-existing stores.
+    - Forwarded settings updates into `controls.updateSettings()`.
+  - **Unit Testing (`lib/game/controls.test.ts`, `lib/game/storeMigrate.test.ts`):**
+    - 14 tests in `controls.test.ts` verifying deadzones, curves, speed sensitivity, asymmetric return rates, and remapping persistence.
+    - Verified `v3 -> v4` store migration.
+
+**Verification:**
+- Full test suite: **17/17 test files passed, 169/169 unit tests passed** (including `controls.test.ts`).
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).
+
+

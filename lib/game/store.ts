@@ -13,6 +13,7 @@ import {
   type CameraViewMode,
 } from './gameState';
 import { world } from './sim/world';
+import { controls } from './controls';
 
 export interface Records {
   /** Best lap per track+mode+weather key, e.g. "buddh:timetrial:sunny" (see records.ts). */
@@ -92,10 +93,12 @@ export const useGameStore = create<GameStore>()(
           ...(patch.showTelemetry !== undefined ? { telemetryOpen: patch.showTelemetry } : {}),
         }));
         world.updateSettings(patch);
+        if (patch.input) controls.updateSettings(patch);
       },
       resetSettings: () => {
         set({ settings: DEFAULT_SETTINGS });
         world.updateSettings(DEFAULT_SETTINGS);
+        controls.updateSettings(DEFAULT_SETTINGS);
       },
 
       records: EMPTY_RECORDS,
@@ -176,6 +179,7 @@ export const useGameStore = create<GameStore>()(
           ...DEFAULT_SETTINGS,
           ...p.settings,
           assists: { ...DEFAULT_SETTINGS.assists, ...p.settings?.assists },
+          input: { ...DEFAULT_SETTINGS.input, ...p.settings?.input },
         };
         if ((mergedSettings.carModel as string) === 'street') {
           mergedSettings.carModel = 'roadster';
@@ -190,6 +194,7 @@ export const useGameStore = create<GameStore>()(
       onRehydrateStorage: () => (state) => {
         if (state?.settings) {
           world.updateSettings(state.settings);
+          controls.updateSettings(state.settings);
         }
       },
     }

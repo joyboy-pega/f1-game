@@ -106,7 +106,8 @@ export function GameLoop() {
     const dt = Math.min(0.1, delta);
 
     const st = useGameStore.getState();
-    const input = controls.poll();
+    const playerSpeedKmh = world.player ? Math.abs(world.player.phys.vf) * 0.36 : 0;
+    const input = controls.poll(dt, playerSpeedKmh);
 
     // Replay: the director owns the cars and camera; nothing else steps or reacts to input.
     if (st.replayActive) {

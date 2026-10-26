@@ -30,9 +30,18 @@ describe('persisted store migration', () => {
     expect(migrateStore(v2, STORE_VERSION)).toBe(v2);
   });
 
-  it('defaults include trackId and the version is 3', () => {
+  it('defaults include trackId and the version is 4', () => {
     expect(DEFAULT_SETTINGS.trackId).toBe('buddh');
-    expect(STORE_VERSION).toBe(3);
+    expect(STORE_VERSION).toBe(4);
+  });
+
+  it('v3 -> v4 attaches default input settings when missing', () => {
+    const v3 = {
+      settings: { trackId: 'buddh', difficulty: 'legend' },
+    };
+    const out = migrateStore(v3, 3) as { settings: { trackId: string; input: { gamepadDeadzone: number } } };
+    expect(out.settings.input).toBeDefined();
+    expect(out.settings.input.gamepadDeadzone).toBe(0.08);
   });
 
   it('v2 -> v3 prefixes legacy best-lap keys with buddh: and keeps new-style keys', () => {

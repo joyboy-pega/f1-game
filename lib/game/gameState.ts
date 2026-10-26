@@ -134,6 +134,40 @@ export interface Assists {
   stabilityControl?: boolean;
 }
 
+export interface InputSettings {
+  keyboardSteerRate: number; // attack multiplier, default 1.0
+  keyboardReturnRate: number; // return multiplier, default 1.0
+  keyboardSteeringSpeed: number; // speed sensitivity factor, default 1.0
+  gamepadDeadzone: number; // stick deadzone, default 0.08
+  gamepadLinearity: number; // response curve exponent, default 1.4
+  gamepadTriggerDeadzone: number; // trigger deadzone, default 0.05
+  invertSteerAxis: boolean; // default false
+  invertThrottleAxis: boolean; // default false
+  invertBrakeAxis: boolean; // default false
+  throttleAxis: number; // default -1 (use RT button)
+  brakeAxis: number; // default -1 (use LT button)
+  steerAxis: number; // default 0 (left stick X)
+  customKeys: Record<string, string>; // action -> KeyboardEvent.code
+  customButtons: Record<string, number>; // action -> gamepad button index
+}
+
+export const DEFAULT_INPUT_SETTINGS: InputSettings = {
+  keyboardSteerRate: 1.0,
+  keyboardReturnRate: 1.0,
+  keyboardSteeringSpeed: 1.0,
+  gamepadDeadzone: 0.08,
+  gamepadLinearity: 1.4,
+  gamepadTriggerDeadzone: 0.05,
+  invertSteerAxis: false,
+  invertThrottleAxis: false,
+  invertBrakeAxis: false,
+  throttleAxis: -1,
+  brakeAxis: -1,
+  steerAxis: 0,
+  customKeys: {},
+  customButtons: {},
+};
+
 export type QualityChoice = 'AUTO' | 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface GameSettings {
@@ -153,6 +187,7 @@ export interface GameSettings {
   driverCode: string;
   livery: Livery;
   assists: Assists;
+  input: InputSettings;
   damage: boolean;
   audioEnabled: boolean;
   volume: number;
@@ -188,6 +223,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
     abs: true,
     stabilityControl: false,
   },
+  input: DEFAULT_INPUT_SETTINGS,
   damage: true,
   audioEnabled: true,
   volume: 0.75,
