@@ -178,7 +178,8 @@ export class GameWorld {
       const isPlayer = slot === playerSlot;
       // Staggered 2-wide grid; solo modes start further back for a rolling out-lap
       const idx = race ? gridSlotIndex(slot) : (track.current.N - 80) % track.current.N;
-      const lateral = race ? (slot % 2 === 0 ? -1 : 1) * HW * 0.42 : 0;
+      const hw = track.current.halfWidth[idx];
+      const lateral = race ? (slot % 2 === 0 ? -1 : 1) * hw * 0.42 : 0;
       const compound: TyreCompound = isPlayer ? settings.startCompound : aiIdx % 3 === 2 ? 'medium' : 'soft';
       const car = makeCar(cars.length, isPlayer, idx, lateral, compound);
       car.fuelKg = race ? Math.min(105, settings.totalLaps * 1.8 + 2.0) : 10;

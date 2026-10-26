@@ -43,6 +43,42 @@ export function indexAtM(cumulativeS: Float32Array, N: number, sM: number): numb
 }
 
 /**
+ * Interpolates periodic keyframes [sM, val] along closed track arc length 0..totalLengthM
+ * using smooth cubic Hermite (smoothstep) blending.
+ */
+export function interpolatePeriodicKeyframes(
+  keyframes: [number, number][],
+  sM: number,
+  totalLengthM: number
+): number {
+  if (keyframes.length === 0) return 0;
+  if (keyframes.length === 1) return keyframes[0][1];
+
+  const s = ((sM % totalLengthM) + totalLengthM) % totalLengthM;
+  const n = keyframes.length;
+
+  let k = 0;
+  for (let i = 0; i < n; i++) {
+    if (keyframes[i][0] <= s) k = i;
+  }
+  const nextK = (k + 1) % n;
+
+  const s0 = keyframes[k][0];
+  let s1 = keyframes[nextK][0];
+  if (s1 <= s0) s1 += totalLengthM;
+
+  let curS = s;
+  if (curS < s0) curS += totalLengthM;
+
+  const ds = s1 - s0;
+  if (ds <= 1e-6) return keyframes[k][1];
+
+  const t = Math.max(0, Math.min(1, (curS - s0) / ds));
+  const w = t * t * (3 - 2 * t);
+  return keyframes[k][1] * (1 - w) + keyframes[nextK][1] * w;
+}
+
+/**
  * Build the immutable runtime for a track. `controlPoints` are in world units; `samplesPerPoint` = 2 reproduces
  * today's Buddh spline (imported tracks pass already-dense points with 1).
  */
@@ -120,17 +156,60 @@ export function buildTrack(meta: TrackMeta, controlPoints: [number, number][], s
   });
   const pm = meta.pit;
 
-  const flat = new Float32Array(N);
-  const halfWidth = new Float32Array(N).fill(HW); // constant until T2 (per-index widths)
+  // Track width per index (PLAN-v3 §4.2 T2)
+  const trackLengthM = cumulativeS[N] / UNITS_PER_M;
+  const halfWidth = new Float32Array(N);
+  if (typeof meta.widthM === 'number') {
+    halfWidth.fill((meta.widthM * UNITS_PER_M) / 2);
+  } else if (Array.isArray(meta.widthM)) {
+    for (let i = 0; i < N; i++) {
+      const sM = cumulativeS[i] / UNITS_PER_M;
+      const wM = interpolatePeriodicKeyframes(meta.widthM, sM, trackLengthM);
+      halfWidth[i] = (wM * UNITS_PER_M) / 2;
+    }
+  } else {
+    halfWidth.fill(HW);
+  }
+
+  // Elevation (pz) and longitudinal grade (PLAN-v3 §4.2 T2)
+  const pz = new Float64Array(N);
+  const grade = new Float32Array(N);
+  if (meta.elevation && meta.elevation.length > 0) {
+    for (let i = 0; i < N; i++) {
+      const sM = cumulativeS[i] / UNITS_PER_M;
+      const hM = interpolatePeriodicKeyframes(meta.elevation, sM, trackLengthM);
+      pz[i] = hM * UNITS_PER_M;
+    }
+    for (let i = 0; i < N; i++) {
+      const prev = (i + N - 1) % N;
+      const next = (i + 1) % N;
+      const ds = segLen[prev] + segLen[i];
+      const dpz = pz[next] - pz[prev];
+      const rawGrade = ds > 1e-6 ? dpz / ds : 0;
+      // Clamp grade to ±10% (§4.2 T2)
+      grade[i] = Math.max(-0.10, Math.min(0.10, rawGrade));
+    }
+  }
+
+  // Camber (radians) (PLAN-v3 §4.2 T2)
+  const camber = new Float32Array(N);
+  if (meta.camber && meta.camber.length > 0) {
+    for (let i = 0; i < N; i++) {
+      const sM = cumulativeS[i] / UNITS_PER_M;
+      camber[i] = interpolatePeriodicKeyframes(meta.camber, sM, trackLengthM);
+    }
+  }
+
+  const hwPit = halfWidth[at(pm.entryM)];
 
   return {
     meta,
     N,
-    px, py, pz: new Float64Array(N),
+    px, py, pz,
     tx, ty, nx, ny,
     halfWidth,
-    camber: flat,
-    grade: flat,
+    camber,
+    grade,
     curvature,
     smoothCurvature,
     segLen,
@@ -144,11 +223,10 @@ export function buildTrack(meta: TrackMeta, controlPoints: [number, number][], s
       exitIdx: at(pm.exitM),
       boxStartIdx: at(pm.boxStartM),
       boxEndIdx: at(pm.boxEndM),
-      // Offsets from the centreline, as before (T2 makes them follow the per-index width).
-      laneOffset: HW + 46, // pit lane centre
+      laneOffset: hwPit + 46,
       laneHalfWidth: 20,
-      wallOffset: HW + 22, // pit wall between track and pit lane (cosmetic)
-      garageOffset: HW + 96, // garage fronts, beyond the physics wall at HW + 82
+      wallOffset: hwPit + 22,
+      garageOffset: hwPit + 96,
       speedLimitKmh: pm.speedLimitKmh,
     },
     bounds: { minX, maxX, minY, maxY },

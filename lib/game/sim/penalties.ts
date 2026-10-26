@@ -1,5 +1,5 @@
 import { TRACK_LIMITS } from '../constants';
-import { inPitBand, trackCache } from '../track';
+import { inPitBand, track, trackCache } from '../track';
 import type { EventBus } from './events';
 import type { WorldCar } from './types';
 
@@ -68,7 +68,8 @@ export function updateTrackLimits(car: WorldCar, ctx: LimitsContext): void {
   const t = car.timing;
   if (!ctx.enabled) return;
   const idx = car.phys.idx;
-  const off = car.surface.dist > TRACK_LIMITS.warnDist;
+  const warnDist = track.current.halfWidth[idx] + 12;
+  const off = car.surface.dist > warnDist;
   const inCorner = getCornerZones().zone[idx];
 
   // Leaving the corner clears the "already warned" latch

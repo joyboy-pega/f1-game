@@ -464,7 +464,7 @@ describe('environmental and load modifiers (PLAN-v3 §5.3 V3)', () => {
         }
       });
 
-      const maxSteps = Math.round(250 / FIXED_DT);
+      const maxSteps = Math.round(350 / FIXED_DT);
       for (let i = 0; i < maxSteps; i++) {
         w.step(FIXED_DT, NEUTRAL_CONTROLS);
         w.events.flush();

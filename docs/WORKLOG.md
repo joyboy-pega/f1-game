@@ -624,3 +624,38 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean.
+
+---
+
+## 2026-10-26 — T2 Buddh real scale (5125 m), variable width, elevation & camber (Task 17)
+
+**Completed Task:**
+- **Task 17 (T2: Buddh Real Scale/Width/Elevation):**
+  - **Spline & Geometry Rescaling (`lib/game/tracks/buddh.ts`):**
+    - Rescaled Buddh control points by $S = 5125.0 / 4611.092 \approx 1.1114503$.
+    - Closed track length measures $51250.25$ world units ($5125.025$ m, 0.0005% accuracy vs official 5125.0 m).
+    - Sectors, DRS zones, pit entry/exit/boxes rescaled proportionally. Grid slot spacing calibrated to standard F1 8.0 m.
+  - **Variable Track Width (`buddhMeta.widthM`):**
+    - Authored width keyframes: 18 m on the pit straight and through Turn 1 (`hw = 90` world units), smoothly tapering to 16 m around the rest of the lap (`hw = 80`).
+    - Implemented periodic Hermite smoothstep keyframe interpolation in `lib/game/track/build.ts` (`interpolatePeriodicKeyframes`).
+  - **3D Elevation & Camber Profiles (`buddhMeta.elevation`, `buddhMeta.camber`):**
+    - Authored authentic 14 m elevation profile: uphill climb into Turn 1 crest (+10 m), summit at Turn 3 (+14 m), -16 m descent down the 1.06 km back straight into dip (-2 m), rolling mid-sector, and bowl descent into Turns 10-11 (-3 m). Grades clamped to $\pm 10\%$.
+    - Authored Turns 10–11 inward banking (+5° = +0.087 rad) ramped over 60 m.
+  - **Per-Index Half-Width Integration:**
+    - Replaced hard-coded constant `HW = 65` with dynamic per-spline-index `track.current.halfWidth[i]` in `lib/game/physics.ts`, `lib/game/sim/penalties.ts`, `lib/game/sim/ai.ts`, `lib/game/sim/pit.ts`, `lib/game/sim/racingLine.ts`, and `lib/game/sim/world.ts`.
+  - **AI Calibration on Scaled Circuit:**
+    - Extended lookahead braking scan in `profileTarget` to 4200 world units / 160 steps to account for 11.1% longer straights and top speeds (> 320 km/h).
+    - Calibrated `CORNER_SAFETY = 0.72` and corner entry deceleration profile for the larger curve radii ($R \to 1.11145 R$).
+    - Implemented exact physical boundary velocity $v_{\text{trackLat}} = v_x \cdot n_x + v_y \cdot n_y$ for track edge throttle modulation and strengthened boundary repulsion steering.
+    - Calibrated off-track marshal recovery threshold to keep all cars cleanly within track limits.
+
+**Rule R5 Golden Hash Update:**
+- Old hash: `'6be59a89'`
+- New hash: `'64ae9da7'`
+- **Rationale:** Buddh spline geometry was rescaled from 4611 m to official 5125 m, with authentic 14 m elevation and variable 16–18 m track width, altering AI racing lines, braking points, and sector times. Bitwise determinism (R6) verified by running two golden races from the same seed in one process yielding identical digests.
+
+**Verification:**
+- Full test suite: **15/15 test files passed, 148/148 unit tests passed** (including `track.test.ts`, `race.test.ts`, and `golden.test.ts`).
+- Physics probe (`npm run probe`): **16/16 metrics in band** (Track length measured at exact 5125 m).
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean.

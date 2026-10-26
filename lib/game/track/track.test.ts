@@ -5,12 +5,13 @@ import { registerLazyTrackForTests } from './registry';
 describe('Buddh TrackRuntime', () => {
   const rt = getTrack('buddh');
 
-  it('has the spline size and arc length the game has always had', () => {
+  it('has official 5125 m length and spline size (PLAN-v3 §4.2 T2)', () => {
     expect(rt.N).toBe(1920);
     expect(rt.px).toHaveLength(1920);
     expect(rt.cumulativeS).toHaveLength(1921);
-    expect(rt.length).toBeCloseTo(46110.92, 1); // 4611.1 m at UNITS_PER_M = 10 (the S6 probe's 4739 m uses 0.10278 m/unit)
+    expect(rt.length).toBeCloseTo(51250.0, 0); // 5125.0 m at UNITS_PER_M = 10
     expect(rt.length / 10).toBeCloseTo(rt.meta.lengthM, 0);
+    expect(Math.abs(rt.length / 10 - 5125) / 5125).toBeLessThan(0.005); // within 0.5% of 5125 m
     expect(rt.length).toBe(rt.cumulativeS[rt.N]);
   });
 
@@ -36,9 +37,29 @@ describe('Buddh TrackRuntime', () => {
     for (let i = 0; i < rt.N; i++) expect(rt.cumulativeS[i + 1]).toBeGreaterThan(rt.cumulativeS[i]);
   });
 
-  it('is flat with constant width until T2', () => {
-    expect(rt.pz.every((v) => v === 0)).toBe(true);
-    expect(rt.halfWidth[0]).toBe(rt.halfWidth[rt.N - 1]);
+  it('has variable width, authentic 14 m elevation change, and banked camber (PLAN-v3 §4.2 T2)', () => {
+    // Variable width: 18m on pit straight (90 units half-width), 16m around the lap (80 units half-width)
+    expect(rt.halfWidth[0]).toBeCloseTo(90, 0);
+    const minW = Math.min(...rt.halfWidth);
+    const maxW = Math.max(...rt.halfWidth);
+    expect(minW).toBeCloseTo(80, 0);
+    expect(maxW).toBeCloseTo(90, 0);
+
+    // Elevation change: ~14 m total range (140 world units), uphill into T1/T3, drop into back straight
+    const minZ = Math.min(...rt.pz);
+    const maxZ = Math.max(...rt.pz);
+    const elevationRangeM = (maxZ - minZ) / 10;
+    expect(elevationRangeM).toBeGreaterThanOrEqual(13);
+    expect(elevationRangeM).toBeLessThanOrEqual(18);
+
+    // Longitudinal grade clamped to ±10% (§4.2 T2)
+    for (let i = 0; i < rt.N; i++) {
+      expect(Math.abs(rt.grade[i])).toBeLessThanOrEqual(0.1001);
+    }
+
+    // Camber: banked Turns 10-11 bowl (~+5° = +0.087 rad)
+    const maxCamber = Math.max(...rt.camber);
+    expect(maxCamber).toBeCloseTo(0.087, 2);
   });
 });
 

@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, type GameSettings } from '../gameState';
+import { track } from '../track';
 import { NEUTRAL_CONTROLS } from '../controls';
 import { DRIVER_ROSTER } from '../constants';
 import { GameWorld, FIXED_DT } from './world';
@@ -12,6 +13,7 @@ export function raceSettings(patch: Partial<GameSettings> = {}): GameSettings {
 export function autopilotPlayer(w: GameWorld) {
   w.player.ai = createBrain(99, 4242);
   w.player.skill = DRIVER_ROSTER[0].skill;
+  w.settings.steeringSensitivity = 1.0;
 }
 
 export function run(w: GameWorld, seconds: number, until?: () => boolean) {

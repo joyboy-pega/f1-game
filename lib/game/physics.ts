@@ -336,8 +336,9 @@ export function updateCarPhysics(
   const T = track.current;
   const signedLat = (car.x - T.px[ni]) * T.nx[ni] + (car.y - T.py[ni]) * T.ny[ni];
   const inPitLane = !!extra.inPit || inPitBand(ni, signedLat);
-  const onTrack = inPitLane || d < HW + 6;
-  const gravel = !inPitLane && d > HW + 40;
+  const hw = T.halfWidth[ni];
+  const onTrack = inPitLane || d < hw + 6;
+  const gravel = !inPitLane && d > hw + 40;
   let drsClosedReason: string | undefined;
 
   // Surface grip factor (single wetness path B5: on asphalt, tyreGrip handles wetness response)
@@ -565,7 +566,7 @@ export function updateCarPhysics(
   car.tires.avgWear = (car.tires.fl.wear + car.tires.fr.wear + car.tires.rl.wear + car.tires.rr.wear) * 0.25;
 
   // Collision resolution: guard rail & pit wall
-  const GUARD_RAIL_MAX = inPitLane ? (HW + 96) : (HW + 82);
+  const GUARD_RAIL_MAX = inPitLane ? (hw + 96) : (hw + 82);
   const pt = [T.px[ni], T.py[ni]];
   const { offsets, radius, restitution, friction } = COLLISION_CONFIG;
 

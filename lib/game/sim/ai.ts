@@ -12,7 +12,7 @@ import { getRacingLine, PROFILE_BRAKE_DECEL } from './racingLine';
 // as the player: pure-pursuit steering on the optimal line, a braking-point speed scan from the line's
 // corner limits, traffic awareness (follow / overtake / defend), driver errors, DRS and ERS.
 
-export const CORNER_SAFETY = 0.76;
+export const CORNER_SAFETY = 0.72;
 const SPEED_CAP = 840; // straight-line target cap before pace scaling
 
 interface DifficultyTuning {
@@ -160,11 +160,12 @@ export function lineSteer(car: WorldCar, shift: number): number {
 
   // Track boundary repulsion: smooth gentle inward bias when near the track edge
   let deltaEdge = 0;
+  const hw = track.current.halfWidth[idx];
   const latAbs = Math.abs(car.lateral);
-  if (latAbs > HW - 22 && !car.inPit) {
-    const excess = (latAbs - (HW - 22)) / 10; // meters into boundary zone
-    const maxEdgeAngle = Math.min(0.06, 1.5 / u);
-    deltaEdge = -Math.sign(car.lateral) * Math.min(maxEdgeAngle, excess * 0.035);
+  if (latAbs > hw - 22 && !car.inPit) {
+    const excess = (latAbs - (hw - 22)) / 10; // meters into boundary zone
+    const maxEdgeAngle = Math.min(0.18, 3.2 / u);
+    deltaEdge = -Math.sign(car.lateral) * Math.min(maxEdgeAngle, excess * 0.07);
   }
 
   // Heading error
@@ -188,15 +189,15 @@ export function profileTarget(idx: number, pace: number, gripF: number, aBrake: 
   const cap = SPEED_CAP * pace;
   let target = cap;
   let d = 0;
-  for (let k = 0; k < 120; k++) {
+  for (let k = 0; k < 160; k++) {
     const i = (idx + k) % N;
     const vc = Math.min(cap, RL.cornerSpeed[i] * CORNER_SAFETY * pace * gripF);
     // Low and medium speed corners have less aero downforce, so need more braking distance
-    const effBrake = vc < 320 ? aBrake * 0.44 : vc < 450 ? aBrake * 0.56 : aBrake * 0.74;
+    const effBrake = vc < 350 ? aBrake * 0.34 : vc < 480 ? aBrake * 0.46 : aBrake * 0.65;
     const allowed = Math.sqrt(vc * vc + 2 * effBrake * d);
     if (allowed < target) target = allowed;
     d += RL.seg[i];
-    if (d > 2800) break;
+    if (d > 4200) break;
   }
   return target;
 }
@@ -223,6 +224,8 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   const gripF = gripSpeedFactor(car, ctx.weather);
 
   const myS = car.timing.lastS;
+  const hw = track.current.halfWidth[idx];
+  const MAX_LAT = hw - 20;
   const baseOff = RL.offset[idx];
   const planned = baseOff + brain.shift;
 
@@ -331,7 +334,7 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
     if (du <= 55) {
       const f = 1 - du / 55;
       const s = f * f * (3 - 2 * f);
-      shiftTarget = (PIT.side * (HW - 18) - baseOff) * s;
+      shiftTarget = (PIT.side * (hw - 18) - baseOff) * s;
     }
   }
 
@@ -430,13 +433,15 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
     throttleCmd *= tcFactor;
   }
   // edge of track: if near the boundary, modulate throttle to keep car on asphalt
-  const edgeDist = HW - Math.abs(car.lateral);
-  if (edgeDist < 20 && car.lateral * p.vl > 0 && !car.inPit) {
+  const edgeDist = hw - Math.abs(car.lateral);
+  const T = track.current;
+  const vTrackLat = p.vx * T.nx[idx] + p.vy * T.ny[idx];
+  if (edgeDist < 20 && car.lateral * vTrackLat > 0 && !car.inPit) {
     const edgeLimit = Math.max(0, edgeDist / 20);
     throttleCmd = Math.min(throttleCmd, edgeLimit);
   }
   if (!car.surface.onTrack && !car.inPit) {
-    throttleCmd = Math.min(throttleCmd, 0.35);
+    throttleCmd = Math.min(throttleCmd, 0.75);
   }
   if (v < 300 && Math.abs(ctrl.steer) > 0.25) {
     const steerLimit = Math.max(0.20, 1.0 - 0.80 * (Math.abs(ctrl.steer) - 0.25) / 0.75);
@@ -461,7 +466,8 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   ctrl.ersBoost = brain.ersOn;
 
   // ---- marshals ------------------------------------------------------------------------------
-  if (v < 20 && t > 6 && !car.pit) {
+  const speedThresh = !car.surface.onTrack ? 60 : 20;
+  if (v < speedThresh && t > 6 && !car.pit) {
     brain.stuckTime += dt;
     const thresh = !car.surface.onTrack ? 1.5 : 3.5;
     if (brain.stuckTime > thresh) {

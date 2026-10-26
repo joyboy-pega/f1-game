@@ -256,7 +256,8 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
     car.pit = null;
     car.inPit = false;
     car.pitRequest = false;
-    if (car.ai) car.ai.shift = clamp(car.lateral - getRacingLine().offset[p.idx], -HW + 12, HW - 12);
+    const hw = track.current.halfWidth[p.idx];
+    if (car.ai) car.ai.shift = clamp(car.lateral - getRacingLine().offset[p.idx], -hw + 12, hw - 12);
     return true;
   }
   return false;

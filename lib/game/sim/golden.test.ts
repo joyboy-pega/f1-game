@@ -69,7 +69,7 @@ describe('golden race (R5/R6)', () => {
     const { digest } = runGoldenRace();
     // Update ONLY when behaviour changes on purpose (R5), and log old/new values in docs/WORKLOG.md.
     console.log(`[golden] ${digest}`);
-    expect(fnv1a(digest)).toBe('6be59a89');
+    expect(fnv1a(digest)).toBe('64ae9da7');
   });
 });
 

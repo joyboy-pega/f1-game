@@ -31,7 +31,6 @@ export interface RacingLine {
 }
 
 export const LINE_MARGIN = 19; // keep the line this far from the track edge
-const MAX_OFFSET = HW - LINE_MARGIN;
 
 export const V_TOP = 860; // units/s cap for the profile (just above the unboosted terminal speed)
 export const PROFILE_BRAKE_DECEL = 280; // usable deceleration in world units/s² (~2.8 g avg down to slow turns)
@@ -84,8 +83,9 @@ function optimiseOffsets(rt: TrackRuntime, lineOffset: Float32Array) {
         const gy = dy[a] - 2 * dy[k] + dy[b];
         const g = nx[i] * gx + ny[i] * gy;
         let no = o[i] - (omega * g) / 6;
-        if (no > MAX_OFFSET) no = MAX_OFFSET;
-        else if (no < -MAX_OFFSET) no = -MAX_OFFSET;
+        const maxOffset = rt.halfWidth[i] - LINE_MARGIN;
+        if (no > maxOffset) no = maxOffset;
+        else if (no < -maxOffset) no = -maxOffset;
         const delta = no - o[i];
         if (delta === 0) continue;
         o[i] = no;
