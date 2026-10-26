@@ -8,6 +8,7 @@ import { track } from '@/lib/game/track';
 import { surfaceHeight } from '@/lib/game/track/surface';
 import { gridSlotIndex } from '@/lib/game/sim/race';
 import { boxIndexFor } from '@/lib/game/sim/pit';
+import { getRacingLine } from '@/lib/game/sim/racingLine';
 import { useLighting } from '@/lib/game/visuals/lighting';
 import { Terrain } from './Terrain';
 import {
@@ -18,6 +19,7 @@ import {
   getKerb,
   getPitBox,
   getRoadTextures,
+  getRunoffStripes,
   getTarmac,
   getWetRough,
 } from '@/lib/game/visuals/textures';
@@ -55,15 +57,59 @@ function merge(parts: THREE.BufferGeometry[]): THREE.BufferGeometry | null {
 function buildRoad() {
   const rt = track.current;
   const N = rt.N;
+  const rl = getRacingLine();
+  const offsets = rl.offset;
+
+  const rubberCol = (oVal: (i: number) => number) => {
+    return (i: number): RGBA => {
+      const o = oVal(i);
+      const lineO = offsets[i] ?? 0;
+      const d = Math.abs(o - lineO);
+      // Darkens the groove where tyres lay down rubber (PLAN-v3 §7 G2)
+      const t = Math.min(1, d / 18);
+      const k = 0.68 + 0.32 * t;
+      return [k, k, k, 1];
+    };
+  };
+
   return sweep({
     from: 0,
     count: N,
     vScale: 512,
     profile: [
-      { o: (i) => -rt.halfWidth[i], y: 0.08, u: 0 },
-      { o: (i) => rt.halfWidth[i], y: 0.08, u: 1 },
+      { o: (i) => -rt.halfWidth[i], y: 0.08, u: 0, col: rubberCol((i) => -rt.halfWidth[i]) },
+      { o: (i) => -rt.halfWidth[i] * 0.5, y: 0.08, u: 0.25, col: rubberCol((i) => -rt.halfWidth[i] * 0.5) },
+      { o: (i) => 0, y: 0.08, u: 0.5, col: rubberCol(() => 0) },
+      { o: (i) => rt.halfWidth[i] * 0.5, y: 0.08, u: 0.75, col: rubberCol((i) => rt.halfWidth[i] * 0.5) },
+      { o: (i) => rt.halfWidth[i], y: 0.08, u: 1, col: rubberCol((i) => rt.halfWidth[i]) },
     ],
   });
+}
+
+/** Painted asphalt run-off areas with deceleration stripes outside high-speed corners (PLAN-v3 §7 G2). */
+function buildRunoff() {
+  const rt = track.current;
+  const parts: THREE.BufferGeometry[] = [];
+  const { runoffOutside } = getTrackVisuals();
+
+  for (const side of SIDES) {
+    const mask = runoffOutside[sideIdx(side)];
+    for (const [from, count] of maskRuns(mask, 0.35, 4)) {
+      parts.push(
+        sweep({
+          from,
+          count,
+          vScale: 48,
+          profile: sideProfile(side, [
+            { d: (i) => rt.halfWidth[i] + KERB_W, y: 0.06, u: 0 },
+            { d: (i) => rt.halfWidth[i] + 48, y: 0.05, u: 1 },
+          ]),
+          flip: side < 0,
+        })
+      );
+    }
+  }
+  return merge(parts);
 }
 
 function buildKerbs() {
@@ -327,6 +373,7 @@ export function Track() {
     const marks = buildMarkings();
     return {
       road: buildRoad(),
+      runoff: buildRunoff(),
       kerbs: buildKerbs(),
       verge: buildBand((i) => track.current.halfWidth[i] + KERB_W - 2, (i) => track.current.halfWidth[i] + 40, 0.04, 64),
       gravel: buildBand((i) => track.current.halfWidth[i] + 40, (i) => track.current.halfWidth[i] + 81, 0.05, 64),
@@ -341,11 +388,13 @@ export function Track() {
 
   const tex = useMemo(() => {
     const road = getRoadTextures(snow);
+    const runoff = getRunoffStripes(snow);
     const ground = getGrassPlain(snow).clone();
     ground.repeat.set(200, 200);
     ground.needsUpdate = true;
     return {
       road,
+      runoff,
       wetRough: getWetRough(),
       kerb: getKerb(snow),
       tarmac: getTarmac(),
@@ -360,7 +409,7 @@ export function Track() {
   const roadRough = wet > 0.05 ? tex.wetRough : tex.road.rough;
   const roadTint = snow
     ? new THREE.Color(0.92, 0.95, 1.0)
-    : new THREE.Color().setScalar(1 - wet * 0.35);
+    : new THREE.Color().setScalar(1 - wet * 0.42);
   const pitTint = snow
     ? new THREE.Color(0.88, 0.92, 0.98)
     : new THREE.Color().setScalar(1 - wet * 0.28);
@@ -369,14 +418,27 @@ export function Track() {
     <group name="track">
       <mesh geometry={g.road} receiveShadow>
         <meshStandardMaterial
+          vertexColors
           map={tex.road.map}
           roughnessMap={roadRough}
-          roughness={Math.max(0.14, 0.92 - wet * 0.74)}
-          metalness={0.05 + wet * 0.22}
+          roughness={Math.max(0.12, 0.92 - wet * 0.78)}
+          metalness={0.06 + wet * 0.32}
           color={roadTint}
-          envMapIntensity={0.4 + wet * 2.2}
+          envMapIntensity={0.4 + wet * 2.6}
         />
       </mesh>
+
+      {/* Painted asphalt run-off with deceleration stripes (PLAN-v3 §7 G2) */}
+      {g.runoff && (
+        <mesh geometry={g.runoff} receiveShadow>
+          <meshStandardMaterial
+            map={tex.runoff.map}
+            roughnessMap={tex.runoff.rough}
+            roughness={0.92}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
 
       {g.kerbs && (
         <mesh geometry={g.kerbs} receiveShadow>

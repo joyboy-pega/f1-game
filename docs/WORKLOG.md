@@ -907,3 +907,30 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — G2 Track surface quality: rubbered racing line, painted asphalt run-off, puddle mask (Task 25)
+
+**Completed Task:**
+- **Task 25 (G2: Track Surface Quality & Rubbering):**
+  - **Dynamic Rubbered Racing Line Groove (`components/game/Track.tsx`, `lib/game/sim/racingLine.ts`):**
+    - Expanded road mesh cross-section to 5 lateral profile points (`-hw`, `-0.5hw`, `0`, `+0.5hw`, `+hw`).
+    - At every spline index along the circuit, measured lateral distance to optimal racing line `lineOffset[i]`.
+    - Modulated road vertex colors: darkened groove `[0.68, 0.68, 0.68]` where tyres repeatedly lay down rubber, smoothly transitioning to clean asphalt `[1.0, 1.0, 1.0]` outside the racing groove.
+    - Road material now enables `vertexColors`, rendering the visible dark rubber trajectory following the optimal racing line on Buddh, Monza, and Red Bull Ring.
+  - **Painted Asphalt Run-off Areas (`components/game/Track.tsx`, `lib/game/visuals/textures.ts`):**
+    - Created procedural `getRunoffStripes(snow)` texture with authentic FIA diagonal blue & white safety deceleration stripes on dark asphalt.
+    - Mounted painted run-off mesh `buildRunoff()` at corner outsides (`runoffOutside` mask) between kerbs and outer gravel traps, authentic to modern F1 circuits.
+  - **Wet Weather Surface Response (`components/game/Track.tsx`):**
+    - Integrated puddle mask texture (`getWetRough()`) into `roughnessMap`.
+    - In wet sessions: albedo is darkened (`(1 - wet * 0.42)`), specular reflectivity increased (`metalness: 0.06 + wet * 0.32`), roughness dropped to mirror levels in puddle areas, and `envMapIntensity` boosted to `0.4 + wet * 2.6`, giving authentic glossy wet asphalt without SSR overhead.
+  - **Unit Testing (`lib/game/visuals/surfaceQuality.test.ts`):**
+    - 3 unit tests verifying painted run-off textures in dry and snow, rubbered racing line vertex color darkening ($< 0.75$ on line, $\ge 0.95$ outside), and puddle mask roughness integration.
+
+**Verification:**
+- Full test suite: **22/22 test files passed, 189/189 unit tests passed** (including `surfaceQuality.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

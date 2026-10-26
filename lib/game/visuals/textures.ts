@@ -6,6 +6,35 @@ import { rng } from './trackData';
 const cache = new Map<string, object>();
 
 function mk(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+  if (typeof document === 'undefined') {
+    return [
+      { width: w, height: h } as HTMLCanvasElement,
+      {
+        fillRect: () => {},
+        clearRect: () => {},
+        beginPath: () => {},
+        arc: () => {},
+        ellipse: () => {},
+        moveTo: () => {},
+        lineTo: () => {},
+        closePath: () => {},
+        fill: () => {},
+        stroke: () => {},
+        strokeRect: () => {},
+        save: () => {},
+        restore: () => {},
+        translate: () => {},
+        scale: () => {},
+        fillText: () => {},
+        measureText: () => ({ width: 0 }),
+        createLinearGradient: () => ({ addColorStop: () => {} }),
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        putImageData: () => {},
+        getImageData: () => ({ data: new Uint8ClampedArray(w * h * 4) }),
+        createImageData: (width: number, height: number) => ({ data: new Uint8ClampedArray(width * height * 4) }),
+      } as unknown as CanvasRenderingContext2D,
+    ];
+  }
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
@@ -19,6 +48,9 @@ interface TexOpts {
   aniso?: number;
 }
 function toTex(c: HTMLCanvasElement, o: TexOpts = {}): THREE.CanvasTexture {
+  if (typeof document === 'undefined') {
+    return new THREE.Texture() as unknown as THREE.CanvasTexture;
+  }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = o.srgb === false ? THREE.NoColorSpace : THREE.SRGBColorSpace;
   t.wrapS = o.wrapS ?? THREE.RepeatWrapping;
@@ -239,6 +271,43 @@ export function getGravel(snow: boolean) {
     return toTex(c);
   });
 }
+
+/** Painted asphalt run-off with FIA deceleration stripe pattern (PLAN-v3 §7 G2). */
+export function getRunoffStripes(snow = false) {
+  return cached(`runoff_${snow}`, () => {
+    const W = 256, H = 256;
+    const rand = rng(53);
+    const [c, ctx] = mk(W, H);
+
+    // Dark asphalt base
+    ctx.fillStyle = snow ? '#4a5058' : '#2b2e34';
+    ctx.fillRect(0, 0, W, H);
+
+    // Diagonal painted safety stripes (blue and white deceleration lines)
+    const stripeW = 32;
+    const count = Math.ceil((W + H) / stripeW);
+
+    for (let i = -count; i < count; i++) {
+      const x = i * stripeW;
+      const isBlue = Math.abs(i) % 2 === 0;
+      ctx.fillStyle = snow
+        ? (isBlue ? 'rgba(80,120,180,0.6)' : 'rgba(230,238,248,0.75)')
+        : (isBlue ? 'rgba(26,79,176,0.92)' : 'rgba(242,244,248,0.95)');
+
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + stripeW * 0.45, 0);
+      ctx.lineTo(x + stripeW * 0.45 + H, H);
+      ctx.lineTo(x + H, H);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    const rc = grain(ctx, W, H, snow ? 16 : 22, rand, snow ? 160 : 195, 0.4);
+    return { map: toTex(c), rough: toTex(rc, { srgb: false }) };
+  });
+}
+
 
 /** Low-frequency luminance noise sampled in world space on the ground plane. */
 export function getMacroNoise() {
