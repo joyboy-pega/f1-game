@@ -16,6 +16,7 @@ export type SimEvent =
   | { type: 'finish'; carId: number; position: number }
   | { type: 'penalty'; carId: number; seconds: number; reason: string }
   | { type: 'trackLimits'; carId: number; warnings: number }
+  | { type: 'qualifyingComplete'; grid: string[] }
   | { type: 'pitEnter'; carId: number }
   /** The driver changed the box request or the tyre planned for the next stop. */
   | { type: 'pitPlan'; carId: number; box: boolean; compound: TyreCompound }

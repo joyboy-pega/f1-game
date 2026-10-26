@@ -198,6 +198,8 @@ export interface GameSettings {
   showTelemetry: boolean;
   showMinimap: boolean;
   showGhost: boolean;
+  qualifyingFormat?: 'oneshot' | 'short';
+  qualifyingGrid?: string[];
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
@@ -207,6 +209,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   aiCount: 9,
   difficulty: 'pro',
   gridPosition: 10,
+  qualifyingFormat: 'oneshot',
   weather: 'sunny',
   timeOfDay: 'day',
   carModel: 'f1',

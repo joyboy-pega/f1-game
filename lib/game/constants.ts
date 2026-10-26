@@ -198,7 +198,7 @@ export const DRIVER_ROSTER: DriverProfile[] = [
 export const MAX_AI_CARS = 19;
 
 export type TyreCompound = 'soft' | 'medium' | 'hard' | 'inter' | 'wet';
-export type GameMode = 'race' | 'timetrial' | 'practice';
+export type GameMode = 'race' | 'qualifying' | 'timetrial' | 'practice';
 export type Difficulty = 'rookie' | 'pro' | 'legend';
 export type TimeOfDay = 'day' | 'sunset' | 'night';
 

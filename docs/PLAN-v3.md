@@ -724,7 +724,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 | 27 | G4 lighting & shadows | G1 | M | ✅ |
 | 28 | R1 lap validity | T1 | S | ✅ |
 | 29 | R4 full grid | G6, A2 | M | ✅ |
-| 30 | R2 qualifying | R1 | M | ⏳ |
+| 30 | R2 qualifying | R1 | M | ✅ |
 | 31 | R3 flags/SC/VSC | A2 | L | ⏳ |
 | 32 | R7 dynamic weather | V3 | L | ⏳ |
 | 33 | T6.3–T6.5 Silverstone, Spa, Suzuka | T6.2 | M each | ⏳ |

@@ -13,6 +13,7 @@ export const COMPOUND_ORDER: TyreCompound[] = ['soft', 'medium', 'hard', 'inter'
 
 export const MODE_NAMES: Record<GameMode, string> = {
   race: 'GRAND PRIX',
+  qualifying: 'QUALIFYING',
   timetrial: 'TIME TRIAL',
   practice: 'FREE PRACTICE',
 };

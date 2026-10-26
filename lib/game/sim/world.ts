@@ -1,4 +1,4 @@
-import { DRIVER_ROSTER, MAX_AI_CARS, HW, type TyreCompound } from '../constants';
+import { DRIVER_ROSTER, MAX_AI_CARS, HW, type DriverProfile, type TyreCompound } from '../constants';
 import { DEFAULT_TRACK_ID, isTrackLoaded, setActiveTrack, track } from '../track';
 import { NEUTRAL_CONTROLS, type ControlState } from '../controls';
 import {
@@ -34,6 +34,7 @@ import {
   gridSlotIndex,
   liveDelta,
   sortRunningOrder,
+  sortQualifyingOrder,
   type OverallBests,
 } from './race';
 import type { WorldCar } from './types';
@@ -87,6 +88,10 @@ export class GameWorld {
   player!: WorldCar;
   order: WorldCar[] = [];
   settings: GameSettings = DEFAULT_SETTINGS;
+  isQualifying = false;
+  qualifyingFormat: 'oneshot' | 'short' = 'oneshot';
+  qualifyingTimeRemaining = 720;
+  qualifyingCompleteEmitted = false;
   phase: RacePhase = 'grid';
   phaseTime = 0;
   raceTime = 0;
@@ -162,27 +167,75 @@ export class GameWorld {
     this.paused = false;
     this.collisions.reset();
 
-    const race = settings.mode === 'race';
-    const aiCount = race ? Math.max(0, Math.min(MAX_AI_CARS, settings.aiCount)) : 0;
-    const carCount = aiCount + 1;
-    const playerSlot = race ? Math.max(0, Math.min(carCount - 1, settings.gridPosition - 1)) : 0;
+    this.isQualifying = settings.mode === 'qualifying';
+    this.qualifyingFormat = settings.qualifyingFormat || 'oneshot';
+    this.qualifyingTimeRemaining = this.qualifyingFormat === 'short' ? 720 : 180;
+    this.qualifyingCompleteEmitted = false;
 
-    // "Qualifying": the fastest drivers usually, but not always, start at the front.
-    const grid = DRIVER_ROSTER.slice(0, aiCount)
-      .map((d) => ({ d, key: d.skill.pace + gaussian(this.rand) * 0.03 }))
-      .sort((a, b) => b.key - a.key)
-      .map((e) => e.d);
+    const race = this.isRace;
+    const qualifying = this.isQualifying;
+    const isMultiCar = race || qualifying;
+    const aiCount = isMultiCar ? Math.max(0, Math.min(MAX_AI_CARS, settings.aiCount)) : 0;
+    const carCount = aiCount + 1;
+
+    let playerSlot = 0;
+    let grid: DriverProfile[] = [];
+
+    if (race && settings.qualifyingGrid && settings.qualifyingGrid.length > 0) {
+      // Set grid from qualifying results (PLAN-v3 §8 R2)
+      const qGrid = settings.qualifyingGrid;
+      const playerPos = qGrid.indexOf('player');
+      playerSlot = playerPos >= 0 ? Math.min(carCount - 1, playerPos) : Math.max(0, Math.min(carCount - 1, settings.gridPosition - 1));
+
+      const aiDrivers = qGrid.filter((id) => id !== 'player');
+      for (const code of aiDrivers) {
+        const found = DRIVER_ROSTER.find((d) => d.code === code || d.id === code);
+        if (found && grid.length < aiCount) grid.push(found);
+      }
+      if (grid.length < aiCount) {
+        for (const d of DRIVER_ROSTER) {
+          if (!grid.includes(d) && grid.length < aiCount) grid.push(d);
+        }
+      }
+    } else if (race) {
+      playerSlot = Math.max(0, Math.min(carCount - 1, settings.gridPosition - 1));
+      // "Qualifying": the fastest drivers usually, but not always, start at the front.
+      grid = DRIVER_ROSTER.slice(0, aiCount)
+        .map((d) => ({ d, key: d.skill.pace + gaussian(this.rand) * 0.03 }))
+        .sort((a, b) => b.key - a.key)
+        .map((e) => e.d);
+    } else if (qualifying) {
+      playerSlot = 0;
+      grid = DRIVER_ROSTER.slice(0, aiCount);
+    }
+
     const cars: WorldCar[] = [];
     let aiIdx = 0;
     for (let slot = 0; slot < carCount; slot++) {
       const isPlayer = slot === playerSlot;
       // Staggered 2-wide grid; solo modes start further back for a rolling out-lap
-      const idx = race ? gridSlotIndex(slot) : (track.current.N - 80) % track.current.N;
-      const hw = track.current.halfWidth[idx];
-      const lateral = race ? (slot % 2 === 0 ? -1 : 1) * hw * 0.42 : 0;
-      const compound: TyreCompound = isPlayer ? settings.startCompound : aiIdx % 3 === 2 ? 'medium' : 'soft';
+      let idx: number;
+      let lateral = 0;
+      if (race) {
+        idx = gridSlotIndex(slot);
+        const hw = track.current.halfWidth[idx];
+        lateral = (slot % 2 === 0 ? -1 : 1) * hw * 0.42;
+      } else if (qualifying) {
+        const spread = Math.floor(track.current.N / Math.max(1, carCount));
+        idx = (track.current.N - 80 - slot * spread + track.current.N * 4) % track.current.N;
+      } else {
+        idx = (track.current.N - 80) % track.current.N;
+      }
+
+      const compound: TyreCompound = isPlayer ? settings.startCompound : qualifying ? 'soft' : aiIdx % 3 === 2 ? 'medium' : 'soft';
       const car = makeCar(cars.length, isPlayer, idx, lateral, compound);
-      car.fuelKg = race ? Math.min(105, settings.totalLaps * 1.8 + 2.0) : 10;
+      car.fuelKg = race ? Math.min(105, settings.totalLaps * 1.8 + 2.0) : qualifying ? 12 : 10;
+      if (!race) {
+        car.phys.vf = 550; // ~198 km/h rolling approach
+        car.phys.kmh = 198;
+        car.phys.gear = 6;
+        car.phys.rpm = 10500;
+      }
       if (isPlayer) {
         car.driver = { name: settings.driverName, code: settings.driverCode, team: 'Player', livery: settings.livery };
       } else {
@@ -364,6 +417,25 @@ export class GameWorld {
 
     this.updateOrder(dt);
     updateDrsAvailability(this.cars, { isRace: this.isRace, order: this.order });
+
+    if (this.isQualifying && !this.qualifyingCompleteEmitted) {
+      if (this.qualifyingFormat === 'oneshot') {
+        if (this.player.timing.lapsCompleted >= 1 || this.player.timing.finished) {
+          this.qualifyingCompleteEmitted = true;
+          this.phase = 'finished';
+          const gridOrder = this.order.map((c) => (c.isPlayer ? 'player' : c.driver.code));
+          this.events.emit({ type: 'qualifyingComplete', grid: gridOrder });
+        }
+      } else if (this.qualifyingFormat === 'short') {
+        this.qualifyingTimeRemaining -= dt;
+        if (this.qualifyingTimeRemaining <= 0) {
+          this.qualifyingCompleteEmitted = true;
+          this.phase = 'finished';
+          const gridOrder = this.order.map((c) => (c.isPlayer ? 'player' : c.driver.code));
+          this.events.emit({ type: 'qualifyingComplete', grid: gridOrder });
+        }
+      }
+    }
   }
 
   private updateStart(dt: number) {
@@ -412,7 +484,11 @@ export class GameWorld {
   }
 
   private updateOrder(dt: number) {
-    sortRunningOrder(this.order);
+    if (this.isQualifying) {
+      sortQualifyingOrder(this.order);
+    } else {
+      sortRunningOrder(this.order);
+    }
     for (let i = 0; i < this.order.length; i++) this.order[i].position = i + 1;
     const pos = this.player.position;
     if (pos !== this.candidatePosition) {

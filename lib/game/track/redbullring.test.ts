@@ -80,6 +80,7 @@ describe('Red Bull Ring circuit integration (PLAN-v3 §4.2 T6.2)', () => {
   it('runs a multi-car AI race on Red Bull Ring through extreme elevation without crashing', async () => {
     await ensureTrack('redbullring');
 
+    world.seed = 42;
     world.setup({
       ...DEFAULT_SETTINGS,
       trackId: 'redbullring',

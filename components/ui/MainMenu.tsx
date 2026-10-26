@@ -22,6 +22,7 @@ const Showroom = dynamic(() => import('./Showroom'), {
 
 const MODES: { id: GameMode; name: string; sub: string }[] = [
   { id: 'race', name: 'Grand Prix', sub: 'Full grid · pit stops · strategy' },
+  { id: 'qualifying', name: 'Qualifying', sub: 'One-shot / 12-min · sets race grid' },
   { id: 'timetrial', name: 'Time Trial', sub: 'Solo · chase your ghost' },
   { id: 'practice', name: 'Free Practice', sub: 'No pressure · test tyres' },
 ];
@@ -57,6 +58,7 @@ export function MainMenu() {
   const [tab, setTab] = useState<Tab>('Setup');
 
   const race = s.mode === 'race';
+  const quali = s.mode === 'qualifying';
   const setLivery = (patch: Partial<Livery>) => set({ livery: { ...s.livery, ...patch } });
   const bestKey = recordKey(s.trackId, s.mode, s.weather);
   const catalog = trackCatalog();
@@ -173,8 +175,45 @@ export function MainMenu() {
                         onChange={(v) => set({ difficulty: v })}
                       />
                     </Field>
-                    <Field label="Grid slot" value={`P${Math.min(s.gridPosition, s.aiCount + 1)}`}>
+                    <Field label="Grid slot" value={`P${Math.min(s.gridPosition, s.aiCount + 1)}${s.qualifyingGrid ? ' (Quali)' : ''}`}>
                       <Slider label="Grid position" min={1} max={s.aiCount + 1} step={1} value={Math.min(s.gridPosition, s.aiCount + 1)} onChange={(v) => set({ gridPosition: v })} />
+                    </Field>
+                  </>
+                )}
+                {quali && (
+                  <>
+                    <Field label="Format">
+                      <Seg<'oneshot' | 'short'>
+                        label="Format"
+                        value={s.qualifyingFormat || 'oneshot'}
+                        options={[
+                          { value: 'oneshot', label: 'One-Shot (1 Lap)' },
+                          { value: 'short', label: 'Short (12 Min)' },
+                        ]}
+                        onChange={(v) => set({ qualifyingFormat: v })}
+                      />
+                    </Field>
+                    <Field label="Opponents" value={String(s.aiCount)}>
+                      <Slider
+                        label="Opponents"
+                        min={0}
+                        max={MAX_AI_CARS}
+                        step={1}
+                        value={s.aiCount}
+                        onChange={(v) => set({ aiCount: v })}
+                      />
+                    </Field>
+                    <Field label="Difficulty">
+                      <Seg<Difficulty>
+                        label="Difficulty"
+                        value={s.difficulty}
+                        options={[
+                          { value: 'rookie', label: 'Rookie' },
+                          { value: 'pro', label: 'Pro' },
+                          { value: 'legend', label: 'Legend' },
+                        ]}
+                        onChange={(v) => set({ difficulty: v })}
+                      />
                     </Field>
                   </>
                 )}
@@ -314,7 +353,13 @@ export function MainMenu() {
             <div className="l-start-info">
               <b>{MODE_NAMES[s.mode]}</b>
               <small>
-                {race ? `${s.totalLaps} laps · P${Math.min(s.gridPosition, s.aiCount + 1)}/${s.aiCount + 1} · ${s.difficulty}` : best !== undefined ? `Your best ${formatLapTime(best)}` : 'No time set yet'} · {WEATHER_LABEL[s.weather]} · {s.timeOfDay}
+                {race
+                  ? `${s.totalLaps} laps · P${Math.min(s.gridPosition, s.aiCount + 1)}/${s.aiCount + 1} · ${s.difficulty}`
+                  : quali
+                  ? `Qualifying · ${s.qualifyingFormat === 'short' ? 'Short (12 Min)' : 'One-Shot (1 Lap)'} · ${s.difficulty}`
+                  : best !== undefined
+                  ? `Your best ${formatLapTime(best)}`
+                  : 'No time set yet'} · {WEATHER_LABEL[s.weather]} · {s.timeOfDay}
               </small>
             </div>
             <Link href="/game" className="l-go">

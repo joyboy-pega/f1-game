@@ -1062,3 +1062,39 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — R2 Qualifying: One-shot & 12-min formats, live qualifying order, starting grid propagation (Task 30)
+
+**Completed Task:**
+- **Task 30 (R2: Qualifying Formats & Grid Propagation):**
+  - **Qualifying Mode & Formats (`lib/game/constants.ts`, `lib/game/gameState.ts`, `components/ui/MainMenu.tsx`):**
+    - Added `'qualifying'` to `GameMode` type union.
+    - Supported two authentic qualifying session formats via `qualifyingFormat`:
+      1. `oneshot`: Single flying lap format where drivers get one warm-up approach and one flying lap to set their time.
+      2. `short`: 12-minute session countdown (`qualifyingTimeRemaining = 720s`) where cars can run multiple hot laps and pit for tyres.
+    - Added qualifying selection and format toggle in lobby menu Setup tab.
+  - **Qualifying Classification Order (`lib/game/sim/race.ts`, `lib/game/sim/world.ts`):**
+    - Added `compareQualifying` and `sortQualifyingOrder` sorting cars in place with zero heap allocations (Rule R7).
+    - Sorts cars strictly by their best valid lap time (`timing.bestLap` ascending). Invalidated laps (R1 track limits excursions) are excluded from `bestLap` and sorted behind valid times.
+    - Live timing tower automatically reflects qualifying standings when `mode === 'qualifying'`.
+  - **Grid Order Replacement (`lib/game/sim/world.ts`):**
+    - When a qualifying session completes, emits `qualifyingComplete` event with `grid: string[]` (array of driver codes in classification order, with `'player'` for player car).
+    - When starting a Grand Prix race with `qualifyingGrid` present, replaces pseudo-qualifying:
+      - Player's starting slot matches their exact qualifying position (`qGrid.indexOf('player')`).
+      - AI grid order strictly follows the qualifying classification.
+      - Fallback to pseudo-qualifying is preserved when no qualifying was run, maintaining exact bitwise determinism for golden race tests.
+  - **Unit Testing (`lib/game/sim/qualifying.test.ts`):**
+    - 4 unit tests verifying:
+      1. One-shot qualifying flying lap completion and `qualifyingComplete` event emission.
+      2. In-place qualifying order sort handling valid laps, invalidated laps, and no-time cars.
+      3. Grand Prix race grid initialization strictly matching qualifying result (e.g. P3 player slot, pole position, AI order).
+      4. 12-minute short format countdown timer decrementing correctly.
+
+**Verification:**
+- Full test suite: **27/27 test files passed, 204/204 unit tests passed** (including `qualifying.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

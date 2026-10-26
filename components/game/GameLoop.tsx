@@ -94,6 +94,19 @@ function handleEvent(e: SimEvent) {
     case 'reset':
       if (e.carId === pid) toast({ id: 'reset', type: 'info', title: 'CAR RESET', duration: 1.2 });
       break;
+    case 'qualifyingComplete': {
+      const s = useGameStore.getState();
+      s.setSettings({ qualifyingGrid: e.grid });
+      const pos = e.grid.indexOf('player') + 1;
+      toast({
+        id: 'quali-done',
+        type: 'info',
+        title: `QUALIFYING COMPLETE — P${pos || 1}`,
+        subtitle: 'Starting grid set for Grand Prix',
+        duration: 4.0,
+      });
+      break;
+    }
   }
 }
 

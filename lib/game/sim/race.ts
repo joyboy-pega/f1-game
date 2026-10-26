@@ -245,6 +245,20 @@ function compareRunning(a: WorldCar, b: WorldCar): number {
   return d !== 0 ? d : a.id - b.id;
 }
 
+/** > 0 when `b` should be ahead of `a` in qualifying: fastest valid lap first, then progress. */
+function compareQualifying(a: WorldCar, b: WorldCar): number {
+  const ta = a.timing.bestLap;
+  const tb = b.timing.bestLap;
+  if (ta !== null && tb !== null) {
+    const d = ta - tb;
+    return d !== 0 ? d : a.id - b.id;
+  }
+  if (ta !== null) return -1;
+  if (tb !== null) return 1;
+  const dp = b.timing.progress - a.timing.progress;
+  return dp !== 0 ? dp : a.id - b.id;
+}
+
 /**
  * Running order, sorted IN PLACE. The order is almost sorted every step, so insertion sort is ~O(n) and, unlike
  * `[...cars].sort(...)`, allocates nothing (R7). Returns the same array.
@@ -254,6 +268,20 @@ export function sortRunningOrder(order: WorldCar[]): WorldCar[] {
     const x = order[i];
     let j = i - 1;
     while (j >= 0 && compareRunning(order[j], x) > 0) {
+      order[j + 1] = order[j];
+      j--;
+    }
+    order[j + 1] = x;
+  }
+  return order;
+}
+
+/** Qualifying order sorted by best lap time ascending with zero heap allocations (Rule R7). */
+export function sortQualifyingOrder(order: WorldCar[]): WorldCar[] {
+  for (let i = 1; i < order.length; i++) {
+    const x = order[i];
+    let j = i - 1;
+    while (j >= 0 && compareQualifying(order[j], x) > 0) {
       order[j + 1] = order[j];
       j--;
     }
