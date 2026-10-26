@@ -741,29 +741,32 @@ export function updateCarPhysics(
   }
 
   // Also check pit wall between main track and pit lane
+  const N = T.N;
   const pitWallSpan = ((T.pit.exitIdx - 26 - (T.pit.entryIdx + 26)) + N) % N;
   const pitWallK = (ni - (T.pit.entryIdx + 26) + N) % N;
   if (pitWallK <= pitWallSpan) {
     const pitSide = T.pit.side;
     const wallLat = pitSide * T.pit.wallOffset;
+    const nn0 = T.nx[ni];
+    const nn1 = T.ny[ni];
     for (let k = 0; k < offsets.length; k++) {
       const off = offsets[k];
       const cx = car.x + c2 * off;
       const cy = car.y + s2 * off;
-      const lat = (cx - pt[0]) * nn[0] + (cy - pt[1]) * nn[1];
+      const lat = (cx - pt[0]) * nn0 + (cy - pt[1]) * nn1;
       if (inPitLane) {
         const pen = (wallLat + radius * pitSide) * pitSide - (lat * pitSide);
         if (pen > 0 && pen > maxPen) {
           maxPen = pen;
-          pushX = nn[0] * pitSide;
-          pushY = nn[1] * pitSide;
+          pushX = nn0 * pitSide;
+          pushY = nn1 * pitSide;
         }
       } else {
         const pen = (lat * pitSide) - (wallLat - radius * pitSide) * pitSide;
         if (pen > 0 && pen > maxPen) {
           maxPen = pen;
-          pushX = -nn[0] * pitSide;
-          pushY = -nn[1] * pitSide;
+          pushX = -nn0 * pitSide;
+          pushY = -nn1 * pitSide;
         }
       }
     }
