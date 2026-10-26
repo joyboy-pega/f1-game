@@ -501,3 +501,53 @@ export function getPitBox() {
     return toTex(c, { wrapS: THREE.ClampToEdgeWrapping, wrapT: THREE.ClampToEdgeWrapping });
   });
 }
+
+/** Tree cross-billboard texture (organic foliage canopy + trunk). */
+export function getTreeTexture(snow = false) {
+  return cached(`tree_${snow}`, () => {
+    const W = 128, H = 256;
+    const rand = rng(43);
+    const [c, ctx] = mk(W, H);
+    ctx.clearRect(0, 0, W, H);
+
+    // Trunk
+    ctx.fillStyle = '#302418';
+    ctx.beginPath();
+    ctx.moveTo(W * 0.44, H);
+    ctx.lineTo(W * 0.56, H);
+    ctx.lineTo(W * 0.53, H * 0.35);
+    ctx.lineTo(W * 0.47, H * 0.35);
+    ctx.closePath();
+    ctx.fill();
+
+    // Foliage canopy layers
+    const layers = 5;
+    for (let l = 0; l < layers; l++) {
+      const y = H * (0.8 - l * 0.15);
+      const radiusX = W * (0.42 - l * 0.05);
+      const radiusY = H * (0.16 - l * 0.015);
+      const baseCol = snow
+        ? ['#688270', '#84a08c', '#a8c2b0', '#cce0d2', '#eaf2ec'][l]
+        : ['#1c3818', '#244720', '#2f592a', '#3b6e34', '#498242'][l];
+
+      ctx.fillStyle = baseCol;
+      ctx.beginPath();
+      ctx.ellipse(W * 0.5, y, radiusX, radiusY, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Organic cluster details
+      for (let k = 0; k < 12; k++) {
+        const ox = (rand() - 0.5) * radiusX * 1.5;
+        const oy = (rand() - 0.5) * radiusY * 1.2;
+        const rad = 10 + rand() * 14;
+        ctx.fillStyle = baseCol;
+        ctx.beginPath();
+        ctx.arc(W * 0.5 + ox, y + oy, rad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    return toTex(c, { wrapS: THREE.ClampToEdgeWrapping, wrapT: THREE.ClampToEdgeWrapping });
+  });
+}
+

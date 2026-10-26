@@ -718,7 +718,7 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 | 21 | T6.1 Monza | T5, A2 | M | ✅ |
 | 22 | T6.2 Red Bull Ring | T3, T6.1 | M | ✅ |
 | 23 | G1 terrain | T3 | L | ✅ |
-| 24 | G3 dressing | G1, A1 | L | ⏳ |
+| 24 | G3 dressing | G1, A1 | L | ✅ |
 | 25 | G2 surface | T3 | M | ⏳ |
 | 26 | G6 car instancing + LOD | S6 | L | ⏳ |
 | 27 | G4 lighting & shadows | G1 | M | ⏳ |

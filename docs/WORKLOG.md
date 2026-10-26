@@ -867,3 +867,43 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — G3 Trackside dressing: brake markers, tyre walls, sponsor atlas, sprite crowd, marshals, trees, paddock (Task 24)
+
+**Completed Task:**
+- **Task 24 (G3: Trackside Dressing Assets Integration & Instancing):**
+  - **Brake Distance Marker Boards (`lib/game/visuals/dressing.ts`, `lib/game/visuals/textures.ts`):**
+    - Mounted brake marker boards at 300 m, 200 m, and 100 m before every corner braking zone along arc length.
+    - UV mapped to `getBrakeBoards()` atlas (3 distance cells), mounted on thin dark steel posts just off the kerbs.
+    - Merged into a single BufferGeometry (1 draw call for all boards on the entire circuit).
+  - **TecPro & Tyre Wall Barriers (`lib/game/visuals/dressing.ts`, `lib/game/visuals/textures.ts`):**
+    - Built stacked tyre barriers along corner outside run-off areas in front of armco barriers.
+    - Textured with `getTyreWall()` radial tyre gradient and TecPro safety wrap bands.
+    - Merged into a single BufferGeometry (1 draw call).
+  - **Sponsor Billboard Atlas (`lib/game/visuals/dressing.ts`, `lib/game/visuals/textures.ts`):**
+    - Mounted continuous sponsor billboards on straight-line barrier walls and run-off perimeters.
+    - Textured with `getSponsorAtlas()` containing 8 sponsor brands (Apex, Velox, Zenith, Kinetic, Volt, Orbita, Turbo-Q, Himalaya).
+  - **Marshal Observation Posts & Digital LED Light Panels (`lib/game/visuals/dressing.ts`):**
+    - Elevated marshal platforms (4 legs, safety railings, blue canopy roof) stationed every ~300 m around the track.
+    - Digital LED light panels mounted on marshal posts facing oncoming traffic, ready for racing flag states (green/yellow/red).
+  - **Sprite Crowd Silhouettes (`components/game/TrackProps.tsx`, `lib/game/visuals/textures.ts`):**
+    - Upgraded grandstand spectator crowds from flat plain rectangles to distinct human silhouettes using `getCrowdSprite()` with head/body alpha mask and instanced team clothing colors.
+  - **Cross-Billboard Instanced Trees (`lib/game/visuals/dressing.ts`, `lib/game/visuals/textures.ts`):**
+    - Created cross-billboard tree geometry (two intersecting quads, 8 vertices, 4 triangles).
+    - Generated organic foliage tree texture via `getTreeTexture(snow)` with trunk and layered canopy.
+    - Distributed instanced trees across the landscape outside barriers controlled by `foliageDensity` quality preset (1 draw call for all trees).
+  - **Paddock & Team Hospitality Suites (`lib/game/visuals/dressing.ts`):**
+    - Built modern 2-story team hospitality suites and motorhome pavilions behind pit garages.
+  - **Budget Verification:**
+    - World scene draw calls remain under 50 draws at HIGH (≤ 150 budget) and under 35 at LOW (≤ 90 budget).
+  - **Unit Testing (`lib/game/visuals/dressing.test.ts`):**
+    - 6 unit tests in `dressing.test.ts` passing in 17 ms: verifying brake markers UV cells, tyre walls, sponsor atlas, marshal posts, tree cross-billboards, and paddock buildings.
+
+**Verification:**
+- Full test suite: **21/21 test files passed, 186/186 unit tests passed** (including `dressing.test.ts` and `terrain.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

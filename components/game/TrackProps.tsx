@@ -9,7 +9,23 @@ import { surfaceHeight } from '@/lib/game/track/surface';
 import { QUALITY_PRESETS } from '@/lib/game/performance';
 import { useGameStore } from '@/lib/game/store';
 import { useLighting } from '@/lib/game/visuals/lighting';
-import { getBanner, getGlow } from '@/lib/game/visuals/textures';
+import {
+  getBanner,
+  getBrakeBoards,
+  getCrowdSprite,
+  getGlow,
+  getSponsorAtlas,
+  getTreeTexture,
+  getTyreWall,
+} from '@/lib/game/visuals/textures';
+import {
+  buildBrakeBoards,
+  buildMarshalPosts,
+  buildPaddockBuildings,
+  buildSponsorBoards,
+  buildTreeSystem,
+  buildTyreWalls,
+} from '@/lib/game/visuals/dressing';
 import {
   GeoBuilder,
   getTrackVisuals,
@@ -128,7 +144,7 @@ function buildCrowd(plan: Stand[], density: number): Crowd[] {
   });
 }
 
-function CrowdMesh({ crowd }: { crowd: Crowd }) {
+function CrowdMesh({ crowd, sprite }: { crowd: Crowd; sprite: THREE.Texture }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   useEffect(() => {
     const mesh = ref.current;
@@ -143,8 +159,24 @@ function CrowdMesh({ crowd }: { crowd: Crowd }) {
   }, [crowd]);
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, crowd.matrices.length]}>
-      <planeGeometry args={[1.9, 3.6]} />
-      <meshBasicMaterial side={THREE.DoubleSide} toneMapped={false} />
+      <planeGeometry args={[2.2, 3.8]} />
+      <meshBasicMaterial map={sprite} transparent alphaTest={0.4} side={THREE.DoubleSide} toneMapped={false} />
+    </instancedMesh>
+  );
+}
+
+function TreeMesh({ geometry, matrices, texture }: { geometry: THREE.BufferGeometry; matrices: THREE.Matrix4[]; texture: THREE.Texture }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  useEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [matrices]);
+  return (
+    <instancedMesh ref={ref} args={[geometry, undefined, matrices.length]}>
+      <meshStandardMaterial map={texture} transparent alphaTest={0.45} roughness={0.9} side={THREE.DoubleSide} />
     </instancedMesh>
   );
 }
@@ -193,6 +225,32 @@ export function TrackProps() {
   const plan = useMemo(standPlan, [trackId]);
   const standGeo = useMemo(() => buildStands(plan), [plan]);
   const crowd = useMemo(() => buildCrowd(plan, Math.max(0.35, density)), [plan, density]);
+  const crowdSprite = useMemo(() => getCrowdSprite(), []);
+
+  // ---- G3 trackside dressing: brake markers, tyre walls, sponsors, marshals, trees, paddock ----
+  const brakeBoards = useMemo(() => buildBrakeBoards(T), [trackId]);
+  const brakeTex = useMemo(() => getBrakeBoards(), []);
+  const tyreWalls = useMemo(() => buildTyreWalls(T), [trackId]);
+  const tyreTex = useMemo(() => getTyreWall(), []);
+  const sponsors = useMemo(() => buildSponsorBoards(T), [trackId]);
+  const sponsorTex = useMemo(() => getSponsorAtlas(), []);
+  const marshals = useMemo(() => buildMarshalPosts(T), [trackId]);
+  const paddock = useMemo(() => buildPaddockBuildings(T), [trackId]);
+  const trees = useMemo(() => buildTreeSystem(T, density), [trackId, density]);
+  const treeTex = useMemo(() => getTreeTexture(L.snow), [L.snow]);
+
+  // Clean up dressing geometries on unmount / track switch
+  useEffect(() => {
+    return () => {
+      brakeBoards?.dispose();
+      tyreWalls?.dispose();
+      sponsors?.dispose();
+      marshals.posts?.dispose();
+      marshals.lightPanels?.dispose();
+      paddock?.dispose();
+      trees.geometry.dispose();
+    };
+  }, [brakeBoards, tyreWalls, sponsors, marshals, paddock, trees]);
 
   // ---- banners along the catch fence on the main straight ----
   const banners = useMemo(() => {
@@ -301,8 +359,53 @@ export function TrackProps() {
         </mesh>
       )}
       {crowd.map((c, i) => (
-        <CrowdMesh key={i} crowd={c} />
+        <CrowdMesh key={i} crowd={c} sprite={crowdSprite} />
       ))}
+
+      {/* G3 dressing: trees (cross-billboards, single instanced mesh) */}
+      {trees.matrices.length > 0 && (
+        <TreeMesh geometry={trees.geometry} matrices={trees.matrices} texture={treeTex} />
+      )}
+
+      {/* G3 dressing: brake marker boards */}
+      {brakeBoards && (
+        <mesh geometry={brakeBoards} receiveShadow>
+          <meshStandardMaterial map={brakeTex} roughness={0.7} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+
+      {/* G3 dressing: tyre wall barriers */}
+      {tyreWalls && (
+        <mesh geometry={tyreWalls} receiveShadow>
+          <meshStandardMaterial map={tyreTex} roughness={0.9} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+
+      {/* G3 dressing: sponsor boards */}
+      {sponsors && (
+        <mesh geometry={sponsors} receiveShadow>
+          <meshStandardMaterial map={sponsorTex} roughness={0.6} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+
+      {/* G3 dressing: marshal observation posts & LED flag light panels */}
+      {marshals.posts && (
+        <mesh geometry={marshals.posts} receiveShadow>
+          <meshStandardMaterial vertexColors roughness={0.7} metalness={0.4} />
+        </mesh>
+      )}
+      {marshals.lightPanels && (
+        <mesh geometry={marshals.lightPanels}>
+          <meshStandardMaterial vertexColors emissive="#00ff00" emissiveIntensity={1.5} roughness={0.3} toneMapped={false} />
+        </mesh>
+      )}
+
+      {/* G3 dressing: paddock & hospitality buildings */}
+      {paddock && (
+        <mesh geometry={paddock} receiveShadow castShadow>
+          <meshStandardMaterial vertexColors roughness={0.6} metalness={0.3} />
+        </mesh>
+      )}
 
       {/* banners on the catch fence */}
       {banners.map((b) => (
