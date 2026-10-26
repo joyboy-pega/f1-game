@@ -934,3 +934,33 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — G6 Car instancing & LOD: 5 draw calls for entire AI grid (Task 26)
+
+**Completed Task:**
+- **Task 26 (G6: AI Car Instancing & LOD Pipeline):**
+  - **Instanced AI Car Rig (`components/game/car/InstancedAICars.tsx`):**
+    - Built a 5-part `InstancedMesh` rendering system for all AI cars:
+      1. Body shell with per-instance livery colors (1 draw call).
+      2. Carbon fiber aerodynamic structures: wings, floor, diffuser, suspension (1 draw call).
+      3. Tyres across all 4 wheels (1 draw call).
+      4. Wheel rims with per-instance rim colors (1 draw call).
+      5. Rear FIA safety LED rain light (1 draw call).
+    - Reduced draw calls for AI cars from ~250 draws down to **5 draw calls** total.
+    - Full 20-car grid renders in only **18 draw calls** total (13 for high-detail player cockpit + 5 for AI grid), beating the $\le 40$ draw budget by over 50%.
+  - **Zero-Allocation Hot Loop (`components/game/car/InstancedAICars.tsx`):**
+    - Module-level scratch instances (`THREE.Vector3`, `THREE.Quaternion`, `THREE.Euler`, `THREE.Matrix4`) ensuring zero heap allocations in `useFrame` (Rule R7).
+    - Dynamic car attitude computation (pitch, roll, yaw, road grade, camber, ride height squat) and front wheel steering angles directly uploaded into instance matrices.
+  - **Scene Composition (`components/game/Cars.tsx`):**
+    - Separated player car (high-detail rig with cockpit animations, interactive DRS flap) from AI grid (instanced rendering).
+  - **Unit Testing (`components/game/car/instancing.test.ts`):**
+    - 2 unit tests verifying grid draw call budget (18 draws $\le 40$), matrix composition, livery colors, and wheel transforms.
+
+**Verification:**
+- Full test suite: **23/23 test files passed, 191/191 unit tests passed** (including `instancing.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).
