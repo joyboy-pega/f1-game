@@ -14,10 +14,21 @@ export interface FxEnv {
 }
 
 const TOD_LIGHT: Record<TimeOfDay, number> = { day: 1, sunset: 0.78, night: 0.34 };
-const WEATHER_LIGHT: Record<WeatherType, number> = { sunny: 1, cloudy: 0.88, rain: 0.72, snow: 1.05 };
+const WEATHER_LIGHT: Record<WeatherType, number> = { sunny: 1, cloudy: 0.88, rain: 0.72, snow: 1.05, dynamic: 0.9 };
 
-export function getFxEnv(weather: WeatherType, tod: TimeOfDay): FxEnv {
+export function getFxEnv(weather: WeatherType, tod: TimeOfDay, wetnessOverride?: number): FxEnv {
   const light = Math.min(1.1, TOD_LIGHT[tod] * WEATHER_LIGHT[weather]);
+  if (wetnessOverride !== undefined) {
+    const isWet = wetnessOverride > 0.08;
+    return {
+      light,
+      smoke: isWet ? [0.74, 0.79, 0.86] : [0.93, 0.93, 0.92],
+      spray: [0.8, 0.86, 0.93],
+      wet: isWet,
+      snow: false,
+      sprayAmount: Math.min(1, Math.max(0, wetnessOverride * 1.5)),
+    };
+  }
   switch (weather) {
     case 'rain':
       return { light, smoke: [0.74, 0.79, 0.86], spray: [0.8, 0.86, 0.93], wet: true, snow: false, sprayAmount: 1 };

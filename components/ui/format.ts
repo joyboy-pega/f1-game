@@ -23,6 +23,7 @@ export const WEATHER_LABEL: Record<WeatherType, string> = {
   cloudy: 'CLOUDY',
   rain: 'RAIN',
   snow: 'SNOW',
+  dynamic: 'DYNAMIC',
 };
 
 export const LAP_RECORD = { time: 87.249, driver: 'Sebastian Vettel', year: 2011 };

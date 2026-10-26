@@ -17,6 +17,7 @@ import { createBrain, driveAI } from './ai';
 import { applyAssists } from './assists';
 import { CollisionSystem } from './collisions';
 import { FlagsManager } from './flags';
+import { WeatherManager } from './weather';
 import { updateDrsAvailability, updateSlipstream } from './drs';
 import { aiPitStrategy, checkPitEntry, cycleNextCompound, driveInPit, togglePitRequest, type PitContext } from './pit';
 import { updateTrackLimits, type LimitsContext } from './penalties';
@@ -109,6 +110,7 @@ export class GameWorld {
   overall: OverallBests = createOverallBests();
   readonly events = new EventBus();
   readonly flags = new FlagsManager();
+  readonly weather = new WeatherManager();
   /** Set before setup() to make a race reproducible (tests); null = random. */
   seed: number | null = null;
   /** Replaced by a seeded generator in setup(); the constructor runs setup() before anything can read it. */
@@ -171,6 +173,7 @@ export class GameWorld {
     this.paused = false;
     this.collisions.reset();
     this.flags.reset();
+    this.weather.reset(!!settings.dynamicWeather || settings.weather === 'dynamic', settings.weather, this.seed ?? 42);
 
     this.isQualifying = settings.mode === 'qualifying';
     this.qualifyingFormat = settings.qualifyingFormat || 'oneshot';
@@ -322,7 +325,9 @@ export class GameWorld {
     const s = this.settings;
     const pl = this.player;
     const pc = pl.ctrl;
-    const wetness = wetnessFor(s.weather);
+    this.weather.update(dt, this.cars, this.events, this.raceTime);
+    const baseWetness = wetnessFor(s.weather);
+    const trackWetness = this.weather.getTrackWetness(baseWetness);
 
     if (pc.resetRequested && !pl.pit) this.resetPlayer();
     if (pc.pitStopRequested && !pl.pit && !pl.timing.finished) {
@@ -334,11 +339,12 @@ export class GameWorld {
       this.events.emit({ type: 'pitPlan', carId: pl.id, box: pl.pitRequest, compound: pl.nextCompound });
     }
 
+    const effWeather = this.weather.isDynamic ? (trackWetness > 0.4 ? 'rain' : trackWetness > 0.1 ? 'cloudy' : 'sunny') : s.weather;
     const aiCtx = {
       cars: this.cars,
       difficulty: s.difficulty,
       raceTime: this.raceTime,
-      weather: s.weather,
+      weather: effWeather,
       isRace: this.isRace,
       flags: {
         scMode: this.flags.state.scMode,
@@ -350,7 +356,7 @@ export class GameWorld {
       raceTime: this.raceTime,
       events: this.events,
       rand: this.rand,
-      wetness,
+      wetness: trackWetness,
       isRace: this.isRace,
       totalLaps: s.totalLaps,
     };
@@ -376,7 +382,7 @@ export class GameWorld {
       else if (car.ai) {
         if (strategyTick && !car.isPlayer) aiPitStrategy(car, pitCtx);
         driveAI(car, aiCtx, dt);
-      } else if (car.isPlayer && s.assists) applyAssists(car, s.assists, s.weather);
+      } else if (car.isPlayer && s.assists) applyAssists(car, s.assists, effWeather);
 
       const wasDrs = p.drsOpen;
       const wasErs = p.isBoosting;
@@ -384,7 +390,7 @@ export class GameWorld {
 
       const extras = this.extras;
       extras.compound = car.compound;
-      extras.wetness = wetness;
+      extras.wetness = this.weather.getCarWetness(car, trackWetness);
       extras.drsAvailable = car.drsAvailable;
       extras.draft = car.draft;
       extras.inPit = !!car.pit;

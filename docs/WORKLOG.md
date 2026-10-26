@@ -1140,3 +1140,39 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — R7 Dynamic Weather: Weather Timelines, Fast Wetting & Slow Drying, Racing Line Dry Factor, and AI Strategy Reaction (Task 32)
+
+**Completed Task:**
+- **Task 32 (R7: Dynamic Weather System):**
+  - **Dynamic Weather System Architecture (`lib/game/sim/weather.ts`):**
+    - Created `WeatherManager` to manage dynamic weather timelines, rain intensity evolution, sector wetness models, dry line formation, and tyre crossover thresholds.
+    - Integrated with `GameWorld` (`this.weather`) with full backward-compatibility and zero changes to static weather runs, preserving bitwise determinism and golden hash `'05aa16f7'` (Rule R6).
+    - Added `'dynamic'` option to `WeatherType` and `dynamicWeather?: boolean` in `GameSettings` (`lib/game/gameState.ts`, `lib/game/constants.ts`).
+  - **Sector Wetness Physics & Moving Rain Fronts:**
+    - Models authentic rain front propagation with delays across circuit marshal sectors (Sector 0 immediately, Sector 1 +5 s, Sector 2 +10 s).
+    - Asymmetric wetting and drying kinetics:
+      - Wetting fast: tracks saturate to wet conditions ($> 0.5$) in ~15–20 s during heavy rain.
+      - Drying slower: evaporation and drainage take ~80–100 s once rain stops.
+  - **Dry Line Formation Along the Racing Line:**
+    - Tracks water displacement by cars driving near the centerline / rubbered line ($|\text{lateral}| < 16$).
+    - Cars running on the dry line experience reduced effective wetness ($base \cdot (1 - dryLine \cdot 0.45)$), encouraging drivers and AI to stick to the drying line.
+    - Heavy downpours wash away the dry line back to uniform standing water.
+  - **Visual Integration (`lib/game/fx/env.ts`):**
+    - Extended `getFxEnv` to accept dynamic wetness overrides: rooster tail spray amount scales continuously from 0 up to 1.0 as track wets up, and fades as track dries.
+  - **AI Strategy Reaction & Crossover Thresholds:**
+    - Connected `trackWetness` directly to `PitContext.wetness` and `aiPitStrategy`.
+    - When rain onset pushes wetness across the slick/intermediate crossover ($> 0.18$), AI cars detect `compoundMismatch`, immediately request pit stops, and fit intermediate tyres within 2 laps of rain onset.
+  - **Unit Testing (`lib/game/sim/weather.test.ts`):**
+    - 2 unit tests verifying:
+      1. Dynamic weather evolution: moving front sector delays, fast wetting, slower drying, and dry-line wetness reduction for cars on the racing line.
+      2. AI strategy reaction: AI cars starting on slicks detect intermediate crossover and pit for intermediate tyres within 2 laps of rain onset (PLAN-v3 §8 R7 acceptance).
+
+**Verification:**
+- Full test suite: **29/29 test files passed, 210/210 unit tests passed** (including `weather.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

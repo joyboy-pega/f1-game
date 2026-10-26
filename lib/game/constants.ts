@@ -137,11 +137,12 @@ export const TYRE_COMPOUNDS: Record<TyreCompound, CompoundConfig> = {
 };
 
 /** Track wetness (0 dry .. 1 flooded) implied by each weather type. 'rain' = light/medium rain. */
-export const WEATHER_WETNESS: Record<'sunny' | 'cloudy' | 'rain' | 'snow', number> = {
+export const WEATHER_WETNESS: Record<WeatherType, number> = {
   sunny: 0,
   cloudy: 0,
   rain: 0.55,
   snow: 0.5,
+  dynamic: 0,
 };
 
 // Driver roster (fictional teams & drivers). `skill` feeds the AI controller.
@@ -202,7 +203,7 @@ export type GameMode = 'race' | 'qualifying' | 'timetrial' | 'practice';
 export type Difficulty = 'rookie' | 'pro' | 'legend';
 export type TimeOfDay = 'day' | 'sunset' | 'night';
 
-export type WeatherType = 'sunny' | 'cloudy' | 'rain' | 'snow';
+export type WeatherType = 'sunny' | 'cloudy' | 'rain' | 'snow' | 'dynamic';
 export type CameraViewMode = 'chase' | 'cockpit' | 'tcam' | 'hood';
 export type VehicleModelType = 'f1' | 'roadster' | 'pegasus';
 
@@ -211,6 +212,7 @@ export const WEATHER_NAMES: Record<WeatherType, string> = {
   cloudy: 'CLOUDY',
   rain: 'RAIN',
   snow: 'SNOW',
+  dynamic: 'DYNAMIC',
 };
 
 export const WEATHER_ICONS: Record<WeatherType, string> = {
@@ -218,6 +220,7 @@ export const WEATHER_ICONS: Record<WeatherType, string> = {
   cloudy: '☁️',
   rain: '🌧️',
   snow: '❄️',
+  dynamic: '🌦️',
 };
 
 // Car-to-car collision shape: three circles along the heading derived from dimensions.ts (PLAN-v3 §5.3 V4).

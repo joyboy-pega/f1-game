@@ -41,7 +41,7 @@ export interface AIContext {
   };
 }
 
-const WEATHER_GRIP: Record<WeatherType, number> = { sunny: 1, cloudy: 0.95, rain: 0.65, snow: 0.35 };
+const WEATHER_GRIP: Record<WeatherType, number> = { sunny: 1, cloudy: 0.95, rain: 0.65, snow: 0.35, dynamic: 0.9 };
 
 const CAR_R = 8.6;
 const PASS_GAP = 2 * CAR_R + 8; // lateral distance kept while passing

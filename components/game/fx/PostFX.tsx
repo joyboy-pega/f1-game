@@ -29,6 +29,7 @@ const GRADE: Record<WeatherType, Grade> = {
   cloudy: { saturation: -0.04, brightness: 0, contrast: 0.05 },
   rain: { saturation: -0.2, brightness: -0.02, contrast: 0.08 },
   snow: { saturation: -0.1, brightness: -0.02, contrast: 0.04 },
+  dynamic: { saturation: 0.0, brightness: 0, contrast: 0.06 },
 };
 
 const BLOOM: Record<TimeOfDay, { intensity: number; threshold: number }> = {

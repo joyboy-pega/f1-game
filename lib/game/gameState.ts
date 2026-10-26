@@ -200,6 +200,7 @@ export interface GameSettings {
   showGhost: boolean;
   qualifyingFormat?: 'oneshot' | 'short';
   qualifyingGrid?: string[];
+  dynamicWeather?: boolean;
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
