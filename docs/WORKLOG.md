@@ -659,3 +659,44 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band** (Track length measured at exact 5125 m).
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean.
+
+---
+
+## 2026-10-27 — T3 3D road surface mesh, elevation queries & camera integration (Task 18)
+
+**Completed Task:**
+- **Task 18 (T3: 3D Road Surface Render + Elevation Queries):**
+  - **Surface Elevation Engine (`lib/game/track/surface.ts`):**
+    - Implemented `surfaceHeight(f, lateral)`: computes continuous 3D world height $y = pz(f) + \text{camber}(f) \cdot \text{lateral}$ with periodic index wrapping.
+    - Implemented `surfaceGradeAngle(f)` and `surfaceCamberAngle(f)` for longitudinal pitch slope and lateral banking angle queries.
+    - Re-exported utilities through `lib/game/track/index.ts`.
+  - **3D Mesh Extrusion (`lib/game/visuals/trackData.ts`):**
+    - Updated `sweep()` profile extrusion: each cross-section vertex incorporates $y = pz[w] + \text{camber}[w] \cdot o + \text{profileY}$.
+    - Road, kerbs, verge, gravel, walls, fences, and pit lane seamlessly follow circuit elevation with zero mesh gaps.
+    - Exported `ev` evaluator and `Fn` type for dynamic per-index cross-sections.
+  - **Track & Props Alignment (`components/game/Track.tsx`, `components/game/TrackProps.tsx`):**
+    - Replaced all legacy `HW` constants in `Track.tsx` with dynamic `track.current.halfWidth[i]`.
+    - Positioned team pit boxes, garages, chequered line, grid slots, and DRS lines using `surfaceHeight`.
+    - Lowered ground plane mesh to $y = -45$ to eliminate z-fighting with Buddh's -30 world units (-3.0 m) elevation profile.
+    - Positioned grandstand structures, crowd spectator instances, start/finish gantry, banners, and floodlight pools using `surfaceHeight`.
+  - **Vehicle Attitude & Height Integration (`components/game/car/F1Car.tsx`, `PegasusCar.tsx`):**
+    - Car root placed at `y = surfaceHeight(idx, lateral) + 0.05`.
+    - Dynamic chassis pitch/roll rotated into track frame using heading difference matrix ($\Delta\theta = \text{heading} - \text{trackYaw}$):
+      - $\text{pitch} = (p.\text{pitch} \parallel 0) - \text{roadPitch} \cdot \cos(\Delta\theta) + \text{roadBank} \cdot \sin(\Delta\theta)$
+      - $\text{roll} = (p.\text{roll} \parallel 0) + \text{roadBank} \cdot \cos(\Delta\theta) + \text{roadPitch} \cdot \sin(\Delta\theta)$
+  - **Camera Rig Altitude Clamping (`lib/game/camera/rig.ts`):**
+    - Added `carY = surfaceHeight(car.idx, 0)` across `chase`, `rigid` (cockpit, tcam, hood), and `intro` views.
+    - Clamped chase camera altitude $Y \ge carY + 15$ (+1.5 m) to prevent camera clipping below road surface.
+  - **FX & 3D Skid Trails (`components/game/fx/CarFx.ts`, `SkidTrails.ts`):**
+    - Updated tyre smoke, gravel dust, rain spray, and chassis sparks to spawn relative to `carY`.
+    - Extended `SkidTrails` with 3D vertex elevations, correctly rendering rubber trails along graded and banked corners.
+  - **Unit Testing & Test Suite Optimization (`lib/game/track/surface.test.ts`, `golden.test.ts`, `race.test.ts`):**
+    - Authored 6 unit tests in `surface.test.ts` verifying boundary wrapping, centerline heights, camber offset, and slope angles.
+    - Added cooperative event-loop yielding (`runAsync`, `runRaceAsync`) and memoized golden digest assertions, slashing test execution time to 18.75s and eliminating vitest worker timeout errors.
+
+**Verification:**
+- Full test suite: **16/16 test files passed, 154/154 unit tests passed** (including `surface.test.ts`).
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).
+- Visual verification: captured screenshot `shots/T3-game.png.png` using `shoot.mjs`, confirming clean rendering of cars, elevation, grandstands, and track infrastructure without cracks or z-fighting.

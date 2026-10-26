@@ -15,6 +15,8 @@ import { getLiveryMaterial } from './livery';
 import { createCarMaterials, getSharedMaterials } from './materials';
 import { getRimGeometry, getTyreGeometry } from './wheels';
 import { PegasusCar } from './PegasusCar';
+import { track } from '@/lib/game/track';
+import { surfaceHeight, surfaceGradeAngle, surfaceCamberAngle } from '@/lib/game/track/surface';
 
 export interface F1CarProps {
   car: WorldCar;
@@ -84,20 +86,38 @@ function CarRig({ car, roadster, interpolate }: { car: WorldCar; roadster: boole
     a.t += dt;
 
     // Live sim cars blend between the last two fixed steps; ghost / showroom cars are written directly.
+    let posX = p.x;
+    let posY = p.y;
+    let posA = p.a;
     if (interpolate) {
       const q = renderPose(car, world.alpha, scratchPose);
-      g.position.set(q.x, 0.05, q.y);
-      g.rotation.y = Math.PI / 2 - q.a;
-    } else {
-      g.position.set(p.x, 0.05, p.y);
-      g.rotation.y = Math.PI / 2 - p.a;
+      posX = q.x;
+      posY = q.y;
+      posA = q.a;
     }
 
-    // Body attitude + ride-height drop with speed (aero squat).
+    const T = track.current;
+    const idx = p.idx ?? 0;
+    const dx = posX - T.px[idx];
+    const dz = posY - T.py[idx];
+    const lat = dx * T.nx[idx] + dz * T.ny[idx];
+    const carY = surfaceHeight(idx, lat) + 0.05;
+
+    g.position.set(posX, carY, posY);
+    g.rotation.y = Math.PI / 2 - posA;
+
+    // Body attitude (dynamic pitch/roll + road grade/camber) + ride-height drop with speed (aero squat).
+    const roadPitch = surfaceGradeAngle(idx);
+    const roadBank = surfaceCamberAngle(idx);
+    const trackYaw = Math.atan2(T.ty[idx], T.tx[idx]);
+    const headingDiff = posA - trackYaw;
+    const cosH = Math.cos(headingDiff);
+    const sinH = Math.sin(headingDiff);
+
     const speedN = Math.min(1, Math.abs(p.vf) / 900);
     if (bodyGroup.current) {
-      bodyGroup.current.rotation.x = p.pitch || 0;
-      bodyGroup.current.rotation.z = p.roll || 0;
+      bodyGroup.current.rotation.x = (p.pitch || 0) - roadPitch * cosH + roadBank * sinH;
+      bodyGroup.current.rotation.z = (p.roll || 0) + roadBank * cosH + roadPitch * sinH;
       bodyGroup.current.position.y = -0.016 * speedN * speedN;
     }
 

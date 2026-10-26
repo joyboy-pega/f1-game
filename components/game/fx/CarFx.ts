@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { HW } from '@/lib/game/constants';
 import { track } from '@/lib/game/track';
+import { surfaceHeight } from '@/lib/game/track/surface';
 import { world } from '@/lib/game/sim/world';
 import { renderPose, type Pose } from '@/lib/game/sim/interp';
 import { addCameraShake } from '@/lib/game/fx/shake';
@@ -85,6 +86,13 @@ export class CarFx {
       const kmh = p.kmh;
       const onTrack = car.surface.onTrack;
 
+      const T = track.current;
+      const carIdx = p.idx ?? 0;
+      const dxTrack = q.x - T.px[carIdx];
+      const dyTrack = q.y - T.py[carIdx];
+      const carLat = dxTrack * T.nx[carIdx] + dyTrack * T.ny[carIdx];
+      const carY = surfaceHeight(carIdx, carLat);
+
       // ---- skid ribbons (all cars, regardless of distance) ----
       const rs = rearSlip(p, car.ctrl.throttle);
       const fs = frontSlip(p);
@@ -96,7 +104,7 @@ export class CarFx {
         const W = WHEELS[w];
         const wx = q.x + cos * W.f - sin * W.l;
         const wz = q.y + sin * W.f + cos * W.l;
-        this.skids.update(i * 4 + w, true, wx, wz, W.hw, w < 2 ? frontMark : rearMark);
+        this.skids.update(i * 4 + w, true, wx, carY + 0.06, wz, W.hw, w < 2 ? frontMark : rearMark);
       }
 
       // ---- player-only camera shake ----
@@ -127,7 +135,7 @@ export class CarFx {
           const wz = q.y + sin * W.f + cos * W.l - vz * t + (sv() - 0.5) * 3;
           const sh = env.light;
           this.smoke.spawn(
-            wx, 1 + sv() * 2, wz,
+            wx, carY + 1 + sv() * 2, wz,
             vx * 0.2 + (sv() - 0.5) * 14, 7 + sv() * 9, vz * 0.2 + (sv() - 0.5) * 14,
             1.0 + sv() * 1.0, 5 + sv() * 3, 28 + sv() * 16,
             (0.34 + sv() * 0.2) * Math.min(1, slip * 1.5), sv(),
@@ -149,7 +157,7 @@ export class CarFx {
           while (c-- > 0) {
             const t = sv() * dt;
             this.dust.spawn(
-              q.x + cos * W.f - sin * W.l - vx * t, 1 + sv() * 2, q.y + sin * W.f + cos * W.l - vz * t,
+              q.x + cos * W.f - sin * W.l - vx * t, carY + 1 + sv() * 2, q.y + sin * W.f + cos * W.l - vz * t,
               vx * 0.12 + (sv() - 0.5) * 22, 10 + sv() * 24, vz * 0.12 + (sv() - 0.5) * 22,
               0.9 + sv() * 0.9, 4 + sv() * 3, 20 + sv() * 14,
               0.42, sv(),
@@ -172,7 +180,7 @@ export class CarFx {
           while (c-- > 0) {
             const t = sv() * dt;
             this.spray.spawn(
-              q.x + cos * W.f - sin * W.l - vx * t, 1.5 + sv() * 2.5, q.y + sin * W.f + cos * W.l - vz * t,
+              q.x + cos * W.f - sin * W.l - vx * t, carY + 1.5 + sv() * 2.5, q.y + sin * W.f + cos * W.l - vz * t,
               vx * 0.3 + (-sin * (w ? -1 : 1)) * (6 + sv() * 18) + (sv() - 0.5) * 8, 8 + sv() * 18,
               vz * 0.3 + cos * (w ? -1 : 1) * (6 + sv() * 18) + (sv() - 0.5) * 8,
               0.9 + sv() * 0.8, 7 + sv() * 3, 34 + sv() * 18,
@@ -191,7 +199,7 @@ export class CarFx {
           const lat = (sv() - 0.5) * 12;
           const fwd = -15;
           this.spray.spawn(
-            q.x + cos * fwd - sin * lat - vx * t, 4 + sv() * 6, q.y + sin * fwd + cos * lat - vz * t,
+            q.x + cos * fwd - sin * lat - vx * t, carY + 4 + sv() * 6, q.y + sin * fwd + cos * lat - vz * t,
             vx * 0.55 + (sv() - 0.5) * 10, 14 + sv() * 26, vz * 0.55 + (sv() - 0.5) * 10,
             1.1 + sv() * 0.9, 10 + sv() * 4, 50 + sv() * 24,
             0.14 + sv() * 0.07, sv(),
@@ -208,7 +216,6 @@ export class CarFx {
         let c = Math.min(14, Math.floor(a[k]));
         a[k] -= Math.floor(a[k]);
         // Wall is on the outside of the track: push sparks out along centreline -> car.
-        const T = track.current;
         let ox = q.x - T.px[p.idx];
         let oz = q.y - T.py[p.idx];
         const ol = Math.hypot(ox, oz) || 1;
@@ -218,13 +225,13 @@ export class CarFx {
           const t = sv() * dt;
           const fwd = (sv() - 0.5) * 22;
           this.emitSpark(
-            q.x + cos * fwd + ox * 9 - vx * t, 3 + sv() * 4, q.y + sin * fwd + oz * 9 - vz * t,
+            q.x + cos * fwd + ox * 9 - vx * t, carY + 3 + sv() * 4, q.y + sin * fwd + oz * 9 - vz * t,
             vx * (0.45 + sv() * 0.5) + ox * (sv() * 30 - 12), 20 + sv() * 80, vz * (0.45 + sv() * 0.5) + oz * (sv() * 30 - 12),
             0.9,
           );
         }
       }
-      const kerb = onTrack && car.surface.dist > HW - 3;
+      const kerb = onTrack && car.surface.dist > (T.halfWidth ? T.halfWidth[p.idx] : HW) - 3;
       const floorRate = (kmh > 265 ? ((kmh - 265) / 60) * 10 : 0) + (kerb && kmh > 130 ? 14 : 0);
       if (floorRate > 0 && onTrack) {
         const k = o + A_FLOOR;
@@ -235,7 +242,7 @@ export class CarFx {
           const t = sv() * dt;
           const lat = (sv() - 0.5) * 16;
           this.emitSpark(
-            q.x + cos * -8 - sin * lat - vx * t, 1 + sv(), q.y + sin * -8 + cos * lat - vz * t,
+            q.x + cos * -8 - sin * lat - vx * t, carY + 1 + sv(), q.y + sin * -8 + cos * lat - vz * t,
             vx * 0.1 + (sv() - 0.5) * 30, 10 + sv() * 36, vz * 0.1 + (sv() - 0.5) * 30,
             0.5,
           );

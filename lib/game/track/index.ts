@@ -5,3 +5,4 @@ export { buildTrack, indexAtM } from './build';
 export { setActiveTrack, track, trackCache } from './state';
 export { inPitBand, inPitIdxRange, isInDrsZone } from './helpers';
 export { trackOutline, type Outline } from './outline';
+export { surfaceHeight, surfaceGradeAngle, surfaceCamberAngle } from './surface';

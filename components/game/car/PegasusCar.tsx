@@ -22,6 +22,8 @@ import { createCarMaterials, getSharedMaterials } from './materials';
 import { getTyreGeometry } from './wheels';
 import { world } from '@/lib/game/sim/world';
 import { renderPose, type Pose } from '@/lib/game/sim/interp';
+import { track } from '@/lib/game/track';
+import { surfaceHeight, surfaceGradeAngle, surfaceCamberAngle } from '@/lib/game/track/surface';
 
 export interface PegasusCarProps {
   car: WorldCar;
@@ -278,21 +280,39 @@ export function PegasusCar({ car, interpolate = false }: PegasusCarProps) {
     const a = s.current;
     a.t += dt;
 
+    let posX = p.x;
+    let posY = p.y;
+    let posA = p.a;
     if (interpolate) {
       const q = renderPose(car, world.alpha, scratchPose);
-      g.position.set(q.x, 0.05, q.y);
-      g.rotation.y = Math.PI / 2 - q.a;
-    } else {
-      g.position.set(p.x, 0.05, p.y);
-      g.rotation.y = Math.PI / 2 - p.a;
+      posX = q.x;
+      posY = q.y;
+      posA = q.a;
     }
 
-    // Attitude + engine vibration
+    const T = track.current;
+    const idx = p.idx ?? 0;
+    const dx = posX - T.px[idx];
+    const dz = posY - T.py[idx];
+    const lat = dx * T.nx[idx] + dz * T.ny[idx];
+    const carY = surfaceHeight(idx, lat) + 0.05;
+
+    g.position.set(posX, carY, posY);
+    g.rotation.y = Math.PI / 2 - posA;
+
+    // Attitude + road grade/camber + engine vibration
+    const roadPitch = surfaceGradeAngle(idx);
+    const roadBank = surfaceCamberAngle(idx);
+    const trackYaw = Math.atan2(T.ty[idx], T.tx[idx]);
+    const headingDiff = posA - trackYaw;
+    const cosH = Math.cos(headingDiff);
+    const sinH = Math.sin(headingDiff);
+
     const speedN = Math.min(1, Math.abs(p.vf) / 900);
     const engineBuzz = Math.sin(a.t * 48) * 0.0006 * (1 + Math.abs(p.vf) * 0.002);
     if (bodyGroup.current) {
-      bodyGroup.current.rotation.x = p.pitch || 0;
-      bodyGroup.current.rotation.z = p.roll || 0;
+      bodyGroup.current.rotation.x = (p.pitch || 0) - roadPitch * cosH + roadBank * sinH;
+      bodyGroup.current.rotation.z = (p.roll || 0) + roadBank * cosH + roadPitch * sinH;
       bodyGroup.current.position.y = -0.016 * speedN * speedN + engineBuzz;
     }
 

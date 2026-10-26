@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { HW, TW } from '@/lib/game/constants';
 import { track } from '@/lib/game/track';
+import { surfaceHeight } from '@/lib/game/track/surface';
 import { QUALITY_PRESETS } from '@/lib/game/performance';
 import { useGameStore } from '@/lib/game/store';
 import { useLighting } from '@/lib/game/visuals/lighting';
@@ -46,11 +47,12 @@ const TIER_H = 5.5;
 export function standPlan(): Stand[] {
   const T = track.current;
   const corners = getTrackVisuals().corners;
-  // Buddh-authored placement (box start index and apex hints); G3 moves this into the track's scenery plan.
-  const out: Stand[] = [{ from: T.pit.boxStartIdx, count: 190, side: (-T.pit.side) as 1 | -1, d0: WALL + 28 }];
+  const wallAt = (idx: number) => (T.halfWidth ? T.halfWidth[idx] : HW) + 82;
+  const out: Stand[] = [{ from: T.pit.boxStartIdx, count: 190, side: (-T.pit.side) as 1 | -1, d0: wallAt(T.pit.boxStartIdx) + 28 }];
   const pick = (apexIdx: number, span: number) => {
     const c = corners.reduce((best, k) => (Math.abs(wrapIdx(k.apex) - apexIdx) < Math.abs(wrapIdx(best.apex) - apexIdx) ? k : best), corners[0]);
-    out.push({ from: wrapIdx(c.apex) - span / 2, count: span, side: (-c.inside) as 1 | -1, d0: WALL + 30 });
+    const from = wrapIdx(c.apex) - Math.floor(span / 2);
+    out.push({ from, count: span, side: (-c.inside) as 1 | -1, d0: wallAt(wrapIdx(from)) + 30 });
   };
   pick(122, 70); // Turn 1
   pick(755, 60); // Turn 4
@@ -111,7 +113,8 @@ function buildCrowd(plan: Stand[], density: number): Crowd[] {
           const f = s.from + k + j / perIdx + (rand() - 0.5) * 0.05;
           const d = s.d0 + t * TIER_D + 2 + rand() * (TIER_D - 4);
           const [x, z, tx, tz] = place(f, s.side * d);
-          dummy.position.set(x, t * TIER_H + TIER_H + 2.2, z);
+          const baseY = surfaceHeight(f, s.side * d);
+          dummy.position.set(x, baseY + t * TIER_H + TIER_H + 2.2, z);
           // face the track: plane normal along the (negated) side normal
           dummy.rotation.set(0, Math.atan2(tx, tz) + (s.side > 0 ? Math.PI / 2 : -Math.PI / 2), 0);
           dummy.scale.set(1, 0.85 + rand() * 0.4, 1);
@@ -182,7 +185,8 @@ export function TrackProps() {
 
   const gantry = useMemo(() => {
     const [x, z, tx, tz] = place(0, 0);
-    return { x, z, rotY: Math.atan2(tx, tz) };
+    const y = surfaceHeight(0, 0);
+    return { x, y, z, rotY: Math.atan2(tx, tz) };
   }, [trackId]);
   const gantryTex = useMemo(() => getBanner('gantry', 'BUDDH GP', 'INDIAN GRAND PRIX', 1024, 192, '#0a0d12', '#ffffff', '#c8ff2e'), []); // title text is Buddh's; T4 makes it per-track
 
@@ -199,9 +203,11 @@ export function TrackProps() {
       ['b3', 'DRS ZONE', 'MAIN STRAIGHT', 1760, -PIT_SIDE as 1 | -1],
     ];
     return specs.map(([key, text, sub, idx, side]) => {
-      const [x, z, tx, tz] = place(idx, side * (WALL - 0.3));
+      const wallDist = (T.halfWidth ? T.halfWidth[idx] : HW) + 82;
+      const [x, z, tx, tz] = place(idx, side * (wallDist - 0.3));
+      const y = surfaceHeight(idx, side * (wallDist - 0.3)) + 20.5;
       const tex = getBanner(key, text, sub, 1024, 256, '#0b0f16', '#ffffff', '#e10600');
-      return { key, tex, x, z, yaw: Math.atan2(tx, tz) + (side > 0 ? Math.PI / 2 : -Math.PI / 2) };
+      return { key, tex, x, y, z, yaw: Math.atan2(tx, tz) + (side > 0 ? Math.PI / 2 : -Math.PI / 2) };
     });
   }, [trackId]);
 
@@ -214,13 +220,18 @@ export function TrackProps() {
     for (let i = 0; i < N; i += 48) {
       for (const side of [1, -1] as const) {
         if (side === PIT_SIDE && (i >= PIT_LANE.entryIdx - 30 || i <= PIT_LANE.exitIdx + 30)) continue;
-        const [x, z, tx, tz] = place(i, side * (WALL + 12));
+        const hw = T.halfWidth ? T.halfWidth[i] : HW;
+        const wallDist = hw + 82;
+        const [x, z, tx, tz] = place(i, side * (wallDist + 12));
         const yaw = Math.atan2(tx, tz);
-        poles.box(x, 40, z, 2.6, 80, 2.6, yaw, [0.25, 0.27, 0.3, 1]);
-        heads.box(x, 82, z, 14, 5, 3, yaw, [1, 0.95, 0.8, 1]);
+        const groundY = surfaceHeight(i, side * (wallDist + 12));
+        poles.box(x, groundY + 40, z, 2.6, 80, 2.6, yaw, [0.25, 0.27, 0.3, 1]);
+        heads.box(x, groundY + 82, z, 14, 5, 3, yaw, [1, 0.95, 0.8, 1]);
         // light pool on the asphalt, pulled toward the track
-        const [px, pz] = place(i + 6, side * (HW * 0.35));
-        dummy.position.set(px, 0.13, pz);
+        const hwMid = T.halfWidth ? T.halfWidth[(i + 6) % N] : HW;
+        const [px, pz] = place(i + 6, side * (hwMid * 0.35));
+        const py = surfaceHeight(i + 6, side * (hwMid * 0.35)) + 0.13;
+        dummy.position.set(px, py, pz);
         dummy.rotation.set(-Math.PI / 2, 0, 0);
         dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
@@ -268,12 +279,12 @@ export function TrackProps() {
   return (
     <group name="track-props">
       {/* start / finish gantry */}
-      <group position={[gantry.x, 0, gantry.z]} rotation={[0, gantry.rotY, 0]}>
+      <group position={[gantry.x, gantry.y, gantry.z]} rotation={[0, gantry.rotY, 0]}>
         <mesh position={[0, 34, 0]} castShadow>
-          <boxGeometry args={[TW + 44, 5, 6]} />
+          <boxGeometry args={[(T.halfWidth ? T.halfWidth[0] * 2 : TW) + 44, 5, 6]} />
           <meshStandardMaterial color={0x1b222d} roughness={0.5} metalness={0.6} />
         </mesh>
-        {[-HW - 20, HW + 20].map((x, i) => (
+        {[-(T.halfWidth ? T.halfWidth[0] : HW) - 20, (T.halfWidth ? T.halfWidth[0] : HW) + 20].map((x, i) => (
           <mesh key={i} position={[x, 18, 0]} castShadow>
             <boxGeometry args={[5, 36, 5]} />
             <meshStandardMaterial color={0x1b222d} roughness={0.5} metalness={0.6} />
@@ -318,7 +329,7 @@ export function TrackProps() {
 
       {/* banners on the catch fence */}
       {banners.map((b) => (
-        <mesh key={b.key} position={[b.x, 20.5, b.z]} rotation={[0, b.yaw, 0]}>
+        <mesh key={b.key} position={[b.x, b.y, b.z]} rotation={[0, b.yaw, 0]}>
           <planeGeometry args={[96, 12]} />
           <meshBasicMaterial map={b.tex} side={THREE.DoubleSide} toneMapped={false} />
         </mesh>

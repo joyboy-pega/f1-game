@@ -228,7 +228,7 @@ export function distToTrack(x: number, z: number): number {
 
 // --- geometry builders ----------------------------------------------------
 export type Fn = number | ((i: number) => number);
-const ev = (f: Fn, i: number) => (typeof f === 'number' ? f : f(i));
+export const ev = (f: Fn, i: number) => (typeof f === 'number' ? f : f(i));
 export type RGBA = [number, number, number, number];
 
 export interface SweepPoint {
@@ -282,8 +282,10 @@ export function sweep(opts: SweepOpts): THREE.BufferGeometry {
         const pt = profile[r + e];
         const o = ev(pt.o, w);
         const base = (k * segs + r) * 2 + e;
+        const profileY = ev(pt.y, w);
+        const y = (T.pz ? T.pz[w] : 0) + (T.camber ? T.camber[w] * o : 0) + profileY;
         pos[base * 3] = T.px[w] + nx * o;
-        pos[base * 3 + 1] = ev(pt.y, w);
+        pos[base * 3 + 1] = y;
         pos[base * 3 + 2] = T.py[w] + nz * o;
         const pu = ev(pt.u, w);
         uv[base * 2] = swapUV ? v : pu;

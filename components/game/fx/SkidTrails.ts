@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 import { fxTime } from './ParticlePool';
 
-const STRIDE = 10; // per-wheel trail state
+const STRIDE = 12; // per-wheel trail state
 const MIN_STEP = 6; // world units between ribbon vertices (~0.6 m)
 const MAX_STEP = 70; // larger jumps = teleport / reset: start a new trail
-const Y = 0.14; // road is at 0.08; polygonOffset below handles far-field depth precision
 
 const VERT = /* glsl */ `
   attribute vec3 aInfo; // x alpha, y spawn time, z 0..1 across the ribbon
@@ -91,7 +90,7 @@ export class SkidTrails {
   }
 
   /** Feed one wheel for this frame. `intensity` 0..1 (0 / false lifts the pen). */
-  update(slot: number, active: boolean, wx: number, wz: number, halfWidth: number, intensity: number) {
+  update(slot: number, active: boolean, wx: number, wy: number, wz: number, halfWidth: number, intensity: number) {
     const t = this.trails;
     const o = slot * STRIDE;
     if (!active || intensity <= 0.02) {
@@ -99,7 +98,7 @@ export class SkidTrails {
       return;
     }
     if (t[o] === 0) {
-      t[o] = 1; t[o + 1] = wx; t[o + 2] = wz; t[o + 3] = 0; t[o + 8] = 0;
+      t[o] = 1; t[o + 1] = wx; t[o + 2] = wz; t[o + 3] = 0; t[o + 8] = 0; t[o + 9] = wy;
       return;
     }
     const dx = wx - t[o + 1];
@@ -107,7 +106,7 @@ export class SkidTrails {
     const d2 = dx * dx + dz * dz;
     if (d2 < MIN_STEP * MIN_STEP) return;
     if (d2 > MAX_STEP * MAX_STEP) {
-      t[o + 1] = wx; t[o + 2] = wz; t[o + 3] = 0; t[o + 8] = 0;
+      t[o + 1] = wx; t[o + 2] = wz; t[o + 3] = 0; t[o + 8] = 0; t[o + 9] = wy;
       return;
     }
     const d = Math.sqrt(d2);
@@ -117,20 +116,27 @@ export class SkidTrails {
     if (t[o + 3] === 0) {
       t[o + 4] = t[o + 1] + px; t[o + 5] = t[o + 2] + pz;
       t[o + 6] = t[o + 1] - px; t[o + 7] = t[o + 2] - pz;
+      t[o + 10] = t[o + 9]; // ply
+      t[o + 11] = t[o + 9]; // pry
     }
     const nlx = wx + px, nlz = wz + pz, nrx = wx - px, nrz = wz - pz;
     const a0 = t[o + 8];
     // Ease the opacity in so marks start as a tapered scuff instead of a hard block.
     const a1 = Math.min(intensity, a0 + 0.35);
-    this.writeSegment(t[o + 4], t[o + 5], t[o + 6], t[o + 7], nlx, nlz, nrx, nrz, a0, a1);
+    this.writeSegment(t[o + 4], t[o + 10], t[o + 5], t[o + 6], t[o + 11], t[o + 7], nlx, wy, nlz, nrx, wy, nrz, a0, a1);
     t[o + 1] = wx; t[o + 2] = wz; t[o + 3] = 1;
     t[o + 4] = nlx; t[o + 5] = nlz; t[o + 6] = nrx; t[o + 7] = nrz;
     t[o + 8] = a1;
+    t[o + 9] = wy;
+    t[o + 10] = wy;
+    t[o + 11] = wy;
   }
 
   private writeSegment(
-    plx: number, plz: number, prx: number, prz: number,
-    nlx: number, nlz: number, nrx: number, nrz: number,
+    plx: number, ply: number, plz: number,
+    prx: number, pry: number, prz: number,
+    nlx: number, nly: number, nlz: number,
+    nrx: number, nry: number, nrz: number,
     a0: number, a1: number,
   ) {
     const s = this.head;
@@ -138,10 +144,10 @@ export class SkidTrails {
     const n = this.info.array as Float32Array;
     const o = s * 12;
     const now = fxTime.value;
-    p[o] = plx; p[o + 1] = Y; p[o + 2] = plz;
-    p[o + 3] = prx; p[o + 4] = Y; p[o + 5] = prz;
-    p[o + 6] = nlx; p[o + 7] = Y; p[o + 8] = nlz;
-    p[o + 9] = nrx; p[o + 10] = Y; p[o + 11] = nrz;
+    p[o + 0] = plx; p[o + 1] = ply; p[o + 2] = plz;
+    p[o + 3] = prx; p[o + 4] = pry; p[o + 5] = prz;
+    p[o + 6] = nlx; p[o + 7] = nly; p[o + 8] = nlz;
+    p[o + 9] = nrx; p[o + 10] = nry; p[o + 11] = nrz;
     n[o] = a0; n[o + 1] = now; n[o + 2] = 0;
     n[o + 3] = a0; n[o + 4] = now; n[o + 5] = 1;
     n[o + 6] = a1; n[o + 7] = now; n[o + 8] = 0;

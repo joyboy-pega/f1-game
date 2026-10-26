@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { track } from '../track';
 import { NEUTRAL_CONTROLS } from '../controls';
 import { EventBus, type SimEvent } from './events';
 import { advanceTiming, createOverallBests } from './race';
 import { FIXED_DT, GameWorld } from './world';
-import { autopilotPlayer, raceSettings, run, runRace } from './testutil';
+import { autopilotPlayer, raceSettings, run, runRace, runAsync, runRaceAsync, type CarLog } from './testutil';
 
 function freshWorld(patch: Parameters<typeof raceSettings>[0] = {}, seed = 1) {
   const w = new GameWorld();
@@ -14,9 +14,17 @@ function freshWorld(patch: Parameters<typeof raceSettings>[0] = {}, seed = 1) {
 }
 
 describe('AI racing', () => {
-  const w = freshWorld({ totalLaps: 5, aiCount: 9, gridPosition: 10 });
-  autopilotPlayer(w);
-  const { logs, swaps } = runRace(w, 900);
+  let w: GameWorld;
+  let logs: CarLog[];
+  let swaps: number;
+
+  beforeAll(async () => {
+    w = freshWorld({ totalLaps: 5, aiCount: 9, gridPosition: 10 });
+    autopilotPlayer(w);
+    const res = await runRaceAsync(w, 900);
+    logs = res.logs;
+    swaps = res.swaps;
+  }, 120000);
 
   it('finishes a 5-lap race with a full classification', () => {
     expect(w.cars.every((c) => c.timing.finished)).toBe(true);
@@ -51,30 +59,30 @@ describe('AI racing', () => {
     }
   });
 
-  it('orders difficulty tiers by pace', () => {
-    const mean = (difficulty: 'rookie' | 'pro' | 'legend') => {
+  it('orders difficulty tiers by pace', async () => {
+    const mean = async (difficulty: 'rookie' | 'pro' | 'legend') => {
       const world = freshWorld({ totalLaps: 3, aiCount: 5, difficulty });
       autopilotPlayer(world);
       const laps: number[] = [];
       world.events.subscribe((e) => e.type === 'lap' && laps.push(e.time));
-      runRace(world, 600);
+      await runRaceAsync(world, 600);
       return laps.reduce((a, b) => a + b, 0) / laps.length;
     };
-    const [rookie, pro, legend] = [mean('rookie'), mean('pro'), mean('legend')];
+    const [rookie, pro, legend] = [await mean('rookie'), await mean('pro'), await mean('legend')];
     expect(rookie).toBeGreaterThan(pro * 1.04);
     expect(legend).toBeLessThan(pro);
   });
 });
 
 describe('DRS rules', () => {
-  it('is never available on lap 1, and only opens when available', () => {
+  it('is never available on lap 1, and only opens when available', async () => {
     const w = freshWorld({ totalLaps: 5, aiCount: 9, gridPosition: 10 });
     autopilotPlayer(w);
     let availableOnLap1 = false;
     let everAvailable = false;
     let openedWithoutPermission = 0;
     const wasOpen = new Map<number, boolean>();
-    run(w, 600, () => {
+    await runAsync(w, 600, () => {
       for (const c of w.cars) {
         if (c.drsAvailable) {
           everAvailable = true;
@@ -86,8 +94,8 @@ describe('DRS rules', () => {
       }
       return w.cars.every((c) => c.timing.finished);
     });
-    expect(availableOnLap1).toBe(false);
     expect(everAvailable).toBe(true);
+    expect(availableOnLap1).toBe(false);
     expect(openedWithoutPermission).toBe(0);
   });
 });

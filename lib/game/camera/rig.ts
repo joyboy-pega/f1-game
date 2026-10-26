@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { consumeCameraShake } from '@/lib/game/fx/shake';
 import { CAR_SCALE } from '@/lib/game/constants';
 import { COCKPIT_EYE as MODEL_COCKPIT_EYE, NOSE_CAM as MODEL_NOSE_CAM, TCAM as MODEL_TCAM } from '@/components/game/car/dimensions';
+import { surfaceHeight } from '@/lib/game/track/surface';
 
 export type RigMode = 'chase' | 'tcam' | 'cockpit' | 'hood' | 'intro';
 
@@ -26,6 +27,7 @@ export interface RigCar {
   driftAngle: number;
   isBoosting: boolean;
   drsOpen: boolean;
+  idx?: number;
 }
 
 // Anchors come from the car model (car/dimensions.ts, car-local model units: [x lateral, y up, z forward]) so the
@@ -93,7 +95,7 @@ export interface RigOptions {
   /** Intro progress 0..1 (mode 'intro' only). */
   introP?: number;
   /** Pole-position car (intro camera starts near it). */
-  pole?: { x: number; y: number; a: number };
+  pole?: { x: number; y: number; a: number; idx?: number };
   /** Seconds to blend from the previous pose when `mode` changes. Default 0.5. */
   blend?: number;
   /** Scale for random shake (replay uses less). */
@@ -299,8 +301,9 @@ export class CameraRig {
       this.chaseLook.step(lx, 6, lz, 10, dt);
     }
 
-    _eye.set(car.x + this.chaseOff.x.x, Math.max(5, this.chaseOff.y.x), car.y + this.chaseOff.z.x);
-    _look.set(car.x + this.chaseLook.x.x, this.chaseLook.y.x, car.y + this.chaseLook.z.x);
+    const carY = car.idx !== undefined ? surfaceHeight(car.idx, 0) : 0;
+    _eye.set(car.x + this.chaseOff.x.x, Math.max(carY + 15, carY + this.chaseOff.y.x), car.y + this.chaseOff.z.x);
+    _look.set(car.x + this.chaseLook.x.x, carY + this.chaseLook.y.x, car.y + this.chaseLook.z.x);
 
     this.fovTarget = Math.min(80, 60 + 18 * sm + (car.isBoosting ? 2 : 0) + (car.drsOpen ? 1 : 0));
     // Bank slightly into the corner.
@@ -353,9 +356,10 @@ export class CameraRig {
     this.pitchS.step(pitchT, 8, dt);
     this.rollS.step(rollT, 8, dt);
 
+    const carY = car.idx !== undefined ? surfaceHeight(car.idx, 0) : 0;
     _eye.set(
       car.x + cos * eyeFwd - sin * this.head.x.x,
-      eyeH + this.head.y.x,
+      carY + eyeH + this.head.y.x,
       car.y + sin * eyeFwd + cos * this.head.x.x
     );
     const p = this.pitchS.x;
@@ -371,18 +375,20 @@ export class CameraRig {
     const pole = o.pole ?? car;
     const fx = Math.cos(pole.a);
     const fz = Math.sin(pole.a);
+    const poleY = pole.idx !== undefined ? surfaceHeight(pole.idx, 0) : 0;
+    const carY = car.idx !== undefined ? surfaceHeight(car.idx, 0) : 0;
     // Start: just ahead of pole, over the infield edge, looking back along the grid.
     const side = 1;
     const ax = pole.x + fx * 150 - fz * side * 210;
     const az = pole.y + fz * 150 + fx * side * 210;
-    const ay = 24;
+    const ay = poleY + 24;
     const lax = lerp(pole.x - fx * 60, car.x - Math.cos(car.a) * 40, 0.55);
     const laz = lerp(pole.y - fz * 60, car.y - Math.sin(car.a) * 40, 0.55);
 
     // Blend A -> chase pose (already in _eye/_look). Bow the path upwards for a crane feel.
     const bow = Math.sin(Math.PI * e) * 22;
     _eye.set(lerp(ax, _eye.x, e), lerp(ay, _eye.y, e) + bow, lerp(az, _eye.z, e));
-    _look.set(lerp(lax, _look.x, e), lerp(5, _look.y, e), lerp(laz, _look.z, e));
+    _look.set(lerp(lax, _look.x, e), lerp(carY + 5, _look.y, e), lerp(laz, _look.z, e));
     this.fovTarget = lerp(44, this.fovTarget, e);
   }
 }

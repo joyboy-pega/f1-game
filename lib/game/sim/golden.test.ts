@@ -24,7 +24,7 @@ function fnv1a(text: string): string {
 }
 
 /** Runs the golden race and returns a digest string (human-readable) of finish order + lap times. */
-function runGoldenRace(): { digest: string; simSeconds: number } {
+async function runGoldenRace(): Promise<{ digest: string; simSeconds: number }> {
   const w = new GameWorld();
   w.seed = SEED;
   w.setup(goldenSettings());
@@ -45,6 +45,9 @@ function runGoldenRace(): { digest: string; simSeconds: number } {
     w.step(FIXED_DT, NEUTRAL_CONTROLS);
     w.events.flush();
     steps++;
+    if (steps % 300 === 0) {
+      await new Promise((r) => setImmediate(r));
+    }
   }
   const finishOrder = w.cars
     .filter((c) => c.timing.finished)
@@ -55,18 +58,31 @@ function runGoldenRace(): { digest: string; simSeconds: number } {
 }
 
 describe('golden race (R5/R6)', () => {
-  it('finishes within the time cap', () => {
-    const { digest, simSeconds } = runGoldenRace();
+  let memoDigest: string | null = null;
+  let memoSimSeconds: number | null = null;
+  async function getGolden() {
+    if (memoDigest === null) {
+      const res = await runGoldenRace();
+      memoDigest = res.digest;
+      memoSimSeconds = res.simSeconds;
+    }
+    return { digest: memoDigest, simSeconds: memoSimSeconds! };
+  }
+
+  it('finishes within the time cap', async () => {
+    const { digest, simSeconds } = await getGolden();
     expect(simSeconds).toBeLessThan(900);
     expect(digest.startsWith('order=')).toBe(true);
   });
 
-  it('is deterministic: the same seed twice in one process gives an identical digest', () => {
-    expect(runGoldenRace().digest).toBe(runGoldenRace().digest);
+  it('is deterministic: the same seed twice in one process gives an identical digest', async () => {
+    const golden = await getGolden();
+    const fresh = await runGoldenRace();
+    expect(fresh.digest).toBe(golden.digest);
   });
 
-  it('matches the recorded golden hash', () => {
-    const { digest } = runGoldenRace();
+  it('matches the recorded golden hash', async () => {
+    const { digest } = await getGolden();
     // Update ONLY when behaviour changes on purpose (R5), and log old/new values in docs/WORKLOG.md.
     console.log(`[golden] ${digest}`);
     expect(fnv1a(digest)).toBe('64ae9da7');
