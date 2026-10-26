@@ -129,6 +129,9 @@ export interface WorldCar {
   draft: number;
   /** Track-limit incident tracking. */
   limits: LimitsState;
+  /** Blue flag status and duration ignored. */
+  blueFlag: boolean;
+  blueFlagTime: number;
   /** DRS detection bookkeeping. */
   drsDetect: { lastG: number; zoneActive: number };
   /** Seconds spent off the asphalt (outside the pit lane); diagnostics and tests. */

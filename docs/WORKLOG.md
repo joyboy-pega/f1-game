@@ -1098,3 +1098,45 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — R3 Flags & Safety: Local Sector Yellows, Blue Flags, VSC Delta Cap, and Safety Car Bunching (Task 31)
+
+**Completed Task:**
+- **Task 31 (R3: Flags, Safety Car & VSC System):**
+  - **Flags System Architecture (`lib/game/sim/flags.ts`, `lib/game/sim/events.ts`, `lib/game/sim/types.ts`):**
+    - Created `FlagsManager` to track local sector yellow flags across 3 track marshal sectors, Virtual Safety Car (`vsc`), and physical Safety Car (`sc`) states.
+    - Added `flag` and `safetyCar` simulation events to `SimEvent` in `lib/game/sim/events.ts`.
+    - Added `blueFlag` and `blueFlagTime` tracking to `WorldCar` in `lib/game/sim/types.ts`.
+    - Configured zero-heap-allocation buffers (`Float32Array(32)` for stranded car timers, `Int8Array(32)` for previous positions) to enforce strict determinism and zero GC pauses in the 120 Hz hot path (Rule R7).
+  - **Local Sector Yellows & Stranded Car Detection:**
+    - Detects stranded/crashed cars outside the pit lane (`kmh < 15` sustained for $\ge 2.5$ s during racing phase), deploying a local yellow flag in that sector.
+    - AI cars in a yellow sector lift pace by 30% and disengage active overtakes.
+    - Passing under yellow or VSC/SC on actively racing cars (`kmh >= 30`) is flagged as illegal and penalised with a +5 s time penalty. Driving past stranded or pitted cars is legal under sporting regulations.
+  - **Blue Flags & Lapped Car Yielding:**
+    - Detects when the race leader closes within 150 m behind a lapped car (`leader.timing.lapsCompleted > car.timing.lapsCompleted`).
+    - AI lapped cars shift off the optimal racing line (`outsideSide * (MAX_LAT - 10)`) and lift target speed to yield smoothly.
+    - Player cars ignoring blue flags for $\ge 12.0$ s receive a +5 s time penalty for ignoring blue flags.
+  - **Virtual Safety Car (VSC):**
+    - Enforces a speed delta cap ($\le 180$ km/h) for AI cars across the entire circuit.
+    - Automatically disables DRS availability during both VSC and Safety Car periods.
+  - **Full Safety Car (SC) & Field Bunching:**
+    - Paces the lead car at an authentic 140 km/h.
+    - Trailing cars accelerate up to 190 km/h to catch and bunch into the queue until reaching `targetGapUnits = 420` (~1.08 s at 140 km/h), satisfying the PLAN-v3 §8 R3 requirement of $< 1.5$ s gaps.
+    - Bypasses lateral line overlap checking under SC to allow cars to queue up regardless of lateral line offsets.
+  - **HUD Steward Notifications (`components/game/GameLoop.tsx`):**
+    - Added dedicated toast alerts for sector yellow flags, green flags, VSC deployment, and Safety Car deployment / "Safety Car in this lap".
+  - **Unit Testing (`lib/game/sim/flags.test.ts`):**
+    - 4 comprehensive unit tests:
+      1. Stranded car trigger for local yellow flags, AI pace lift, and illegal overtake penalty detection.
+      2. Blue flag detection, AI yield off-line, and player penalty for ignoring blue flags $> 12$ s.
+      3. VSC speed delta cap adherence ($\le 185$ km/h) and DRS disabling.
+      4. Safety Car field bunching to $< 1.5$ s gaps across the entire grid.
+
+**Verification:**
+- Full test suite: **28/28 test files passed, 208/208 unit tests passed** (including `flags.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).

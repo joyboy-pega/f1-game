@@ -107,6 +107,52 @@ function handleEvent(e: SimEvent) {
       });
       break;
     }
+    case 'flag':
+      if (e.flag === 'yellow') {
+        toast({
+          id: `yellow-sec-${e.sector ?? 0}`,
+          type: 'penalty',
+          title: `YELLOW FLAG — SECTOR ${(e.sector ?? 0) + 1}`,
+          subtitle: 'No overtaking · Reduce speed',
+          duration: 3.5,
+        });
+      } else if (e.flag === 'green') {
+        toast({
+          id: 'green-flag',
+          type: 'info',
+          title: 'GREEN FLAG',
+          subtitle: 'Track clear · Racing resumes',
+          duration: 2.5,
+        });
+      }
+      break;
+    case 'safetyCar':
+      if (e.ending) {
+        toast({
+          id: 'sc-ending',
+          type: 'info',
+          title: 'SAFETY CAR IN THIS LAP',
+          subtitle: 'Prepare to resume racing',
+          duration: 4.0,
+        });
+      } else if (e.mode === 'sc') {
+        toast({
+          id: 'sc-deployed',
+          type: 'penalty',
+          title: 'SAFETY CAR DEPLOYED',
+          subtitle: 'Queue behind Safety Car · No overtaking',
+          duration: 5.0,
+        });
+      } else if (e.mode === 'vsc') {
+        toast({
+          id: 'vsc-deployed',
+          type: 'penalty',
+          title: 'VIRTUAL SAFETY CAR',
+          subtitle: 'Maintain positive delta · Speed restricted',
+          duration: 5.0,
+        });
+      }
+      break;
   }
 }
 

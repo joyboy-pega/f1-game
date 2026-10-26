@@ -16,6 +16,7 @@ import { createInitialCarState, findNearestTrackPoint, updateCarPhysics, type Ph
 import { createBrain, driveAI } from './ai';
 import { applyAssists } from './assists';
 import { CollisionSystem } from './collisions';
+import { FlagsManager } from './flags';
 import { updateDrsAvailability, updateSlipstream } from './drs';
 import { aiPitStrategy, checkPitEntry, cycleNextCompound, driveInPit, togglePitRequest, type PitContext } from './pit';
 import { updateTrackLimits, type LimitsContext } from './penalties';
@@ -78,6 +79,8 @@ export function makeCar(id: number, isPlayer: boolean, idx: number, lateral: num
     lastCollisionTime: -99,
     draft: 0,
     limits: { offTime: 0, counted: false, lastCornerId: -1, exempt: false, cutStartS: -1, cutStartTime: -1 },
+    blueFlag: false,
+    blueFlagTime: 0,
     drsDetect: { lastG: -1, zoneActive: -1 },
     offTrackTime: 0,
   };
@@ -105,6 +108,7 @@ export class GameWorld {
   finishCount = 0;
   overall: OverallBests = createOverallBests();
   readonly events = new EventBus();
+  readonly flags = new FlagsManager();
   /** Set before setup() to make a race reproducible (tests); null = random. */
   seed: number | null = null;
   /** Replaced by a seeded generator in setup(); the constructor runs setup() before anything can read it. */
@@ -166,6 +170,7 @@ export class GameWorld {
     this.clearPending();
     this.paused = false;
     this.collisions.reset();
+    this.flags.reset();
 
     this.isQualifying = settings.mode === 'qualifying';
     this.qualifyingFormat = settings.qualifyingFormat || 'oneshot';
@@ -329,7 +334,17 @@ export class GameWorld {
       this.events.emit({ type: 'pitPlan', carId: pl.id, box: pl.pitRequest, compound: pl.nextCompound });
     }
 
-    const aiCtx = { cars: this.cars, difficulty: s.difficulty, raceTime: this.raceTime, weather: s.weather, isRace: this.isRace };
+    const aiCtx = {
+      cars: this.cars,
+      difficulty: s.difficulty,
+      raceTime: this.raceTime,
+      weather: s.weather,
+      isRace: this.isRace,
+      flags: {
+        scMode: this.flags.state.scMode,
+        sectorYellow: this.flags.state.sectorYellow,
+      },
+    };
     const pitCtx: PitContext = {
       cars: this.cars,
       raceTime: this.raceTime,
@@ -416,7 +431,11 @@ export class GameWorld {
     for (const car of this.cars) updateTrackLimits(car, lctx);
 
     this.updateOrder(dt);
-    updateDrsAvailability(this.cars, { isRace: this.isRace, order: this.order });
+    this.flags.update(dt, this.cars, this.events, this.raceTime, this.isRace, this.phase);
+    updateDrsAvailability(this.cars, {
+      isRace: this.isRace && this.flags.state.scMode === 'none',
+      order: this.order,
+    });
 
     if (this.isQualifying && !this.qualifyingCompleteEmitted) {
       if (this.qualifyingFormat === 'oneshot') {

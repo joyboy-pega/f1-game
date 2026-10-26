@@ -7,6 +7,7 @@ import { makeRng } from './rng';
 import { snapRenderPose } from './interp';
 import type { WorldCar, AIBrain } from './types';
 import { getRacingLine, PROFILE_BRAKE_DECEL } from './racingLine';
+import { sectorOf } from './race';
 
 // Racing-line AI driver. It produces a ControlState so AI cars run through the exact same physics
 // as the player: pure-pursuit steering on the optimal line, a braking-point speed scan from the line's
@@ -34,6 +35,10 @@ export interface AIContext {
   raceTime: number;
   weather: WeatherType;
   isRace: boolean;
+  flags?: {
+    scMode: 'none' | 'vsc' | 'sc';
+    sectorYellow: [boolean, boolean, boolean];
+  };
 }
 
 const WEATHER_GRIP: Record<WeatherType, number> = { sunny: 1, cloudy: 0.95, rain: 0.65, snow: 0.35 };
@@ -228,6 +233,7 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   const MAX_LAT = hw - 20;
   const baseOff = RL.offset[idx];
   const planned = baseOff + brain.shift;
+  const isSC = ctx.flags?.scMode === 'sc';
 
   // ---- neighbours ---------------------------------------------------------------------------
   let ahead: WorldCar | null = null;
@@ -245,8 +251,9 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
     // Compare current and intended lines: cars on converging paths count as being in the way
     const oPlan = o.ai ? RL.offset[o.phys.idx] + o.ai.shift : o.lateral;
     const overlap = Math.min(Math.abs(dl), Math.abs(o.lateral - car.lateral), Math.abs(oPlan - planned), Math.abs(oPlan - car.lateral));
+    const scanDist = isSC ? 3500 : 700;
     const overlapMax = (t < 35 || Math.abs(RL.curv[idx]) > 0.0020) ? 36 : 22;
-    if (ds > 0 && ds < 700 && ds < aheadGap && overlap < overlapMax) {
+    if (ds > 0 && ds < scanDist && ds < aheadGap && (isSC || overlap < overlapMax)) {
       ahead = o;
       aheadGap = ds;
     }
@@ -273,19 +280,29 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   const cornerSoon = curvHere > 0.0018 || nc.dist > 0 || brain.targetSpeed < v - 30;
 
   // end of an overtake
+  const sec = sectorOf(myS);
+  const yellowInSector = !!(ctx.flags?.sectorYellow && ctx.flags.sectorYellow[sec]);
+  const noOvertake = (ctx.flags?.scMode && ctx.flags.scMode !== 'none') || yellowInSector;
+
   if (brain.passSide !== 0) {
     const pc = ctx.cars[brain.passCarId as number] as WorldCar | undefined;
     const pds = pc ? arcDelta(myS, pc.timing.lastS) : -999;
-    if (!pc || pds < -75 || t - brain.passStart > 9 || !!pc.pit !== !!car.pit || (cornerSoon && pds > 15)) {
+    if (noOvertake || !pc || pds < -75 || t - brain.passStart > 9 || !!pc.pit !== !!car.pit || (cornerSoon && pds > 15)) {
       brain.passSide = 0;
     } else {
       shiftTarget = clamp(pc.lateral + brain.passSide * PASS_GAP, -MAX_LAT, MAX_LAT) - baseOff;
     }
   }
 
+  // Blue flag: yield racing line to faster car closing behind
+  if (car.blueFlag) {
+    const outsideSide = car.lateral >= 0 ? 1 : -1;
+    shiftTarget = outsideSide * (track.current.halfWidth[idx] - 15) - baseOff;
+  }
+
   // freeSpeed is evaluated below; decisions use last step's target
   brain.decisionTimer -= dt;
-  if (ahead && brain.passSide === 0 && brain.decisionTimer <= 0 && ctx.isRace && t > 10 && !cornerSoon) {
+  if (ahead && brain.passSide === 0 && !noOvertake && brain.decisionTimer <= 0 && ctx.isRace && t > 10 && !cornerSoon) {
     brain.decisionTimer = 0.35;
     const held = aheadGap < 320 && aheadGap > 25 && brain.targetSpeed > ahead.phys.vf + 4;
     if (held && rng() < 0.2 + 0.8 * aggression) {
@@ -358,6 +375,31 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   let target = profileTarget(idx, pace, gripF, aBrake);
   if (!car.surface.onTrack && !car.inPit) target = Math.min(target, 180);
 
+  // Flags & Safety Car limits (PLAN-v3 §8 R3)
+  if (ctx.flags?.scMode === 'vsc') {
+    target = Math.min(target, 500); // 180 km/h cap for VSC delta
+  } else if (ctx.flags?.scMode === 'sc') {
+    const isLeader = car.position === 1;
+    if (isLeader) {
+      target = Math.min(target, 388); // 140 km/h Safety Car pace for leader
+    } else if (ahead) {
+      const targetGapUnits = 420; // ~42m = ~1.08s at 140 km/h (< 1.5s)
+      if (aheadGap > targetGapUnits) {
+        target = Math.min(520, ahead.phys.vf + (aheadGap - targetGapUnits) * 0.5);
+      } else {
+        target = Math.min(target, ahead.phys.vf * 0.94);
+      }
+    } else {
+      target = Math.min(target, 520); // Catching the SC pack
+    }
+  } else if (yellowInSector) {
+    target = Math.min(target, target * 0.70); // 30% lift in yellow flag sector
+  }
+
+  if (car.blueFlag) {
+    target = Math.min(target, 400); // Lift to let faster car pass smoothly
+  }
+
   // pit entry: arrive at the speed limit
   if (car.pitRequest) {
     const du = (PIT.entryIdx - idx + N) % N;
@@ -370,7 +412,7 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   brain.targetSpeed = target;
 
   // traffic: do not drive into the back of the car in front (bodies overlap laterally)
-  if (ahead) {
+  if (ahead && !isSC) {
     const gmin = t < 35 ? 96 : 76;
     const av = ahead.phys.vf;
     // brake lag eats distance: charge it against the room before computing a stopping speed
