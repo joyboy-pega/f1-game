@@ -2,6 +2,7 @@ import { HW, type Difficulty, type WeatherType } from '../constants';
 import { track } from '../track';
 import { KMH_PER_UNIT } from '../units';
 import { isCarInDrsZone } from '../physics';
+import { CAR } from '../vehicle/params';
 import { makeRng } from './rng';
 import { snapRenderPose } from './interp';
 import type { WorldCar, AIBrain } from './types';
@@ -83,10 +84,11 @@ export function arcDelta(a: number, b: number): number {
 
 const clamp = (x: number, lo: number, hi: number) => (x < lo ? lo : x > hi ? hi : x);
 
-/** Grip-driven scale for cornering speed (worn / cold / wrong tyres, rain). */
+/** Grip-driven scale for cornering speed (worn / cold / wrong tyres, rain, fuel load). */
 export function gripSpeedFactor(car: WorldCar, weather: WeatherType): number {
   const g = car.phys.tires.frontGrip * WEATHER_GRIP[weather];
-  return clamp(Math.pow(g, 0.9), 0.3, 1.1);
+  const massScale = CAR.massKg / (CAR.massKg + (car.fuelKg ?? 0));
+  return clamp(Math.pow(g, 0.9) * Math.pow(massScale, 0.22), 0.3, 1.1);
 }
 
 /** Marshals put a car that is stuck back on the racing line. */
@@ -348,7 +350,8 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
 
   // ---- speed target: braking-point scan along the line -------------------------------------
   const lockup = brain.mistakeKind === 1 && t < brain.mistakeUntil;
-  const aBrake = PROFILE_BRAKE_DECEL * (0.80 + skill.cornerBrake * 0.15);
+  const massScale = CAR.massKg / (CAR.massKg + (car.fuelKg ?? 0));
+  const aBrake = PROFILE_BRAKE_DECEL * (0.80 + skill.cornerBrake * 0.15) * Math.pow(massScale, 0.5);
   let target = profileTarget(idx, pace, gripF, aBrake);
   if (!car.surface.onTrack && !car.inPit) target = Math.min(target, 180);
 
@@ -429,8 +432,11 @@ export function driveAI(car: WorldCar, ctx: AIContext, dt: number): void {
   // edge of track: if near the boundary, modulate throttle to keep car on asphalt
   const edgeDist = HW - Math.abs(car.lateral);
   if (edgeDist < 20 && car.lateral * p.vl > 0 && !car.inPit) {
-    const edgeLimit = Math.max(0.20, edgeDist / 20);
+    const edgeLimit = Math.max(0, edgeDist / 20);
     throttleCmd = Math.min(throttleCmd, edgeLimit);
+  }
+  if (!car.surface.onTrack && !car.inPit) {
+    throttleCmd = Math.min(throttleCmd, 0.35);
   }
   if (v < 300 && Math.abs(ctrl.steer) > 0.25) {
     const steerLimit = Math.max(0.20, 1.0 - 0.80 * (Math.abs(ctrl.steer) - 0.25) / 0.75);

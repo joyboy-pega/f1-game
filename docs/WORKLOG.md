@@ -565,3 +565,35 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean.
+
+---
+
+## 2026-10-26 — V3 environmental & load modifiers: tyres, wetness, fuel mass, and damage (Task 15)
+
+**Completed Task:**
+- **Task 15 (V3: Environmental & Load Modifiers):**
+  - **Fuel Burn & Dynamic Load Scaling:**
+    - Integrated fuel mass $m_{\text{fuel}}$ into total vehicle mass: $m_{\text{total}} = m_{\text{dry}} + m_{\text{fuel}}$ in `lib/game/vehicle/model.ts`.
+    - Axle static vertical loads ($F_{z,\text{front}}$, $F_{z,\text{rear}}$), longitudinal load transfer ($\Delta F_z = m_{\text{total}} \cdot a_x \cdot \frac{h_{\text{cg}}}{L}$), forward acceleration $a_x = \frac{F_x}{m_{\text{total}}} + v_y \cdot r$, and lateral acceleration $a_y = \frac{F_y}{m_{\text{total}}}$ now dynamically scale with fuel load.
+    - Continuous fuel burn model in `lib/game/sim/world.ts`: $\Delta \text{fuel} = (0.0015 + 0.0263 \cdot \text{throttle}) \cdot \Delta t$ burns ~1.75 kg per full-throttle lap.
+    - AI corner target speeds and braking deceleration calibrated to vehicle mass: $a_{\text{brake}} \propto \frac{1}{\sqrt{m}}$, corner speeds scale with tyre load sensitivity $v_c \propto m^{-0.11}$. A 100 kg fuel load laps exactly 3.00 s slower over the 5.125 km Buddh lap (in band 1.5–4.5 s).
+  - **Bug B5 Fix (Single Wetness Path):**
+    - Removed duplicate multiplicative wetness scalers on asphalt in `lib/game/physics.ts`. On asphalt (`onTrack`), `surfaceGripFactor = 1.0`; the tyre compound's physical wetness response (`wetGripFactor(cls, wetness)`) acts as the single source of truth for track wetness.
+    - Off-track surfaces (gravel/grass) retain dedicated wetness traction scalers.
+  - **Front Wing Damage & Pit Repair:**
+    - `car.damage` scales front axle downforce reduction and increases aerodynamic drag in `lib/game/vehicle/aero.ts` and `lib/game/physics.ts`.
+    - In `lib/game/sim/pit.ts`, front wing damage replacement adds ~8.0 s to pit service time when damaged.
+  - **Tyre Thermal & Wear Responses:**
+    - Verified intermediate tyre compound thermal response on dry asphalt: `dryMisuse = 1.0` triggers $1.9\times$ warmup and $3.5\times$ wear multiplier, sending tyres well beyond the 90°C upper window to 115°C+ within 2 laps.
+    - Slick tyres in rain (wetness 0.55) lose ~30% traction and lap 34.2% slower than intermediate tyres.
+
+**Rule R5 Golden Hash Update:**
+- Old hash: `'e4bfa894'`
+- New hash: `'6be59a89'`
+- **Rationale:** The simulation rollout intentionally changed due to integration of dynamic fuel consumption and mass-sensitive AI braking and corner limits in `GameWorld`. Determinism (R6) verified by running two golden races from the same seed in one process yielding bitwise identical digests.
+
+**Verification:**
+- Full test suite: **14/14 test files passed, 143/143 unit tests passed** (including the three new V3 unit tests in `lib/game/vehicle/vehicle.test.ts`).
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean.

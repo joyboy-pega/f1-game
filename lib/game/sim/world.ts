@@ -73,6 +73,7 @@ export function makeCar(id: number, isPlayer: boolean, idx: number, lateral: num
     stats: { topSpeedKmh: 0, drsUses: 0, ersUses: 0, overtakes: 0 },
     pit: null,
     damage: 0,
+    fuelKg: 10,
     lastCollisionTime: -99,
     draft: 0,
     limits: { offTime: 0, counted: false, lastCornerId: -1, exempt: false },
@@ -180,6 +181,7 @@ export class GameWorld {
       const lateral = race ? (slot % 2 === 0 ? -1 : 1) * HW * 0.42 : 0;
       const compound: TyreCompound = isPlayer ? settings.startCompound : aiIdx % 3 === 2 ? 'medium' : 'soft';
       const car = makeCar(cars.length, isPlayer, idx, lateral, compound);
+      car.fuelKg = race ? Math.min(105, settings.totalLaps * 1.8 + 2.0) : 10;
       if (isPlayer) {
         car.driver = { name: settings.driverName, code: settings.driverCode, team: 'Player', livery: settings.livery };
       } else {
@@ -318,6 +320,12 @@ export class GameWorld {
       extras.draft = car.draft;
       extras.inPit = !!car.pit;
       extras.frontDamage = car.damage;
+
+      if (car.fuelKg > 0) {
+        const deltaFuel = (0.0015 + 0.0263 * Math.max(0, car.ctrl.throttle)) * dt;
+        car.fuelKg = Math.max(0, car.fuelKg - deltaFuel);
+      }
+      extras.fuelKg = car.fuelKg;
       const r = car.isPlayer
         ? updateCarPhysics(p, car.ctrl, dt, s.weather, s.steeringSensitivity, s.brakeForce, s.tireWearRate, extras)
         : updateCarPhysics(p, car.ctrl, dt, s.weather, 1, 1, s.tireWearRate, extras);

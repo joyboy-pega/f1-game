@@ -251,6 +251,8 @@ export interface PhysicsExtras {
   inPit?: boolean;
   /** 0..1 front-end damage (reduces front grip). */
   frontDamage?: number;
+  /** Fuel mass in kg (0..110 kg, burns over the race). */
+  fuelKg?: number;
 }
 
 /**
@@ -338,11 +340,13 @@ export function updateCarPhysics(
   const gravel = !inPitLane && d > HW + 40;
   let drsClosedReason: string | undefined;
 
-  // Surface grip factor
+  // Surface grip factor (single wetness path B5: on asphalt, tyreGrip handles wetness response)
   let surfaceGripFactor = onTrack ? 1.0 : gravel ? 0.38 : 0.62;
-  if (weather === 'cloudy') surfaceGripFactor *= 0.95;
-  else if (weather === 'rain') surfaceGripFactor *= 0.65;
-  else if (weather === 'snow') surfaceGripFactor *= 0.35;
+  if (!onTrack) {
+    if (weather === 'cloudy') surfaceGripFactor *= 0.95;
+    else if (weather === 'rain') surfaceGripFactor *= 0.70;
+    else if (weather === 'snow') surfaceGripFactor *= 0.40;
+  }
 
   // Initialize or resync internal vehicle state
   if (!car._veh) {
@@ -456,6 +460,7 @@ export function updateCarPhysics(
     dirtyAir: 0,
     damage: extra.frontDamage ?? 0,
     inPit: inPitLane,
+    fuelKg: extra.fuelKg,
   };
 
   stepVehicle(veh, vehInputs, vehEnv, dt);

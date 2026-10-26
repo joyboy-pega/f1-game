@@ -28,6 +28,7 @@ export interface VehicleEnvironment {
   dirtyAir: number; // 0..1 dirty air
   damage: number; // 0..1 front-wing damage
   inPit: boolean;
+  fuelKg?: number; // 0..110 kg fuel mass (V3)
 }
 
 export interface VehicleState {
@@ -92,11 +93,13 @@ export function stepVehicle(
   const aeroDrag = aeroScratch.drag;
 
   // 3. Dynamic vertical axle loads (with longitudinal load transfer)
-  const staticFzFront = CAR.massKg * GRAVITY * CAR.frontWeightFraction;
-  const staticFzRear = CAR.massKg * GRAVITY * (1 - CAR.frontWeightFraction);
+  const fuelKg = env.fuelKg ?? 0;
+  const totalMassKg = CAR.massKg + fuelKg;
+  const staticFzFront = totalMassKg * GRAVITY * CAR.frontWeightFraction;
+  const staticFzRear = totalMassKg * GRAVITY * (1 - CAR.frontWeightFraction);
 
   // Load transfer: dFz = m * ax * (h_cg / L)
-  const dFzLong = CAR.massKg * s.prevAx * (CAR.cgHeightM / CAR.wheelbaseM);
+  const dFzLong = totalMassKg * s.prevAx * (CAR.cgHeightM / CAR.wheelbaseM);
   const fzFront = Math.max(200, staticFzFront + downFront - dFzLong);
   const fzRear = Math.max(200, staticFzRear + downRear + dFzLong);
 
@@ -170,10 +173,10 @@ export function stepVehicle(
   const rollRes = rollingResistance(fzFront + fzRear);
 
   const fxTotal = fxFront * cosDelta - fyFront * sinDelta + fxRear - aeroDrag - (s.vx > 0.5 ? rollRes : 0);
-  const ax = fxTotal / CAR.massKg + s.vy * s.yawRate;
+  const ax = fxTotal / totalMassKg + s.vy * s.yawRate;
 
   const fyTotal = fyFront * cosDelta + fxFront * sinDelta + fyRear;
-  const ayInertial = fyTotal / CAR.massKg;
+  const ayInertial = fyTotal / totalMassKg;
   const dVy = ayInertial - s.vx * s.yawRate;
 
   // Yaw acceleration

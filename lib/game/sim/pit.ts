@@ -175,7 +175,9 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
     if (dist < 4) target = 0;
     if (p.kmh < 5 && dist < 45 && dist > -45) {
       pit.stage = 'service';
-      pit.serviceTime = 2.2 + ctx.rand() * 1.3 + (ctx.rand() < 0.12 ? 1.5 + ctx.rand() * 2.5 : 0);
+      // Tyre change is ~2.5s; front-wing replacement adds ~8.0s (§5.3 V3)
+      const wingRepair = car.damage > 0.05 ? 8.0 : 0;
+      pit.serviceTime = 2.2 + ctx.rand() * 1.3 + (ctx.rand() < 0.12 ? 1.5 + ctx.rand() * 2.5 : 0) + wingRepair;
       pit.serviceLeft = pit.serviceTime;
       pit.stationary = 0;
     }

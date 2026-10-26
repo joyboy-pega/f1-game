@@ -117,6 +117,8 @@ export interface WorldCar {
   pit: PitState | null;
   /** 0..1 accumulated front-end damage from collisions (settings.damage). */
   damage: number;
+  /** Current fuel mass in kg (0..110 kg, burns down over the race). */
+  fuelKg: number;
   /** Race time of the most recent collision (for track-limit grace). */
   lastCollisionTime: number;
   /** Slipstream strength applied this step (0..1). */

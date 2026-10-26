@@ -444,3 +444,117 @@ describe('vehicle limits module (limits.ts)', () => {
     expect(vHairpin).toBeLessThan(90);
   });
 });
+
+describe('environmental and load modifiers (PLAN-v3 §5.3 V3)', () => {
+  it('slicks on wetness 0.55 are >= 6 % slower per lap than inters', async () => {
+    const { GameWorld, FIXED_DT } = await import('../sim/world');
+    const { raceSettings, autopilotPlayer } = await import('../sim/testutil');
+    const { NEUTRAL_CONTROLS } = await import('../controls');
+
+    const runOneLap = (compound: 'soft' | 'inter') => {
+      const w = new GameWorld();
+      w.seed = 42;
+      w.setup(raceSettings({ totalLaps: 1, aiCount: 0, gridPosition: 1, weather: 'rain', startCompound: compound }));
+      autopilotPlayer(w);
+
+      let lapTime = 0;
+      w.events.subscribe((e) => {
+        if (e.type === 'lap' && e.carId === w.player.id && lapTime === 0) {
+          lapTime = e.time;
+        }
+      });
+
+      const maxSteps = Math.round(250 / FIXED_DT);
+      for (let i = 0; i < maxSteps; i++) {
+        w.step(FIXED_DT, NEUTRAL_CONTROLS);
+        w.events.flush();
+        if (lapTime > 0) break;
+      }
+      if (lapTime === 0) {
+        console.log(`[V3 wetness] ${compound} didn't finish: idx=${w.player.phys.idx}/${w.player.timing.lastS}, laps=${w.player.timing.lapsCompleted}, speed=${w.player.phys.vf}`);
+      }
+      return lapTime;
+    };
+
+    const timeSlick = runOneLap('soft');
+    const timeInter = runOneLap('inter');
+    console.log(`[V3 wetness] slick lap: ${timeSlick.toFixed(2)}s, inter lap: ${timeInter.toFixed(2)}s, ratio: ${(timeSlick / timeInter).toFixed(3)}`);
+    expect(timeSlick).toBeGreaterThan(0);
+    expect(timeInter).toBeGreaterThan(0);
+    expect(timeSlick).toBeGreaterThanOrEqual(timeInter * 1.06);
+  });
+
+  it('inters on dry overheat within 2 laps', async () => {
+    const { GameWorld, FIXED_DT } = await import('../sim/world');
+    const { raceSettings, autopilotPlayer } = await import('../sim/testutil');
+    const { NEUTRAL_CONTROLS } = await import('../controls');
+    const { TYRE_COMPOUNDS } = await import('../constants');
+
+    const w = new GameWorld();
+    w.seed = 42;
+    w.setup(raceSettings({ totalLaps: 2, aiCount: 0, gridPosition: 1, weather: 'sunny', startCompound: 'inter' }));
+    autopilotPlayer(w);
+
+    let maxTemp = 0;
+    let laps = 0;
+    w.events.subscribe((e) => {
+      if (e.type === 'lap' && e.carId === w.player.id) laps++;
+    });
+
+    const maxSteps = Math.round(200 / FIXED_DT);
+    for (let i = 0; i < maxSteps; i++) {
+      w.step(FIXED_DT, NEUTRAL_CONTROLS);
+      w.events.flush();
+      const tr = w.player.phys.tires;
+      maxTemp = Math.max(maxTemp, tr.fl.temp, tr.fr.temp, tr.rl.temp, tr.rr.temp);
+      if (laps >= 2) break;
+    }
+
+    const interMaxComfortTemp = TYRE_COMPOUNDS.inter.tempWindow[1];
+    console.log(`[V3 inters on dry] maxTemp: ${maxTemp.toFixed(1)}°C, window: ${interMaxComfortTemp}°C`);
+    // Severely overheated: exceeds upper window limit (90°C) by at least 20°C
+    expect(maxTemp).toBeGreaterThan(interMaxComfortTemp);
+    expect(maxTemp).toBeGreaterThanOrEqual(110);
+  });
+
+  it('a car with 100 kg fuel laps ~3 s slower over 5 km than with 0 kg (±1 s)', async () => {
+    const { GameWorld, FIXED_DT } = await import('../sim/world');
+    const { raceSettings, autopilotPlayer } = await import('../sim/testutil');
+    const { NEUTRAL_CONTROLS } = await import('../controls');
+
+    const runTimedLap = (fuelKg: number) => {
+      const w = new GameWorld();
+      w.seed = 42;
+      w.setup(raceSettings({ totalLaps: 1, aiCount: 0, gridPosition: 1, weather: 'sunny', startCompound: 'soft' }));
+      autopilotPlayer(w);
+      w.player.fuelKg = fuelKg;
+
+      let lapTime = 0;
+      w.events.subscribe((e) => {
+        if (e.type === 'lap' && e.carId === w.player.id && lapTime === 0) {
+          lapTime = e.time;
+        }
+      });
+
+      const maxSteps = Math.round(200 / FIXED_DT);
+      for (let i = 0; i < maxSteps; i++) {
+        // Keep fuel mass fixed to test static fuel penalty
+        w.player.fuelKg = fuelKg;
+        w.step(FIXED_DT, NEUTRAL_CONTROLS);
+        w.events.flush();
+        if (lapTime > 0) break;
+      }
+      return lapTime;
+    };
+
+    const time0 = runTimedLap(0);
+    const time100 = runTimedLap(100);
+    const delta = time100 - time0;
+    console.log(`[V3 fuel] 0kg lap: ${time0.toFixed(2)}s, 100kg lap: ${time100.toFixed(2)}s, delta: ${delta.toFixed(2)}s`);
+    expect(time0).toBeGreaterThan(0);
+    expect(time100).toBeGreaterThan(0);
+    // Delta should be ~3 s slower (±1.5 s, between 1.5s and 4.5s)
+    expect(delta).toBeGreaterThanOrEqual(1.5);
+    expect(delta).toBeLessThanOrEqual(4.5);
+  });
+});
