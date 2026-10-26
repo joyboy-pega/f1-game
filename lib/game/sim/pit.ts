@@ -6,6 +6,7 @@ import { arcDelta } from './ai';
 import { getRacingLine } from './racingLine';
 import type { EventBus } from './events';
 import { bestCompoundForWetness, compoundMismatch } from './tyres';
+import { compoundToBit } from './rules';
 import type { WorldCar } from './types';
 
 /**
@@ -198,6 +199,7 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
     else if (!laneBusyBehind(car, ctx.cars) || pit.stationary > pit.serviceTime + 8) {
       // Tyres go on at the end of the stop; they start cool and warm up on track.
       car.compound = pit.fit;
+      car.compoundsUsedMask |= compoundToBit(pit.fit);
       fitFreshTires(p, 62 + ctx.rand() * 8, pit.fit);
       car.damage = 0;
       car.timing.pitStops++;

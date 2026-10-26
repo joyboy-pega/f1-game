@@ -64,6 +64,34 @@ export const AERO: AeroParams = {
   dirtyAirDownforceLoss: 0.1,
 };
 
+export const AERO_LOW: AeroParams = {
+  ...AERO,
+  clA: 3.8,
+  cdA: 0.88,
+};
+
+export const AERO_HIGH: AeroParams = {
+  ...AERO,
+  clA: 5.6,
+  cdA: 1.15,
+};
+
+export const AERO_2026_STRAIGHT: AeroParams = {
+  ...AERO,
+  clA: 4.8 * 0.65,
+  cdA: 1.0 * 0.75,
+  drsCdAScale: 1.0,
+  drsClAScale: 1.0,
+};
+
+export const AERO_2026_CORNER: AeroParams = {
+  ...AERO,
+  clA: 4.8,
+  cdA: 1.0,
+  drsCdAScale: 1.0,
+  drsClAScale: 1.0,
+};
+
 export interface EngineParams {
   idleRpm: number;
   limiterRpm: number;

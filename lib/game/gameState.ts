@@ -8,8 +8,9 @@ import type {
   TimeOfDay,
   Livery,
 } from './constants';
+import type { CarSetup } from './sim/rules';
 
-export type { WeatherType, CameraViewMode, VehicleModelType, TyreCompound, GameMode, Difficulty, TimeOfDay, Livery };
+export type { WeatherType, CameraViewMode, VehicleModelType, TyreCompound, GameMode, Difficulty, TimeOfDay, Livery, CarSetup };
 
 /** Race session phase. `paused` is a separate flag so the phase survives pausing. */
 export type RacePhase = 'grid' | 'lights' | 'racing' | 'finished';
@@ -110,6 +111,7 @@ export interface ClassificationRow {
   laps: number;
   pitStops: number;
   penaltySec: number;
+  points?: number;
 }
 
 export interface RaceResults {
@@ -201,6 +203,8 @@ export interface GameSettings {
   qualifyingFormat?: 'oneshot' | 'short';
   qualifyingGrid?: string[];
   dynamicWeather?: boolean;
+  setup?: CarSetup;
+  regulations?: '2022' | '2026';
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {

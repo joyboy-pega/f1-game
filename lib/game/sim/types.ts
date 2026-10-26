@@ -136,6 +136,16 @@ export interface WorldCar {
   drsDetect: { lastG: number; zoneActive: number };
   /** Seconds spent off the asphalt (outside the pit lane); diagnostics and tests. */
   offTrackTime: number;
+  /** Jump start flag before lights out (PLAN-v3 §8 R5). */
+  jumpStart: boolean;
+  /** Bitmask of tyre compounds used (PLAN-v3 §8 R6). */
+  compoundsUsedMask: number;
+  /** Strategy engine mode: lean, standard, push (PLAN-v3 §8 R8). */
+  engineMode: 'lean' | 'standard' | 'push';
+  /** ERS deployment mode (PLAN-v3 §8 R8). */
+  ersMode: 'balanced' | 'overtake' | 'recharge';
+  /** Pit lane speeding penalty flag (PLAN-v3 §8 R6). */
+  pitSpeedingPenalized: boolean;
 }
 
 export type PitStage = 'enter' | 'approach' | 'service' | 'depart' | 'exit';

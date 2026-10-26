@@ -22,6 +22,14 @@ import { updateDrsAvailability, updateSlipstream } from './drs';
 import { aiPitStrategy, checkPitEntry, cycleNextCompound, driveInPit, togglePitRequest, type PitContext } from './pit';
 import { updateTrackLimits, type LimitsContext } from './penalties';
 import { wetnessFor } from './tyres';
+import {
+  checkJumpStart,
+  checkPitSpeeding,
+  checkTwoCompoundRule,
+  calculateChampionshipPoints,
+  compoundToBit,
+  EngineerManager,
+} from './rules';
 import { EventBus } from './events';
 import { gaussian, makeRng } from './rng';
 import { snapRenderPose } from './interp';
@@ -84,6 +92,11 @@ export function makeCar(id: number, isPlayer: boolean, idx: number, lateral: num
     blueFlagTime: 0,
     drsDetect: { lastG: -1, zoneActive: -1 },
     offTrackTime: 0,
+    jumpStart: false,
+    compoundsUsedMask: compoundToBit(compound),
+    engineMode: 'standard',
+    ersMode: 'balanced',
+    pitSpeedingPenalized: false,
   };
 }
 
@@ -111,6 +124,7 @@ export class GameWorld {
   readonly events = new EventBus();
   readonly flags = new FlagsManager();
   readonly weather = new WeatherManager();
+  readonly engineer = new EngineerManager();
   /** Set before setup() to make a race reproducible (tests); null = random. */
   seed: number | null = null;
   /** Replaced by a seeded generator in setup(); the constructor runs setup() before anything can read it. */
@@ -173,6 +187,7 @@ export class GameWorld {
     this.paused = false;
     this.collisions.reset();
     this.flags.reset();
+    this.engineer.reset();
     this.weather.reset(!!settings.dynamicWeather || settings.weather === 'dynamic', settings.weather, this.seed ?? 42);
 
     this.isQualifying = settings.mode === 'qualifying';
@@ -258,6 +273,9 @@ export class GameWorld {
 
     this.cars = cars;
     this.player = cars[playerSlot];
+    if (settings.setup) {
+      this.player.phys.brakeBias = settings.setup.brakeBias / 100;
+    }
     this.order = [...cars];
     this.shownPosition = this.candidatePosition = playerSlot + 1;
     this.candidateTime = 0;
@@ -378,8 +396,10 @@ export class GameWorld {
       car.prevA = p.a;
 
       // Who is driving: pit-lane controller, AI, or the human (with optional assists)
-      if (car.pit) driveInPit(car, pitCtx, dt);
-      else if (car.ai) {
+      if (car.pit) {
+        driveInPit(car, pitCtx, dt);
+        checkPitSpeeding(car, this.events);
+      } else if (car.ai) {
         if (strategyTick && !car.isPlayer) aiPitStrategy(car, pitCtx);
         driveAI(car, aiCtx, dt);
       } else if (car.isPlayer && s.assists) applyAssists(car, s.assists, effWeather);
@@ -395,6 +415,8 @@ export class GameWorld {
       extras.draft = car.draft;
       extras.inPit = !!car.pit;
       extras.frontDamage = car.damage;
+      extras.aeroPreset = car.isPlayer ? this.settings.setup?.aeroPreset : undefined;
+      extras.regulations = this.settings.regulations;
 
       if (car.fuelKg > 0) {
         const deltaFuel = (0.0015 + 0.0263 * Math.max(0, car.ctrl.throttle)) * dt;
@@ -426,6 +448,10 @@ export class GameWorld {
       }
 
       checkPitEntry(car, idxBefore, pitCtx);
+    }
+
+    if (this.isRace && this.phase === 'racing') {
+      this.engineer.update(this.player, this.cars, this.events, dt);
     }
 
     // Car-to-car contact, then judge track limits on the corrected positions
@@ -464,6 +490,10 @@ export class GameWorld {
   }
 
   private updateStart(dt: number) {
+    if (this.isRace) {
+      checkJumpStart(this.player, this.phase, this.events);
+    }
+
     // Cars are held on the grid; engines can still be revved.
     for (const car of this.cars) {
       const p = car.phys;
@@ -499,6 +529,9 @@ export class GameWorld {
   private finishCar(car: WorldCar, at: number) {
     car.timing.finished = true;
     car.timing.finishTime = at;
+    const baseWetness = wetnessFor(this.settings.weather);
+    const isDry = this.settings.weather !== 'rain' && this.settings.weather !== 'dynamic' && this.weather.getTrackWetness(baseWetness) < 0.1;
+    checkTwoCompoundRule(car, this.settings.totalLaps, isDry, this.events);
     this.finishCount++;
     if (!this.chequered) {
       this.chequered = true;
@@ -615,6 +648,8 @@ export class GameWorld {
     const winner = finished[0];
     const winnerTime = winner ? winner.timing.finishTime! + winner.timing.penaltySec : null;
 
+    const pointsMap = calculateChampionshipPoints(ordered, this.overall.bestLapCarId ?? undefined);
+
     const classification: ClassificationRow[] = ordered.map((c, i) => {
       const total = c.timing.finished ? c.timing.finishTime! + c.timing.penaltySec : null;
       let gapText: string;
@@ -635,6 +670,7 @@ export class GameWorld {
         laps: Math.max(0, c.timing.lapsCompleted),
         pitStops: c.timing.pitStops,
         penaltySec: c.timing.penaltySec,
+        points: pointsMap.get(c.id) ?? 0,
       };
     });
 

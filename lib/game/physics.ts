@@ -257,6 +257,10 @@ export interface PhysicsExtras {
   frontDamage?: number;
   /** Fuel mass in kg (0..110 kg, burns over the race). */
   fuelKg?: number;
+  /** Aero preset from car setup (R10). */
+  aeroPreset?: 'low' | 'medium' | 'high';
+  /** Regulations era (R12). */
+  regulations?: '2022' | '2026';
 }
 
 /**
@@ -466,6 +470,8 @@ export function updateCarPhysics(
     damage: extra.frontDamage ?? 0,
     inPit: inPitLane,
     fuelKg: extra.fuelKg,
+    aeroPreset: extra.aeroPreset,
+    regulations: extra.regulations,
   };
 
   stepVehicle(veh, vehInputs, vehEnv, dt);

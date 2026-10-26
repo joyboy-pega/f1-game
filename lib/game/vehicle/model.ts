@@ -6,7 +6,7 @@
  * Pure functions, zero allocations in the step (R7).
  */
 
-import { CAR, GRAVITY, AIR_DENSITY } from './params';
+import { CAR, GRAVITY, AIR_DENSITY, AERO, AERO_LOW, AERO_HIGH, AERO_2026_STRAIGHT, AERO_2026_CORNER, type AeroParams } from './params';
 import { TYRE, lateralForce, peakForce, ellipseLateral, rollingResistance } from './tyre';
 import { aeroForces, createAeroForces, type AeroForces } from './aero';
 import { stepPowertrain, type PowertrainState } from './powertrain';
@@ -29,6 +29,8 @@ export interface VehicleEnvironment {
   damage: number; // 0..1 front-wing damage
   inPit: boolean;
   fuelKg?: number; // 0..110 kg fuel mass (V3)
+  aeroPreset?: 'low' | 'medium' | 'high';
+  regulations?: '2022' | '2026';
 }
 
 export interface VehicleState {
@@ -87,7 +89,16 @@ export function stepVehicle(
   const delta = s.steer * maxSteerRad;
 
   // 2. Aerodynamic forces (SI units: N)
-  aeroForces(s.vx, { drs: s.drsOpen, draft: env.draft, dirtyAir: env.dirtyAir, damage: env.damage }, aeroScratch);
+  let aeroParams: AeroParams = AERO;
+  if (env.regulations === '2026') {
+    const isStraight = Math.abs(s.steer) < 0.05 && u > 40;
+    aeroParams = isStraight ? AERO_2026_STRAIGHT : AERO_2026_CORNER;
+  } else if (env.aeroPreset === 'low') {
+    aeroParams = AERO_LOW;
+  } else if (env.aeroPreset === 'high') {
+    aeroParams = AERO_HIGH;
+  }
+  aeroForces(s.vx, { drs: env.regulations === '2026' ? false : s.drsOpen, draft: env.draft, dirtyAir: env.dirtyAir, damage: env.damage }, aeroScratch, aeroParams);
   const downFront = aeroScratch.downFront;
   const downRear = aeroScratch.downRear;
   const aeroDrag = aeroScratch.drag;

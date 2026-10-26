@@ -1227,3 +1227,39 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — Task 34: Race Rules R5, R6, R8–R12 (branch `main`)
+
+**Files:** `lib/game/sim/rules.ts`, `lib/game/sim/rules.test.ts`, `lib/game/sim/types.ts`, `lib/game/sim/world.ts`, `lib/game/sim/pit.ts`, `lib/game/physics.ts`, `lib/game/gameState.ts`, `lib/game/vehicle/params.ts`, `lib/game/vehicle/model.ts`.
+
+**Changes:**
+- **R5: Jump-start False Start Detection (`lib/game/sim/rules.ts`, `world.ts`):**
+  - Evaluates vehicle forward motion during `'grid'` and `'lights'` phases.
+  - Exceeding 4.0 km/h prior to lights out flags `jumpStart: true`, attaches a +5.0 s sporting penalty (`car.timing.penaltySec += 5`), and emits a penalty event.
+- **R6: Pit Rules & Compound Mandate (`lib/game/sim/rules.ts`, `pit.ts`, `world.ts`):**
+  - Pit-lane speeding detection: monitors car velocity against track pit speed limit (80 km/h + 2 km/h tolerance). Violations apply a +5 s time penalty.
+  - Mandatory two dry compounds rule: in dry races of $\ge 5$ laps, tracks all compounds fitted (`compoundsUsedMask`). If $< 2$ distinct dry compounds (soft, medium, hard) were used by race finish, applies a +20 s post-race time penalty.
+- **R8: Tactical Race Engineer Messages (`EngineerManager` in `rules.ts`, `world.ts`):**
+  - "BOX THIS LAP · FITTING <COMPOUND>" notification emitted when pit stop is requested in sector 2.
+  - "RIVAL PITTED · P<POS> IN PIT LANE" alert emitted when an immediate rival (P $\pm 1$) enters the pit lane.
+- **R9: F1 World Championship Points Scale (`calculateChampionshipPoints` in `rules.ts`, `world.ts`):**
+  - Standard FIA points awarded to top 10 finishers: 25, 18, 15, 12, 10, 8, 6, 4, 2, 1.
+  - +1 bonus point for fastest lap if the car finishes in the top 10.
+  - Points populated in `ClassificationRow.points` upon race finish.
+- **R10: Car Setup Presets (`CarSetup` in `rules.ts`, `params.ts`, `model.ts`, `gameState.ts`):**
+  - Aerodynamic downforce presets: `low` (ClA 3.8, CdA 0.88), `medium` (ClA 4.8, CdA 1.00), `high` (ClA 5.6, CdA 1.15).
+  - Setup parameters: brake bias (percentage fraction), differential on-throttle lockup, ride height, tyre pressures.
+- **R11: Telemetry CSV Export (`exportLapTelemetryCsv` in `rules.ts`):**
+  - Formats distance, speed, throttle, brake, gear, rpm, DRS status, and lateral/longitudinal G forces into standard telemetry CSV string.
+- **R12: 2026 Regulations Active Aero & Modes (`get2026AeroModifiers` in `rules.ts`, `params.ts`, `model.ts`):**
+  - 2026 Straight Mode: reduces drag by 25% and downforce by 35% on straight sections when steering lock $< 0.05$ and speed $> 40$ m/s, superseding conventional DRS flaps.
+
+**Verification:**
+- Full test suite: **33/33 test files passed, 239/239 unit tests passed** (including 16 new comprehensive tests in `rules.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Micro-benchmark: 12 cars simulation cost 7.85 ms per simulated second.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).
