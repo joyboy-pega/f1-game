@@ -1,6 +1,6 @@
 import { HW } from '../constants';
 import { track, trackCache, type TrackRuntime } from '../track';
-import { cornerSpeedForCurvature as limitsCornerSpeed, maxLongAccel } from '../vehicle/limits';
+import { cornerSpeedForCurvature as limitsCornerSpeed, maxDecel, maxLongAccel } from '../vehicle/limits';
 import { UNITS_PER_M } from '../units';
 
 /**
@@ -173,19 +173,21 @@ export function buildRacingLine(rt: TrackRuntime): RacingLine {
   for (let i = 0; i < N; i++) lineCornerSpeed[i] = cornerSpeedForCurvature(lineCurv[i]);
 
   // Speed profile: backward braking pass then forward acceleration pass, two laps for wrap-around.
+  // Uses physical maxDecel and maxLongAccel from vehicle model limits (PLAN-v3 §6 A1).
   const v = new Float32Array(N);
-  for (let i = 0; i < N; i++) v[i] = Math.min(V_TOP, lineCornerSpeed[i] * 0.92);
+  for (let i = 0; i < N; i++) v[i] = Math.min(V_TOP, lineCornerSpeed[i]);
   for (let pass = 0; pass < 2; pass++) {
     for (let k = 2 * N; k >= 0; k--) {
       const i = k % N;
       const j = (i + 1) % N;
-      const lim = Math.sqrt(v[j] * v[j] + 2 * PROFILE_BRAKE_DECEL * lineSeg[i]);
+      const decel = maxDecel(v[j] / UNITS_PER_M) * UNITS_PER_M;
+      const lim = Math.sqrt(v[j] * v[j] + 2 * decel * lineSeg[i]);
       if (lim < v[i]) v[i] = lim;
     }
     for (let k = 0; k <= 2 * N; k++) {
       const i = k % N;
       const j = (i + 1) % N;
-      const lim = Math.sqrt(v[i] * v[i] + 2 * Math.max(0, accelAt(v[i]) * 0.92) * lineSeg[i]);
+      const lim = Math.sqrt(v[i] * v[i] + 2 * Math.max(0, accelAt(v[i])) * lineSeg[i]);
       if (lim < v[j]) v[j] = lim;
     }
   }
