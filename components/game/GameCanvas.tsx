@@ -26,8 +26,8 @@ function PrewarmScene() {
   useEffect(() => {
     try {
       gl.compile(scene, camera);
-    } catch {
-      // Ignore if webgl context is busy
+    } catch (err) {
+      console.debug('Shader prewarm skipped or deferred', err);
     }
   }, [gl, scene, camera]);
   return null;

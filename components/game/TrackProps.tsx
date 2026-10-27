@@ -246,17 +246,7 @@ export function TrackProps() {
   const treeTex = useMemo(() => getTreeTexture(L.snow), [L.snow]);
 
   // Clean up dressing geometries on unmount / track switch
-  useEffect(() => {
-    return () => {
-      brakeBoards?.dispose();
-      tyreWalls?.dispose();
-      sponsors?.dispose();
-      marshals.posts?.dispose();
-      marshals.lightPanels?.dispose();
-      paddock?.dispose();
-      trees.geometry.dispose();
-    };
-  }, [brakeBoards, tyreWalls, sponsors, marshals, paddock, trees]);
+  const bannerGeo = useMemo(() => new THREE.PlaneGeometry(96, 12), []);
 
   // ---- banners along the catch fence on the main straight ----
   const banners = useMemo(() => {
@@ -304,6 +294,22 @@ export function TrackProps() {
     }
     return { poles: poles.build(), heads: heads.build(), pools };
   }, [trackId]);
+
+  useEffect(() => {
+    return () => {
+      standGeo?.dispose();
+      brakeBoards?.dispose();
+      tyreWalls?.dispose();
+      sponsors?.dispose();
+      marshals.posts?.dispose();
+      marshals.lightPanels?.dispose();
+      paddock?.dispose();
+      trees.geometry?.dispose();
+      towers.poles?.dispose();
+      towers.heads?.dispose();
+      bannerGeo?.dispose();
+    };
+  }, [standGeo, brakeBoards, tyreWalls, sponsors, marshals, paddock, trees, towers, bannerGeo]);
 
   const poolRef = useRef<THREE.InstancedMesh>(null);
   const glow = useMemo(() => getGlow(), []);
@@ -415,8 +421,7 @@ export function TrackProps() {
 
       {/* banners on the catch fence */}
       {banners.map((b) => (
-        <mesh key={b.key} position={[b.x, b.y, b.z]} rotation={[0, b.yaw, 0]}>
-          <planeGeometry args={[96, 12]} />
+        <mesh key={b.key} geometry={bannerGeo} position={[b.x, b.y, b.z]} rotation={[0, b.yaw, 0]}>
           <meshBasicMaterial map={b.tex} side={THREE.DoubleSide} toneMapped={false} />
         </mesh>
       ))}

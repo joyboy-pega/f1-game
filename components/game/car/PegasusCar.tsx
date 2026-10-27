@@ -158,7 +158,37 @@ export function PegasusCar({ car, interpolate = false }: PegasusCarProps) {
 
   const noseGeom = useMemo(() => buildSculptedNoseCone(), []);
   const rimGeo = useMemo(() => getPegasusRimGeometry(livery.rim, livery.accent), [livery.rim, livery.accent]);
-  const tyreGeo0 = useMemo(() => getTyreGeometry(car.compound), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const tyreGeo0 = useMemo(() => getTyreGeometry(car.compound), [car.compound]);
+
+  useEffect(() => {
+    return () => {
+      noseMat.dispose();
+      sidepodMat.dispose();
+      helmetMat.dispose();
+      carbonMat.dispose();
+      bodyColorMat.dispose();
+      accentColorMat.dispose();
+      frameTubeMat.dispose();
+      darkEngineMat.dispose();
+      engineAlloyMat.dispose();
+      copperGoldMat.dispose();
+      orangeCoilMat.dispose();
+      noseGeom.dispose();
+    };
+  }, [
+    noseMat,
+    sidepodMat,
+    helmetMat,
+    carbonMat,
+    bodyColorMat,
+    accentColorMat,
+    frameTubeMat,
+    darkEngineMat,
+    engineAlloyMat,
+    copperGoldMat,
+    orangeCoilMat,
+    noseGeom,
+  ]);
 
   // Frame tube segments
   const tubes = useMemo(() => {

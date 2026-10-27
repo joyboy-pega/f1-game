@@ -49,9 +49,9 @@ const GREY: RGBA = [0.52, 0.54, 0.57, 1];
 const WHITE: RGBA = [0.9, 0.9, 0.88, 1];
 const SIDES: (1 | -1)[] = [-1, 1];
 
-function merge(parts: THREE.BufferGeometry[]): THREE.BufferGeometry | null {
-  if (parts.length === 0) return null;
-  return parts.length === 1 ? parts[0] : mergeGeometries(parts, false);
+function merge(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  if (parts.length === 0) return new THREE.BufferGeometry();
+  return parts.length === 1 ? parts[0] : (mergeGeometries(parts, false) ?? new THREE.BufferGeometry());
 }
 
 function buildRoad() {
@@ -155,7 +155,7 @@ function buildBand(d0: Fn, d1: Fn, y: number, tile: number) {
       flip: side < 0,
     })
   );
-  return merge(parts)!;
+  return merge(parts);
 }
 
 /** Barrier/fence runs per side. On the pit side the wall stops at the pit exit and resumes after the entry. */
@@ -188,7 +188,7 @@ function buildWall() {
       );
     }
   }
-  return merge(parts)!;
+  return merge(parts);
 }
 
 function buildFence() {
@@ -210,7 +210,7 @@ function buildFence() {
       );
     }
   }
-  return merge(parts)!;
+  return merge(parts);
 }
 
 // ---- pit lane ----------------------------------------------------------------------------------
@@ -425,6 +425,12 @@ export function Track() {
       ground,
     };
   }, [snow]);
+
+  useEffect(() => {
+    return () => {
+      tex.ground.dispose();
+    };
+  }, [tex]);
 
   const roadRough = wet > 0.05 ? tex.wetRough : tex.road.rough;
   const roadTint = snow

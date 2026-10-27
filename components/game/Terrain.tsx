@@ -35,6 +35,12 @@ export function Terrain() {
     return { grass, macro };
   }, [snow]);
 
+  useEffect(() => {
+    return () => {
+      textures.grass.dispose();
+    };
+  }, [textures]);
+
   return (
     <group name="terrain">
       {/* 4 quadrant terrain chunks: frustum-culled per chunk, total <= 4 draw calls */}

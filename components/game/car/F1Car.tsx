@@ -52,7 +52,10 @@ function CarRig({ car, roadster, interpolate }: { car: WorldCar; roadster: boole
   const livery = car.driver.livery;
   const wheels: WheelSpec[] = roadster ? ROADSTER_WHEELS : F1_WHEELS;
 
-  const liveryMat = useMemo(() => getLiveryMaterial(livery), [livery.body, livery.accent, livery.rim, livery.number]); // eslint-disable-line react-hooks/exhaustive-deps
+  const liveryMat = useMemo(
+    () => getLiveryMaterial({ body: livery.body, accent: livery.accent, rim: livery.rim, number: livery.number }),
+    [livery.body, livery.accent, livery.rim, livery.number]
+  );
   const shared = getSharedMaterials();
   const mats = useMemo(() => createCarMaterials(), []);
   useEffect(() => () => {
@@ -64,7 +67,7 @@ function CarRig({ car, roadster, interpolate }: { car: WorldCar; roadster: boole
   const f1 = useMemo(() => (roadster ? null : getF1Geometries()), [roadster]);
   const rd = useMemo(() => (roadster ? getRoadsterGeometries() : null), [roadster]);
   const rimGeo = useMemo(() => getRimGeometry(livery.rim), [livery.rim]);
-  const tyreGeo0 = useMemo(() => getTyreGeometry(car.compound), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const tyreGeo0 = useMemo(() => getTyreGeometry(car.compound), [car.compound]);
 
   const root = useRef<THREE.Group>(null);
   const bodyGroup = useRef<THREE.Group>(null);
