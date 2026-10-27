@@ -9,6 +9,13 @@ import {
   deserializePacket,
   serializePacket,
 } from './protocol';
+import {
+  type MultiplayerTransport,
+  type SignallingBroker,
+  type TransportType,
+  BroadcastChannelTransport,
+  WebRTCTransport,
+} from './webrtcTransport';
 import { SnapshotInterpolator } from './interpolator';
 import { GameWorld } from '../sim/world';
 import { createBrain } from '../sim/ai';
@@ -37,8 +44,8 @@ export class MultiplayerRoom {
   };
   players: PlayerInfo[] = [];
   interpolator = new SnapshotInterpolator();
+  transport: MultiplayerTransport | null = null;
 
-  private channel: BroadcastChannel | null = null;
   private listeners: RoomEventListener[] = [];
   private peerHeartbeats = new Map<string, number>();
   private clientInputs = new Map<string, ControlState>();
@@ -69,10 +76,10 @@ export class MultiplayerRoom {
     for (const l of this.listeners) l.onSettingsChange?.({ ...this.settings });
   }
 
-  createRoom(roomId: string, initialPlayer: Partial<PlayerInfo>) {
+  createRoom(roomId: string, initialPlayer: Partial<PlayerInfo>, mode: TransportType = 'broadcast', broker?: SignallingBroker) {
     this.roomId = roomId;
     this.role = 'host';
-    this.setupTransport(roomId);
+    this.setupTransport(roomId, mode, broker);
     this.players = [
       {
         id: this.localPeerId,
@@ -92,10 +99,10 @@ export class MultiplayerRoom {
     this.broadcastRoomSync();
   }
 
-  joinRoom(roomId: string, player: Partial<PlayerInfo>) {
+  joinRoom(roomId: string, player: Partial<PlayerInfo>, mode: TransportType = 'broadcast', broker?: SignallingBroker) {
     this.roomId = roomId;
     this.role = 'client';
-    this.setupTransport(roomId);
+    this.setupTransport(roomId, mode, broker);
     this.localPlayerInfo = {
       id: this.localPeerId,
       carId: -1,
@@ -214,19 +221,29 @@ export class MultiplayerRoom {
     }
   }
 
-  private setupTransport(roomId: string) {
-    if (typeof BroadcastChannel !== 'undefined') {
-      this.channel = new BroadcastChannel(`f1_room_${roomId}`);
-      this.channel.onmessage = (ev) => {
-        const packet = deserializePacket(ev.data);
-        if (packet) this.handlePacket(packet);
-      };
+  setupTransport(roomId: string, mode: TransportType = 'broadcast', broker?: SignallingBroker) {
+    if (this.transport) {
+      this.transport.close();
+      this.transport = null;
     }
+
+    if (mode === 'webrtc' && typeof RTCPeerConnection !== 'undefined') {
+      this.transport = new WebRTCTransport({
+        isHost: this.role === 'host',
+        roomId,
+        localPeerId: this.localPeerId,
+        broker,
+      });
+    } else {
+      this.transport = new BroadcastChannelTransport(roomId);
+    }
+
+    this.transport.onMessage((packet) => this.handlePacket(packet));
   }
 
   private send(packet: MultiplayerPacket) {
-    if (this.channel) {
-      this.channel.postMessage(serializePacket(packet));
+    if (this.transport) {
+      this.transport.send(packet);
     }
   }
 
@@ -314,12 +331,12 @@ export class MultiplayerRoom {
   }
 
   close() {
-    if (this.channel) {
+    if (this.transport) {
       if (this.role === 'client') {
         this.send({ type: 'leave', peerId: this.localPeerId });
       }
-      this.channel.close();
-      this.channel = null;
+      this.transport.close();
+      this.transport = null;
     }
     this.state = 'idle';
     this.players = [];

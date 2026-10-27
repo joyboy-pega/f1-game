@@ -104,7 +104,8 @@ export function serializePacket(packet: MultiplayerPacket): string {
 export function deserializePacket(raw: string): MultiplayerPacket | null {
   try {
     return JSON.parse(raw) as MultiplayerPacket;
-  } catch {
+  } catch (err) {
+    console.debug('Failed to deserialize packet', err);
     return null;
   }
 }
