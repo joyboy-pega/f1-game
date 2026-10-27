@@ -24,6 +24,7 @@ export type SimEvent =
   /** The driver changed the box request or the tyre planned for the next stop. */
   | { type: 'pitPlan'; carId: number; box: boolean; compound: TyreCompound }
   | { type: 'pitExit'; carId: number; compound: TyreCompound; stationaryTime: number }
+  | { type: 'pitQTE'; carId: number; result: 'perfect' | 'good' | 'early' | 'late'; delta: number }
   | { type: 'collision'; carId: number; otherId: number | null; intensity: number }
   | { type: 'reset'; carId: number };
 

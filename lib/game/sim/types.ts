@@ -166,6 +166,12 @@ export interface PitState {
   stationary: number;
   /** Race time at pit entry. */
   enteredAt: number;
+  /** QTE mini-game fields (for player reaction timing) */
+  qtePrompt?: boolean;
+  qteTarget?: number;
+  qteWindow?: number;
+  qteResult?: 'perfect' | 'good' | 'early' | 'late' | null;
+  qteHandled?: boolean;
 }
 
 export interface LimitsState {

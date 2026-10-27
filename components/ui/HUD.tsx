@@ -5,6 +5,7 @@ import { useGameStore } from '@/lib/game/store';
 import { ControlsHint } from './hud/ControlsHint';
 import { DriverCluster } from './hud/DriverCluster';
 import { LapChip } from './hud/LapChip';
+import { PitQTEOverlay } from './hud/PitQTEOverlay';
 import { StartLights } from './hud/StartLights';
 import { TimingTower } from './hud/TimingTower';
 import { Toasts } from './hud/Toasts';
@@ -45,6 +46,7 @@ export function HUD() {
       </div>
       <StartLights />
       <Toasts />
+      <PitQTEOverlay />
       <DriverCluster />
       <ControlsHint />
     </div>

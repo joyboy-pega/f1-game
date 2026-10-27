@@ -46,6 +46,14 @@ export interface TimingRow {
   penaltySec: number;
 }
 
+export interface PitServiceSnapshot {
+  active: boolean;
+  stationary: number;
+  serviceTime: number;
+  qteTarget: number;
+  qteResult: 'perfect' | 'good' | 'early' | 'late' | null;
+}
+
 /** UI-rate (~10 Hz) snapshot of the player's race, written by GameLoop into the store. */
 export interface HudSnapshot {
   lap: number; // current lap (1-based, clamped to totalLaps)
@@ -68,6 +76,7 @@ export interface HudSnapshot {
   nextCompound: TyreCompound;
   inPitLane: boolean;
   tyreWear: number; // 0..1 average
+  pitService: PitServiceSnapshot | null;
 }
 
 export const EMPTY_HUD: HudSnapshot = {
@@ -95,6 +104,7 @@ export const EMPTY_HUD: HudSnapshot = {
   nextCompound: 'medium',
   inPitLane: false,
   tyreWear: 0,
+  pitService: null,
 };
 
 export interface ClassificationRow {

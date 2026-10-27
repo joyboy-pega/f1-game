@@ -19,7 +19,7 @@ import { CollisionSystem } from './collisions';
 import { FlagsManager } from './flags';
 import { WeatherManager } from './weather';
 import { updateDrsAvailability, updateSlipstream } from './drs';
-import { aiPitStrategy, checkPitEntry, cycleNextCompound, driveInPit, togglePitRequest, type PitContext } from './pit';
+import { aiPitStrategy, checkPitEntry, cycleNextCompound, driveInPit, handlePitReaction, togglePitRequest, type PitContext } from './pit';
 import { updateTrackLimits, type LimitsContext } from './penalties';
 import { wetnessFor } from './tyres';
 import {
@@ -644,7 +644,21 @@ export class GameWorld {
       nextCompound: pl.nextCompound,
       inPitLane: pl.inPit,
       tyreWear: pl.phys.tires.avgWear,
+      pitService: pl.pit && pl.pit.stage === 'service' ? {
+        active: true,
+        stationary: pl.pit.stationary,
+        serviceTime: pl.pit.serviceTime,
+        qteTarget: pl.pit.qteTarget ?? pl.pit.serviceTime * 0.65,
+        qteResult: pl.pit.qteResult ?? null,
+      } : null,
     };
+  }
+
+  triggerPitReaction() {
+    if (this.player && this.player.pit) {
+      return handlePitReaction(this.player, this.events);
+    }
+    return null;
   }
 
   buildResults(): RaceResults {
@@ -659,17 +673,17 @@ export class GameWorld {
     } else {
       const finished = this.cars
         .filter((c) => c.timing.finished)
-        .sort((a, b) => (a.timing.finishTime! + a.timing.penaltySec) - (b.timing.finishTime! + b.timing.penaltySec));
+        .sort((a, b) => ((a.timing.finishTime ?? 0) + a.timing.penaltySec) - ((b.timing.finishTime ?? 0) + b.timing.penaltySec));
       const running = this.order.filter((c) => !c.timing.finished);
       ordered = [...finished, ...running];
       const winner = finished[0];
-      winnerTime = winner ? winner.timing.finishTime! + winner.timing.penaltySec : null;
+      winnerTime = winner ? (winner.timing.finishTime ?? 0) + winner.timing.penaltySec : null;
     }
 
     const pointsMap = calculateChampionshipPoints(ordered, this.overall.bestLapCarId ?? undefined);
 
     const classification: ClassificationRow[] = ordered.map((c, i) => {
-      const total = c.timing.finished ? c.timing.finishTime! + c.timing.penaltySec : null;
+      const total = c.timing.finished ? (c.timing.finishTime ?? 0) + c.timing.penaltySec : null;
       let gapText: string;
       if (this.isQualifying) {
         if (i === 0 && c.timing.bestLap !== null) gapText = formatLapTime(c.timing.bestLap);

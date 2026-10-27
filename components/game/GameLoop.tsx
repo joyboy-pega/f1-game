@@ -77,6 +77,13 @@ function handleEvent(e: SimEvent) {
         toast({ id: 'pit', type: 'pit', title: 'FRESH TYRES', subtitle: e.compound.toUpperCase(), duration: 2 });
       }
       break;
+    case 'pitQTE':
+      if (e.carId === pid) {
+        const title = e.result === 'perfect' ? 'PERFECT RELEASE!' : e.result === 'good' ? 'CLEAN RELEASE!' : e.result === 'early' ? 'FALSE START!' : 'LATE RELEASE';
+        const sub = e.delta < 0 ? `${e.delta.toFixed(2)}s (BONUS)` : e.delta > 0 ? `+${e.delta.toFixed(2)}s (DELAY)` : '+0.0s';
+        toast({ id: 'pit-qte', type: e.result === 'early' ? 'penalty' : 'pit', title, subtitle: sub, duration: 2.2 });
+      }
+      break;
     case 'penalty':
       if (e.carId === pid) toast({ id: `pen-${Date.now()}`, type: 'penalty', title: `+${e.seconds}s PENALTY`, subtitle: e.reason, duration: 3 });
       break;

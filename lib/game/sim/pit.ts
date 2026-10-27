@@ -123,7 +123,8 @@ export function checkPitEntry(car: WorldCar, idxBefore: number, ctx: PitContext)
 }
 
 function latTarget(car: WorldCar, sArc: number, boxArc: number): number {
-  const pit = car.pit!;
+  const pit = car.pit;
+  if (!pit) return 0;
   const G = getPitGeo();
   const FAST_LAT = G.fastLat;
   const BOX_LAT = G.boxLat;
@@ -152,7 +153,8 @@ function laneBusyBehind(car: WorldCar, cars: WorldCar[]): boolean {
  * pit lane and control goes back to the player / AI.
  */
 export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean {
-  const pit = car.pit!;
+  const pit = car.pit;
+  if (!pit) return true;
   const p = car.phys;
   const ctrl = car.ctrl;
   const v = Math.max(0, p.vf);
@@ -181,6 +183,11 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
       pit.serviceTime = 2.2 + ctx.rand() * 1.3 + (ctx.rand() < 0.12 ? 1.5 + ctx.rand() * 2.5 : 0) + wingRepair;
       pit.serviceLeft = pit.serviceTime;
       pit.stationary = 0;
+      pit.qtePrompt = true;
+      pit.qteTarget = pit.serviceTime * 0.65;
+      pit.qteWindow = 0.35;
+      pit.qteResult = null;
+      pit.qteHandled = false;
     }
   }
 
@@ -195,6 +202,14 @@ export function driveInPit(car: WorldCar, ctx: PitContext, dt: number): boolean 
       p._veh.yawRate = 0;
       p._veh.vy = 0;
     }
+
+    // Auto-resolve missed player reaction if elapsed past the window
+    if (car.isPlayer && !pit.qteHandled && pit.qteTarget && pit.stationary > pit.qteTarget + 0.6) {
+      pit.qteResult = 'late';
+      pit.qteHandled = true;
+      ctx.events.emit({ type: 'pitQTE', carId: car.id, result: 'late', delta: 0.0 });
+    }
+
     if (pit.serviceLeft > 0) pit.serviceLeft -= dt;
     else if (!laneBusyBehind(car, ctx.cars) || pit.stationary > pit.serviceTime + 8) {
       // Tyres go on at the end of the stop; they start cool and warm up on track.
@@ -294,4 +309,41 @@ export function aiPitStrategy(car: WorldCar, ctx: PitContext) {
     car.nextCompound = chooseNextCompound(remaining - 1, ctx.wetness);
     car.ai.lastStopLap = lapsDone;
   }
+}
+
+/**
+ * Triggers interactive pit stop release reaction for the given car.
+ * Returns the reaction grading and adjusts remaining service time accordingly.
+ */
+export function handlePitReaction(car: WorldCar, events?: EventBus): 'perfect' | 'good' | 'early' | 'late' | null {
+  const pit = car.pit;
+  if (!pit || pit.stage !== 'service' || pit.qteHandled || !pit.qteTarget) return null;
+
+  const diff = pit.stationary - pit.qteTarget;
+  let result: 'perfect' | 'good' | 'early' | 'late';
+  let delta = 0;
+
+  if (Math.abs(diff) <= 0.18) {
+    result = 'perfect';
+    delta = -0.6;
+    pit.serviceLeft = Math.max(0.1, pit.serviceLeft + delta);
+  } else if (Math.abs(diff) <= 0.38) {
+    result = 'good';
+    delta = -0.25;
+    pit.serviceLeft = Math.max(0.1, pit.serviceLeft + delta);
+  } else if (diff < -0.38) {
+    result = 'early';
+    delta = 0.8;
+    pit.serviceLeft += delta;
+  } else {
+    result = 'late';
+    delta = 0.0;
+  }
+
+  pit.qteResult = result;
+  pit.qteHandled = true;
+  if (events) {
+    events.emit({ type: 'pitQTE', carId: car.id, result, delta });
+  }
+  return result;
 }
