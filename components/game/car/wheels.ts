@@ -137,11 +137,13 @@ export function getGlowMap(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 2;
   c.height = 1;
-  const ctx = c.getContext('2d')!;
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, 1, 1);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(1, 0, 1, 1);
+  const ctx = c.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, 1, 1);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(1, 0, 1, 1);
+  }
   glowMap = new THREE.CanvasTexture(c);
   glowMap.magFilter = THREE.NearestFilter;
   glowMap.minFilter = THREE.NearestFilter;

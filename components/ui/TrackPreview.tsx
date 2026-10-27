@@ -18,7 +18,9 @@ export function TrackPreview({ trackId, className }: { trackId: string; classNam
       .then((rt) => {
         if (live) setOutline(trackOutline(rt, W, H, 10));
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (live) console.warn(`Failed to generate track outline for ${trackId}`, err);
+      });
     return () => {
       live = false;
     };

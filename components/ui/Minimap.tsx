@@ -29,7 +29,8 @@ function drawStatic(): HTMLCanvasElement {
   const cv = document.createElement('canvas');
   cv.width = W * DPR;
   cv.height = H * DPR;
-  const ctx = cv.getContext('2d')!;
+  const ctx = cv.getContext('2d');
+  if (!ctx) return cv;
   ctx.scale(DPR, DPR);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';

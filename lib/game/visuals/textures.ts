@@ -38,7 +38,8 @@ function mk(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D]
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
-  return [c, c.getContext('2d', { willReadFrequently: true })!];
+  const ctx = c.getContext('2d', { willReadFrequently: true }) ?? ({} as unknown as CanvasRenderingContext2D);
+  return [c, ctx];
 }
 
 interface TexOpts {
@@ -47,9 +48,9 @@ interface TexOpts {
   wrapT?: THREE.Wrapping;
   aniso?: number;
 }
-function toTex(c: HTMLCanvasElement, o: TexOpts = {}): THREE.CanvasTexture {
+function toTex(c: HTMLCanvasElement, o: TexOpts = {}): THREE.Texture {
   if (typeof document === 'undefined') {
-    return new THREE.Texture() as unknown as THREE.CanvasTexture;
+    return new THREE.Texture();
   }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = o.srgb === false ? THREE.NoColorSpace : THREE.SRGBColorSpace;

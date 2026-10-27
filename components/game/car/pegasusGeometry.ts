@@ -9,7 +9,8 @@ function luminance(hex: string): number {
   try {
     const c = new THREE.Color(hex);
     return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
-  } catch {
+  } catch (err) {
+    console.debug('Invalid color string in luminance calculation', hex, err);
     return 0.5;
   }
 }
@@ -85,12 +86,12 @@ function drawPegasusSilhouette(ctx: CanvasRenderingContext2D, x: number, y: numb
   ctx.restore();
 }
 
-const noseTexCache = new Map<string, THREE.CanvasTexture>();
-const sidepodTexCache = new Map<string, THREE.CanvasTexture>();
-const helmetTexCache = new Map<string, THREE.CanvasTexture>();
-let cachedCarbonTex: THREE.CanvasTexture | null = null;
+const noseTexCache = new Map<string, THREE.Texture>();
+const sidepodTexCache = new Map<string, THREE.Texture>();
+const helmetTexCache = new Map<string, THREE.Texture>();
+let cachedCarbonTex: THREE.Texture | null = null;
 
-export function getPegasusNoseConeTexture(livery: Livery, driverCode = 'PEG'): THREE.CanvasTexture {
+export function getPegasusNoseConeTexture(livery: Livery, driverCode = 'PEG'): THREE.Texture {
   const body = livery.body || '#f8fafc';
   const accent = livery.accent || '#dc2626';
   const num = String(livery.number || 53);
@@ -98,13 +99,13 @@ export function getPegasusNoseConeTexture(livery: Livery, driverCode = 'PEG'): T
 
   const hit = noseTexCache.get(key);
   if (hit) return hit;
-  if (typeof document === 'undefined') return new THREE.Texture() as unknown as THREE.CanvasTexture;
+  if (typeof document === 'undefined') return new THREE.Texture();
 
   const canvas = document.createElement('canvas');
   canvas.width = 2048;
   canvas.height = 2048;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.Texture() as unknown as THREE.CanvasTexture;
+  if (!ctx) return new THREE.Texture();
 
   const ink = contrastInk(body);
   const secInk = secondaryInk(body);
@@ -271,7 +272,7 @@ export function getPegasusNoseConeTexture(livery: Livery, driverCode = 'PEG'): T
   return tex;
 }
 
-export function getPegasusSidepodTexture(livery: Livery): THREE.CanvasTexture {
+export function getPegasusSidepodTexture(livery: Livery): THREE.Texture {
   const body = livery.body || '#f8fafc';
   const accent = livery.accent || '#dc2626';
   const num = String(livery.number || 53);
@@ -279,13 +280,13 @@ export function getPegasusSidepodTexture(livery: Livery): THREE.CanvasTexture {
 
   const hit = sidepodTexCache.get(key);
   if (hit) return hit;
-  if (typeof document === 'undefined') return new THREE.Texture() as unknown as THREE.CanvasTexture;
+  if (typeof document === 'undefined') return new THREE.Texture();
 
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 512;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.Texture() as unknown as THREE.CanvasTexture;
+  if (!ctx) return new THREE.Texture();
 
   const ink = contrastInk(body);
 
@@ -345,20 +346,20 @@ export function getPegasusSidepodTexture(livery: Livery): THREE.CanvasTexture {
   return tex;
 }
 
-export function getPegasusHelmetTexture(livery: Livery): THREE.CanvasTexture {
+export function getPegasusHelmetTexture(livery: Livery): THREE.Texture {
   const body = livery.body || '#f8fafc';
   const accent = livery.accent || '#dc2626';
   const key = `${body}_${accent}`;
 
   const hit = helmetTexCache.get(key);
   if (hit) return hit;
-  if (typeof document === 'undefined') return new THREE.Texture() as unknown as THREE.CanvasTexture;
+  if (typeof document === 'undefined') return new THREE.Texture();
 
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 512;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.Texture() as unknown as THREE.CanvasTexture;
+  if (!ctx) return new THREE.Texture();
 
   const ink = contrastInk(body);
 
@@ -396,15 +397,15 @@ export function getPegasusHelmetTexture(livery: Livery): THREE.CanvasTexture {
   return tex;
 }
 
-export function getCarbonTexture(): THREE.CanvasTexture {
+export function getCarbonTexture(): THREE.Texture {
   if (cachedCarbonTex) return cachedCarbonTex;
-  if (typeof document === 'undefined') return new THREE.Texture() as unknown as THREE.CanvasTexture;
+  if (typeof document === 'undefined') return new THREE.Texture();
 
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.Texture() as unknown as THREE.CanvasTexture;
+  if (!ctx) return new THREE.Texture();
 
   ctx.fillStyle = '#18181b';
   ctx.fillRect(0, 0, 64, 64);

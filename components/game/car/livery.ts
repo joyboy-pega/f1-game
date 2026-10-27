@@ -174,11 +174,13 @@ export function paintLivery(l: Livery): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = ATLAS_W;
   canvas.height = ATLAS_H;
-  const ctx = canvas.getContext('2d')!;
-  drawRing(ctx, l);
-  drawSide(ctx, l, SIDE_L_TOP, true);
-  drawSide(ctx, l, SIDE_R_TOP, false);
-  drawPatches(ctx, l);
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    drawRing(ctx, l);
+    drawSide(ctx, l, SIDE_L_TOP, true);
+    drawSide(ctx, l, SIDE_R_TOP, false);
+    drawPatches(ctx, l);
+  }
   return canvas;
 }
 

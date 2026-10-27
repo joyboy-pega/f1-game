@@ -94,7 +94,7 @@ export const GOVERNOR = {
 export function detectInitialQuality(): QualityLevel {
   if (typeof window === 'undefined') return 'MEDIUM';
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const mem = (navigator as unknown as { deviceMemory?: number }).deviceMemory;
+  const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
   const cores = navigator.hardwareConcurrency || 4;
   return isMobile || (mem && mem <= 4) || cores <= 4 ? 'MEDIUM' : 'HIGH';
 }
@@ -111,7 +111,8 @@ export function migrateLegacyQualityKey(storage: Pick<Storage, 'getItem' | 'remo
     if (saved === null) return null;
     storage.removeItem(LEGACY_QUALITY_KEY);
     return saved === 'LOW' || saved === 'MEDIUM' || saved === 'HIGH' ? saved : null;
-  } catch {
+  } catch (err) {
+    console.warn('Failed to migrate legacy quality key', err);
     return null;
   }
 }

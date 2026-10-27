@@ -77,8 +77,8 @@ const memoryStorage = {
 function getStorage() {
   try {
     if (typeof window !== 'undefined' && window.localStorage) return window.localStorage;
-  } catch {
-    // ignore
+  } catch (err) {
+    console.warn('LocalStorage access blocked, using memory storage', err);
   }
   return memoryStorage;
 }

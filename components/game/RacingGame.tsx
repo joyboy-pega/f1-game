@@ -24,7 +24,8 @@ export async function startSession() {
   // Load (and build) the selected circuit before the world is set up against it.
   try {
     await ensureTrack(settings.trackId);
-  } catch {
+  } catch (err) {
+    console.warn(`Failed to load track ${settings.trackId}, falling back to buddh`, err);
     useGameStore.getState().setSettings({ trackId: 'buddh' });
   }
   const s = useGameStore.getState().settings;
@@ -57,7 +58,9 @@ export function RacingGame() {
       if (legacy && st.settings.quality === 'AUTO') st.setSettings({ quality: legacy });
       try {
         migrateLegacyGhostKeys(window.localStorage);
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to migrate legacy ghost keys', err);
+      }
       void startSession().then(() => setReady(true));
     };
     if (useGameStore.persist.hasHydrated()) start();

@@ -50,8 +50,8 @@ export function migrateLegacyGhostKeys(storage: Pick<Storage, 'getItem' | 'setIt
         moved++;
       }
       storage.removeItem(oldKey);
-    } catch {
-      // storage unavailable or full: leave the old key in place
+    } catch (err) {
+      console.warn('Failed to migrate ghost key', oldKey, err);
     }
   }
   return moved;
@@ -90,7 +90,8 @@ export function parseGhost(raw: string | null): GhostLap | null {
     const data = new Float32Array(o.n * GHOST_STRIDE);
     new Uint8Array(data.buffer).set(bytes);
     return { trackId: typeof o.k === 'string' ? o.k : 'buddh', weather: String(o.w ?? ''), lapTime: o.t, n: o.n, data };
-  } catch {
+  } catch (err) {
+    console.warn('Failed to parse ghost lap data', err);
     return null;
   }
 }
@@ -98,7 +99,8 @@ export function parseGhost(raw: string | null): GhostLap | null {
 export function loadGhost(trackId: string, weather: string): GhostLap | null {
   try {
     return parseGhost(localStorage.getItem(ghostKey(trackId, weather)));
-  } catch {
+  } catch (err) {
+    console.warn('Failed to load ghost lap from localStorage', err);
     return null;
   }
 }
@@ -107,8 +109,9 @@ export function saveGhost(g: GhostLap): boolean {
   try {
     localStorage.setItem(ghostKey(g.trackId, g.weather), serializeGhost(g));
     return true;
-  } catch {
-    return false; // quota / private mode: keep the in-memory ghost for this session only
+  } catch (err) {
+    console.warn('Failed to save ghost lap to localStorage', err);
+    return false;
   }
 }
 

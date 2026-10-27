@@ -73,8 +73,7 @@ function CameraController({
   presetTarget: [number, number, number] | null;
   onUserInteract: () => void;
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const controlsRef = useRef<any>(null);
+  const controlsRef = useRef<React.ComponentRef<typeof OrbitControls>>(null);
   const defaultTarget = useMemo(() => new THREE.Vector3(62, 29, 83), []);
   const lookTarget = useMemo(() => new THREE.Vector3(0, 6, 0), []);
 
