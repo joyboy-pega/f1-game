@@ -8,7 +8,7 @@ import { MODE_NAMES, ordinal } from './format';
 import { getTrackCatalogEntry } from '@/lib/game/track';
 import { exportLapTelemetryCsv, type TelemetrySample } from '@/lib/game/sim/rules';
 import { world } from '@/lib/game/sim/world';
-import { recorder } from '@/lib/game/sim/recorder';
+import { makeCarSample, recorder } from '@/lib/game/sim/recorder';
 
 interface GameOverProps {
   results: RaceResults;
@@ -53,7 +53,9 @@ export function GameOver({ results, onRestart, onExitToMenu }: GameOverProps) {
     if (!isMultiCar || pos > 3) return;
     try {
       confetti({ particleCount: pos === 1 ? 160 : 90, spread: 80, origin: { y: 0.55 }, colors: ['#c8ff2e', '#ffffff', '#ff6b1a'] });
-    } catch {}
+    } catch (err) {
+      console.debug('Confetti animation suppressed or unsupported', err);
+    }
   }, [isMultiCar, pos]);
 
   const headline = useMemo(() => {
@@ -69,15 +71,42 @@ export function GameOver({ results, onRestart, onExitToMenu }: GameOverProps) {
 
   const handleExportTelemetry = () => {
     const samples: TelemetrySample[] = [];
-    const carId = world.player.id;
-    const dur = Math.min(recorder.duration, 180);
-    const steps = 120;
-    for (let i = 0; i < steps; i++) {
-      const t = (i / (steps - 1)) * dur;
-      const loc = recorder.locate(t);
-      const s = { ...recorder.locate(t) } as any;
+    const sample = makeCarSample();
+    const pid = world.player.id;
+    const dur = recorder.duration;
+    const count = recorder.count;
+
+    if (count > 1 && dur > 0.5) {
+      const steps = Math.min(300, Math.max(60, Math.round(dur * 2)));
+      let distM = 0;
+      let prevTime = 0;
+      let prevVf = 0;
+
+      for (let i = 0; i < steps; i++) {
+        const t = (i / (steps - 1)) * dur;
+        const loc = recorder.locate(t);
+        recorder.readCar(loc, pid, sample);
+        const dt = i === 0 ? 0.5 : Math.max(0.001, t - prevTime);
+        distM += (sample.kmh / 3.6) * dt;
+        const lonG = i === 0 ? 0 : ((sample.vf - prevVf) * 0.1 / dt) / 9.81;
+        prevTime = t;
+        prevVf = sample.vf;
+
+        samples.push({
+          distanceM: distM,
+          speedKmh: sample.kmh,
+          throttle: sample.brake > 0.05 ? 0 : Math.min(1, Math.max(0, (sample.rpm - 4000) / 10000)),
+          brake: sample.brake,
+          gear: sample.gear,
+          rpm: sample.rpm,
+          drs: sample.drsOpen,
+          lateralG: (sample.vl * 0.1) / 9.81,
+          longitudinalG: lonG,
+        });
+      }
+    } else {
       samples.push({
-        distanceM: i * 40,
+        distanceM: 0,
         speedKmh: world.player.phys.kmh,
         throttle: world.player.ctrl.throttle,
         brake: world.player.ctrl.brake,
@@ -88,6 +117,7 @@ export function GameOver({ results, onRestart, onExitToMenu }: GameOverProps) {
         longitudinalG: (world.player.phys.vf * 0.1) / 9.81,
       });
     }
+
     const csv = exportLapTelemetryCsv(samples);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

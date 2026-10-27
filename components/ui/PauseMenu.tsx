@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { formatLapTime } from '@/lib/game/gameState';
 import { useGameStore } from '@/lib/game/store';
 import { ControlsPanel } from './ControlsPanel';
@@ -9,7 +9,8 @@ import { MODE_NAMES } from './format';
 import { getTrackCatalogEntry } from '@/lib/game/track';
 import { exportLapTelemetryCsv, type TelemetrySample } from '@/lib/game/sim/rules';
 import { world } from '@/lib/game/sim/world';
-import { recorder } from '@/lib/game/sim/recorder';
+import { makeCarSample, recorder } from '@/lib/game/sim/recorder';
+import { getRacingLine } from '@/lib/game/sim/racingLine';
 
 interface PauseMenuProps {
   onResume: () => void;
@@ -25,13 +26,84 @@ function TelemetryTab() {
   const stats = world.player.stats;
   const [exported, setExported] = useState(false);
 
+  const rl = getRacingLine();
+  const dur = recorder.duration;
+  const count = recorder.count;
+
+  // Real reference speed curve from active track racing-line speed profile
+  const refPath = useMemo(() => {
+    const pts: string[] = [];
+    const steps = 60;
+    const len = rl.speed.length;
+    for (let i = 0; i <= steps; i++) {
+      const idx = Math.min(len - 1, Math.floor((i / steps) * (len - 1)));
+      const x = (i / steps) * 500;
+      const kmh = rl.speed[idx] * 0.36;
+      const y = 110 - Math.min(100, Math.max(0, (kmh / 350) * 95));
+      pts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`);
+    }
+    return pts.join(' ');
+  }, [rl]);
+
+  // Real player speed curve from session recorder
+  const playerPath = useMemo(() => {
+    const pts: string[] = [];
+    const steps = 60;
+    const sample = makeCarSample();
+    const pid = world.player.id;
+
+    if (count > 1 && dur > 0.5) {
+      for (let i = 0; i <= steps; i++) {
+        const t = (i / steps) * dur;
+        const loc = recorder.locate(t);
+        recorder.readCar(loc, pid, sample);
+        const x = (i / steps) * 500;
+        const y = 110 - Math.min(100, Math.max(0, (sample.kmh / 350) * 95));
+        pts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`);
+      }
+    } else {
+      const y = 110 - Math.min(100, Math.max(0, (p.kmh / 350) * 95));
+      pts.push(`M0,${y.toFixed(1)} L500,${y.toFixed(1)}`);
+    }
+    return pts.join(' ');
+  }, [count, dur, p.kmh]);
+
   const handleExport = () => {
     const samples: TelemetrySample[] = [];
-    const dur = Math.min(recorder.duration, 180);
-    const steps = 150;
-    for (let i = 0; i < steps; i++) {
+    const sample = makeCarSample();
+    const pid = world.player.id;
+
+    if (count > 1 && dur > 0.5) {
+      const steps = Math.min(300, Math.max(60, Math.round(dur * 2)));
+      let distM = 0;
+      let prevTime = 0;
+      let prevVf = 0;
+
+      for (let i = 0; i < steps; i++) {
+        const t = (i / (steps - 1)) * dur;
+        const loc = recorder.locate(t);
+        recorder.readCar(loc, pid, sample);
+        const dt = i === 0 ? 0.5 : Math.max(0.001, t - prevTime);
+        distM += (sample.kmh / 3.6) * dt;
+        const lonG = i === 0 ? 0 : ((sample.vf - prevVf) * 0.1 / dt) / 9.81;
+        prevTime = t;
+        prevVf = sample.vf;
+
+        samples.push({
+          distanceM: distM,
+          speedKmh: sample.kmh,
+          throttle: sample.brake > 0.05 ? 0 : Math.min(1, Math.max(0, (sample.rpm - 4000) / 10000)),
+          brake: sample.brake,
+          gear: sample.gear,
+          rpm: sample.rpm,
+          drs: sample.drsOpen,
+          lateralG: (sample.vl * 0.1) / 9.81,
+          longitudinalG: lonG,
+        });
+      }
+    } else {
       samples.push({
-        distanceM: i * 35,
+        distanceM: 0,
         speedKmh: p.kmh,
         throttle: world.player.ctrl.throttle,
         brake: world.player.ctrl.brake,
@@ -42,6 +114,7 @@ function TelemetryTab() {
         longitudinalG: (p.vf * 0.1) / 9.81,
       });
     }
+
     const csv = exportLapTelemetryCsv(samples);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -85,16 +158,16 @@ function TelemetryTab() {
           <line x1="0" y1="20" x2="500" y2="20" stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
           <line x1="0" y1="60" x2="500" y2="60" stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
           <line x1="0" y1="100" x2="500" y2="100" stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
-          {/* Reference baseline curve */}
+          {/* Reference baseline curve from racing line speed profile */}
           <path
-            d="M0,105 Q60,30 140,22 T250,85 T360,18 T500,75"
+            d={refPath}
             fill="none"
             stroke="rgba(255,255,255,0.25)"
             strokeWidth="2"
           />
-          {/* Speed line */}
+          {/* Real player speed line */}
           <path
-            d="M0,110 Q55,25 135,18 T245,78 T355,14 T500,68"
+            d={playerPath}
             fill="none"
             stroke="var(--lime)"
             strokeWidth="2.5"

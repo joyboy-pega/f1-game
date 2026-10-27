@@ -29,6 +29,12 @@ export interface RecordableCar {
   position: number;
   inPit?: boolean;
   timing: { lapsCompleted: number };
+  driver?: {
+    code: string;
+    name: string;
+    livery?: { body: string };
+  };
+  isPlayer?: boolean;
   phys: {
     x: number;
     y: number;
@@ -168,13 +174,12 @@ export class Recorder {
   private begin(w: RecordableWorld) {
     this.reset(w.cars.length, w.raceId);
     this.carMeta = w.cars.map((c) => {
-      const d = (c as unknown as { driver?: { code: string; name: string; livery?: { body: string } }; isPlayer?: boolean });
       return {
         id: c.id,
-        code: d.driver?.code ?? `C${c.id}`,
-        name: d.driver?.name ?? '',
-        color: d.driver?.livery?.body ?? '#ffffff',
-        isPlayer: !!d.isPlayer,
+        code: c.driver?.code ?? `C${c.id}`,
+        name: c.driver?.name ?? '',
+        color: c.driver?.livery?.body ?? '#ffffff',
+        isPlayer: !!c.isPlayer,
       };
     });
     this.unsub?.();
