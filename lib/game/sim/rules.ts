@@ -125,10 +125,9 @@ export class EngineerManager {
     if (p.pitRequest && sec === 2 && !this.boxAlertEmitted) {
       this.boxAlertEmitted = true;
       events.emit({
-        type: 'penalty',
-        carId: p.id,
-        seconds: 0,
-        reason: `BOX THIS LAP · FITTING ${p.nextCompound.toUpperCase()}`,
+        type: 'engineer',
+        message: `BOX THIS LAP · FITTING ${p.nextCompound.toUpperCase()}`,
+        sub: 'Pit window open · Confirming tyre compound',
       });
     } else if (!p.pitRequest || p.inPit) {
       this.boxAlertEmitted = false;
@@ -141,10 +140,9 @@ export class EngineerManager {
       if (Math.abs(c.position - p.position) === 1 && c.inPit && c.id !== this.lastRivalPittedId) {
         this.lastRivalPittedId = c.id;
         events.emit({
-          type: 'penalty',
-          carId: p.id,
-          seconds: 0,
-          reason: `RIVAL PITTED · P${c.position} IN PIT LANE`,
+          type: 'engineer',
+          message: `RIVAL PITTED · P${c.position} IN PIT LANE`,
+          sub: 'Clear air ahead · Push now',
         });
         break;
       }

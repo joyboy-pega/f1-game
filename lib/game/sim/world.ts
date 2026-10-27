@@ -159,7 +159,11 @@ export class GameWorld {
   }
 
   get isRace() {
-    return this.settings.mode === 'race';
+    return this.settings.mode === 'race' || this.settings.mode === 'multiplayer';
+  }
+
+  get isMultiplayer() {
+    return this.settings.mode === 'multiplayer';
   }
 
   updateSettings(patch: Partial<GameSettings>) {
@@ -197,7 +201,7 @@ export class GameWorld {
 
     const race = this.isRace;
     const qualifying = this.isQualifying;
-    const isMultiCar = race || qualifying;
+    const isMultiCar = race || qualifying || this.isMultiplayer;
     const aiCount = isMultiCar ? Math.max(0, Math.min(MAX_AI_CARS, settings.aiCount)) : 0;
     const carCount = aiCount + 1;
 
@@ -274,7 +278,8 @@ export class GameWorld {
     this.cars = cars;
     this.player = cars[playerSlot];
     if (settings.setup) {
-      this.player.phys.brakeBias = settings.setup.brakeBias / 100;
+      const bias = settings.setup.brakeBias;
+      this.player.phys.brakeBias = bias > 1 ? bias / 100 : bias;
     }
     this.order = [...cars];
     this.shownPosition = this.candidatePosition = playerSlot + 1;
@@ -417,6 +422,9 @@ export class GameWorld {
       extras.frontDamage = car.damage;
       extras.aeroPreset = car.isPlayer ? this.settings.setup?.aeroPreset : undefined;
       extras.regulations = this.settings.regulations;
+      extras.diffOnThrottle = car.isPlayer ? this.settings.setup?.diffOnThrottle : undefined;
+      extras.rideHeightM = car.isPlayer ? this.settings.setup?.rideHeightM : undefined;
+      extras.tirePressureBar = car.isPlayer ? this.settings.setup?.tirePressureBar : undefined;
 
       if (car.fuelKg > 0) {
         const deltaFuel = (0.0015 + 0.0263 * Math.max(0, car.ctrl.throttle)) * dt;
@@ -640,22 +648,38 @@ export class GameWorld {
   }
 
   buildResults(): RaceResults {
-    const finished = this.cars
-      .filter((c) => c.timing.finished)
-      .sort((a, b) => (a.timing.finishTime! + a.timing.penaltySec) - (b.timing.finishTime! + b.timing.penaltySec));
-    const running = this.order.filter((c) => !c.timing.finished);
-    const ordered = [...finished, ...running];
-    const winner = finished[0];
-    const winnerTime = winner ? winner.timing.finishTime! + winner.timing.penaltySec : null;
+    let ordered: WorldCar[];
+    let winnerTime: number | null = null;
+    let poleBestLap: number | null = null;
+
+    if (this.isQualifying) {
+      sortQualifyingOrder(this.order);
+      ordered = [...this.order];
+      poleBestLap = ordered[0]?.timing.bestLap ?? null;
+    } else {
+      const finished = this.cars
+        .filter((c) => c.timing.finished)
+        .sort((a, b) => (a.timing.finishTime! + a.timing.penaltySec) - (b.timing.finishTime! + b.timing.penaltySec));
+      const running = this.order.filter((c) => !c.timing.finished);
+      ordered = [...finished, ...running];
+      const winner = finished[0];
+      winnerTime = winner ? winner.timing.finishTime! + winner.timing.penaltySec : null;
+    }
 
     const pointsMap = calculateChampionshipPoints(ordered, this.overall.bestLapCarId ?? undefined);
 
     const classification: ClassificationRow[] = ordered.map((c, i) => {
       const total = c.timing.finished ? c.timing.finishTime! + c.timing.penaltySec : null;
       let gapText: string;
-      if (i === 0 && total !== null) gapText = formatLapTime(total);
-      else if (total !== null && winnerTime !== null) gapText = `+${(total - winnerTime).toFixed(3)}`;
-      else gapText = winner ? formatGap(c.timing, winner.timing) : 'DNF';
+      if (this.isQualifying) {
+        if (i === 0 && c.timing.bestLap !== null) gapText = formatLapTime(c.timing.bestLap);
+        else if (c.timing.bestLap !== null && poleBestLap !== null) gapText = `+${(c.timing.bestLap - poleBestLap).toFixed(3)}`;
+        else gapText = 'NO TIME';
+      } else {
+        if (i === 0 && total !== null) gapText = formatLapTime(total);
+        else if (total !== null && winnerTime !== null) gapText = `+${(total - winnerTime).toFixed(3)}`;
+        else gapText = ordered[0]?.timing.finished ? formatGap(c.timing, ordered[0].timing) : 'DNF';
+      }
       return {
         position: i + 1,
         carId: c.id,

@@ -1317,3 +1317,45 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - Physics probe (`npm run probe`): **16/16 metrics in band**.
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
+
+---
+
+## 2026-10-27 — Full Plan & Codebase Quality Audit & Bug Fixes (branch `main`)
+
+**Files:** `lib/game/camera/rig.ts`, `lib/game/camera/rig.test.ts`, `components/game/Camera.tsx`, `components/game/replay/ReplayDirector.tsx`, `components/game/Track.tsx`, `components/game/TrackProps.tsx`, `components/game/GameLoop.tsx`, `components/ui/GameOver.tsx`, `components/ui/LoadingScreen.tsx`, `components/ui/MainMenu.tsx`, `components/ui/MultiplayerLobby.tsx`, `components/ui/PauseMenu.tsx`, `components/ui/SettingsPanel.tsx`, `lib/game/sim/world.ts`, `lib/game/sim/events.ts`, `lib/game/sim/rules.ts`, `lib/game/sim/rules.test.ts`, `lib/game/sim/qualifying.test.ts`, `lib/game/physics.ts`, `lib/game/vehicle/model.ts`, `lib/game/multiplayer/protocol.ts`, `lib/game/multiplayer/room.ts`, `lib/game/multiplayer/multiplayer.test.ts`, `lib/game/track/registry.ts`, `lib/game/track/index.ts`.
+
+**Audit Findings & Comprehensive Resolutions:**
+1. **Camera Angles & 3D Elevation Tracking (`lib/game/camera/rig.ts`, `Camera.tsx`, `ReplayDirector.tsx`):**
+   - *Elevation Disconnect Bug:* `Camera.tsx` previously omitted `rigCar.idx = p.idx;`, causing the camera rig to assume track elevation 0 everywhere. On elevation circuits like Spa (+102 m) and Red Bull Ring (+65 m), cameras stayed at ground level while cars climbed hills. Fixed by wiring `idx` to player and pole cars.
+   - *Road Slope & Bank Tilting:* Cockpit, T-cam, and Nose cams now tilt dynamically with road grade (`surfaceGradeAngle`) and road camber (`surfaceCamberAngle`) relative to car heading. Cockpit camera downward pitch (-0.11 rad) perfectly frames the steering wheel, halo pillar, and digital dashboard. Chase camera dynamically bounds `_eye.y` using road pitch to eliminate ground clipping on steep climbs.
+   - *Multi-model Anchors:* Integrated model-specific offsets from `dimensions.ts` (`f1`, `roadster` left-seat driver offset, `pegasus` elevated cockpit).
+   - *TV Camera Replay Fix:* In `ReplayDirector.tsx`, `tvCams` was memoized with `[]`, failing to update when switching circuits. Now memoized on `[trackId]`, and TV camera look-at incorporates full 3D elevation.
+2. **Track Name Hardcoding Across UI (`LoadingScreen.tsx`, `PauseMenu.tsx`, `GameOver.tsx`, `TrackProps.tsx`):**
+   - Replaced hardcoded "Buddh International Circuit" strings with dynamic track names, turn counts, and lengths using `getTrackCatalogEntry(id)`.
+   - Start/finish gantry banner in `TrackProps.tsx` now dynamically displays the active grand prix name (e.g. "AUTODROMO NAZIONALE MONZA · ITALY GRAND PRIX") instead of hardcoded Buddh text.
+3. **Qualifying Flow & Results (`GameLoop.tsx`, `GameOver.tsx`, `world.ts`, `qualifying.test.ts`):**
+   - Scheduled `world.buildResults()` on `qualifyingComplete` so the session properly concludes with the results screen.
+   - Fixed `buildResults()` in `world.ts` to sort qualifying by best lap time via `sortQualifyingOrder` and compute gaps to pole position rather than race finish times or DNF.
+   - `GameOver.tsx` now provides a dedicated Qualifying Results classification with pole position stats and a primary "Start Grand Prix (P{pos})" action that starts the race on the earned starting grid.
+4. **Car Setup Real Physical Integration (R10) & 2026 Active Aero (R12):**
+   - Fixed critical brake bias arithmetic bug in `world.ts` where `0.56` was divided by 100 to `0.0056`.
+   - Integrated full setup parameters (`diffOnThrottle`, `rideHeightM`, `tirePressureBar`, `aeroPreset`) from UI into `world.ts`, `physics.ts`, and `lib/game/vehicle/model.ts`. Differential lock now produces authentic on-throttle yaw stability; ride height alters ground-effect downforce via an inverse power law; tyre pressure modulates contact patch efficiency.
+   - Interactive setup controls wired in `SettingsPanel.tsx`.
+5. **Multiplayer Room & Snapshot Interpolation (`MultiplayerLobby.tsx`, `protocol.ts`, `room.ts`, `GameLoop.tsx`):**
+   - Added join/leave packet types, shared `multiplayerRoom` instance, and modal overlay in `MainMenu.tsx`.
+   - Host executes 120 Hz deterministic sim and broadcasts 25 Hz state snapshots; client streams 60 Hz input packets and interpolates remote car positions with angular unwrapping. Remote car snapshots are synchronized after `world.step`, preventing local physics prediction overwrite.
+6. **Telemetry CSV Export & Pause Menu Lap Comparison (R11):**
+   - Added Telemetry tab in `PauseMenu.tsx` with speed vs distance curves, vehicle stats pods, and one-click CSV export via `exportLapTelemetryCsv`. Added post-session CSV export button to `GameOver.tsx`.
+7. **Race Engineer Radio Messages (R8):**
+   - Added dedicated `engineer` event type to `SimEvent` in `events.ts`, replacing overloaded penalty events. Emits "BOX THIS LAP" and "RIVAL PITTED" radio toasts in `GameLoop.tsx`.
+8. **WebGL Memory Hygiene & Leaks (`Track.tsx`, `TrackProps.tsx`):**
+   - Added `useEffect` buffer disposal for all procedural geometries in `Track.tsx` on track switch or unmount, preventing GPU memory leaks. Guarded `standPlan` against empty corner lists.
+
+**Verification:**
+- Full test suite: **36/36 test files passed, 257/257 unit tests passed** (including 6 new tests in `rig.test.ts`).
+- Golden race hash: bit-identical match to `'05aa16f7'`.
+- Micro-benchmark: 12 cars simulation cost 7.93 ms per simulated second.
+- Physics probe (`npm run probe`): **16/16 metrics in band**.
+- `npm run typecheck`: clean (0 errors).
+- `npm run build`: static site generation clean (0 errors).
+- Screenshot verification (`shots/audit-verification.png`): 109 draw calls, 350k triangles, 0 console/runtime errors, 57 fps.

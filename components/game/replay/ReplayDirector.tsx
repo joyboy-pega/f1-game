@@ -8,6 +8,7 @@ import { track } from '@/lib/game/track';
 import { standPlan } from '@/components/game/TrackProps';
 import { CameraRig } from '@/lib/game/camera/rig';
 import { findNearestTrackPoint } from '@/lib/game/physics';
+import { surfaceHeight } from '@/lib/game/track/surface';
 import { replay, resetReplay, type ReplayCamMode } from '@/lib/game/replay/state';
 import { REC_COMPOUNDS, makeCarSample, recorder } from '@/lib/game/sim/recorder';
 import { useGameStore } from '@/lib/game/store';
@@ -44,7 +45,8 @@ function buildTvCams(): TvCam[] {
       d = stand.d0 + 70; // above the upper tiers
       h = 78;
     }
-    cams.push({ pos: new THREE.Vector3(x + nx * side * d, h, z + nz * side * d), idx });
+    const trackH = surfaceHeight(idx, side * d);
+    cams.push({ pos: new THREE.Vector3(x + nx * side * d, h + trackH, z + nz * side * d), idx });
   }
   return cams;
 }
@@ -60,10 +62,11 @@ const wrapDelta = (a: number, b: number) => {
  */
 export function ReplayDirector() {
   const active = useGameStore((s) => s.replayActive);
+  const trackId = useGameStore((s) => s.settings.trackId);
   const { camera } = useThree();
   const rig = useMemo(() => new CameraRig(), []);
   const sample = useMemo(() => makeCarSample(), []);
-  const tvCams = useMemo(buildTvCams, []);
+  const tvCams = useMemo(buildTvCams, [trackId]);
   const st = useRef({ tvIdx: 0, hint: 0, autoClock: 0, autoStep: 0, heliAngle: 0, serial: -1, lookAt: new THREE.Vector3() });
 
   useEffect(() => {
@@ -139,11 +142,13 @@ export function ReplayDirector() {
       return;
     }
 
+    const carY = tp.idx !== undefined ? surfaceHeight(tp.idx, 0) : 0;
+
     if (kind === 'heli') {
       replay.camLabel = 'HELI';
       s.heliAngle += dt * 0.16;
-      cam.position.set(tp.x + Math.cos(s.heliAngle) * 280, 150, tp.y + Math.sin(s.heliAngle) * 280);
-      s.lookAt.set(tp.x, 6, tp.y);
+      cam.position.set(tp.x + Math.cos(s.heliAngle) * 280, carY + 140, tp.y + Math.sin(s.heliAngle) * 280);
+      s.lookAt.set(tp.x, carY + 3.5, tp.y);
       cam.lookAt(s.lookAt);
       cam.fov += (36 - cam.fov) * Math.min(1, 4 * dt);
       cam.updateProjectionMatrix();
@@ -154,7 +159,7 @@ export function ReplayDirector() {
     const [ni] = findNearestTrackPoint(tp.x, tp.y, s.hint);
     s.hint = ni;
     let cur = s.tvIdx >= 0 ? tvCams[s.tvIdx] : null;
-    const dist = cur ? cur.pos.distanceTo(new THREE.Vector3(tp.x, 6, tp.y)) : 1e9;
+    const dist = cur ? cur.pos.distanceTo(new THREE.Vector3(tp.x, carY + 3.5, tp.y)) : 1e9;
     const passed = cur ? wrapDelta(cur.idx, ni) > 55 : true;
     if (!cur || passed || dist > 900 || s.serial !== replay.seekSerial) {
       let best = -1;
@@ -175,7 +180,7 @@ export function ReplayDirector() {
     if (!cur) return;
     replay.camLabel = `TV ${s.tvIdx + 1}`;
     cam.position.copy(cur.pos);
-    s.lookAt.set(tp.x, 7, tp.y);
+    s.lookAt.set(tp.x, carY + 3.5, tp.y);
     cam.lookAt(s.lookAt);
     const d = cam.position.distanceTo(s.lookAt);
     const fovTarget = THREE.MathUtils.clamp((Math.atan(46 / Math.max(60, d)) * 2 * 180) / Math.PI, 9, 52);

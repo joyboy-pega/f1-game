@@ -1,10 +1,14 @@
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { formatLapTime, type RaceResults } from '@/lib/game/gameState';
 import { recordKey, useGameStore } from '@/lib/game/store';
 import { MODE_NAMES, ordinal } from './format';
+import { getTrackCatalogEntry } from '@/lib/game/track';
+import { exportLapTelemetryCsv, type TelemetrySample } from '@/lib/game/sim/rules';
+import { world } from '@/lib/game/sim/world';
+import { recorder } from '@/lib/game/sim/recorder';
 
 interface GameOverProps {
   results: RaceResults;
@@ -36,25 +40,65 @@ export function GameOver({ results, onRestart, onExitToMenu }: GameOverProps) {
   const trackId = useGameStore((s) => s.settings.trackId);
   const records = useGameStore((s) => s.records);
   const isRace = results.mode === 'race';
+  const isQuali = results.mode === 'qualifying';
+  const isMultiCar = isRace || isQuali;
   const pos = results.playerPosition;
   const times = results.playerLapTimes;
   const bestLap = times.length ? Math.min(...times) : null;
   const record = records.bestLaps[recordKey(trackId, results.mode, weather)];
+  const trackName = getTrackCatalogEntry(trackId).name;
+  const [exported, setExported] = useState(false);
 
   useEffect(() => {
-    if (!isRace || pos > 3) return;
+    if (!isMultiCar || pos > 3) return;
     try {
       confetti({ particleCount: pos === 1 ? 160 : 90, spread: 80, origin: { y: 0.55 }, colors: ['#c8ff2e', '#ffffff', '#ff6b1a'] });
     } catch {}
-  }, [isRace, pos]);
+  }, [isMultiCar, pos]);
 
   const headline = useMemo(() => {
+    if (isQuali) {
+      return pos === 1 ? 'Pole Position' : `Qualified P${pos}`;
+    }
     if (!isRace) return 'Session complete';
     if (pos === 1) return 'Victory';
     if (pos <= 3) return 'Podium';
     if (pos <= 10) return 'Points finish';
     return 'Race complete';
-  }, [isRace, pos]);
+  }, [isRace, isQuali, pos]);
+
+  const handleExportTelemetry = () => {
+    const samples: TelemetrySample[] = [];
+    const carId = world.player.id;
+    const dur = Math.min(recorder.duration, 180);
+    const steps = 120;
+    for (let i = 0; i < steps; i++) {
+      const t = (i / (steps - 1)) * dur;
+      const loc = recorder.locate(t);
+      const s = { ...recorder.locate(t) } as any;
+      samples.push({
+        distanceM: i * 40,
+        speedKmh: world.player.phys.kmh,
+        throttle: world.player.ctrl.throttle,
+        brake: world.player.ctrl.brake,
+        gear: world.player.phys.gear,
+        rpm: world.player.phys.rpm,
+        drs: world.player.phys.drsOpen,
+        lateralG: (world.player.phys.vl * 0.1) / 9.81,
+        longitudinalG: (world.player.phys.vf * 0.1) / 9.81,
+      });
+    }
+    const csv = exportLapTelemetryCsv(samples);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `telemetry-${trackId}-${results.mode}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExported(true);
+    setTimeout(() => setExported(false), 2500);
+  };
 
   if (replayActive) return null;
 
@@ -63,12 +107,12 @@ export function GameOver({ results, onRestart, onExitToMenu }: GameOverProps) {
       <section className="m-card m-results">
         <header className="m-head">
           <div>
-            <div className="m-kicker">{MODE_NAMES[results.mode]} · Buddh International Circuit</div>
+            <div className="m-kicker">{MODE_NAMES[results.mode]} · {trackName}</div>
             <h2 className="m-title">{headline}</h2>
           </div>
-          {isRace && (
+          {isMultiCar && (
             <div className={`m-pos pos-${Math.min(pos, 4)}`}>
-              <span>{ordinal(pos)}</span>
+              <span>{isQuali && pos === 1 ? 'POLE' : ordinal(pos)}</span>
             </div>
           )}
         </header>
@@ -104,7 +148,7 @@ export function GameOver({ results, onRestart, onExitToMenu }: GameOverProps) {
           )}
         </div>
 
-        {isRace ? (
+        {isMultiCar ? (
           <div className="m-table-wrap">
             <table className="m-table">
               <thead>
@@ -112,13 +156,13 @@ export function GameOver({ results, onRestart, onExitToMenu }: GameOverProps) {
                   <th>Pos</th>
                   <th>Driver</th>
                   <th>Team</th>
-                  <th className="r">Time / gap</th>
-                  <th className="r">Best lap</th>
-                  <th className="r">Stops</th>
+                  <th className="r">{isQuali ? 'Best Lap' : 'Time / gap'}</th>
+                  <th className="r">{isQuali ? 'Gap' : 'Best lap'}</th>
+                  <th className="r">{isQuali ? 'Status' : 'Stops'}</th>
                 </tr>
               </thead>
               <tbody>
-                {results.classification.map((r) => (
+                {results.classification.map((r, idx) => (
                   <tr key={r.carId} className={r.isPlayer ? 'me' : ''}>
                     <td>{r.position}</td>
                     <td>
@@ -127,11 +171,19 @@ export function GameOver({ results, onRestart, onExitToMenu }: GameOverProps) {
                     </td>
                     <td>{r.team}</td>
                     <td className="r">
-                      {r.gapText}
-                      {r.penaltySec > 0 && <em> +{r.penaltySec}s pen</em>}
+                      {isQuali ? (
+                        <b className={results.fastestLap && r.carId === results.fastestLap.carId ? 'purple' : ''}>{formatLapTime(r.bestLap)}</b>
+                      ) : (
+                        <>
+                          {r.gapText}
+                          {r.penaltySec > 0 && <em> +{r.penaltySec}s pen</em>}
+                        </>
+                      )}
                     </td>
-                    <td className={`r ${results.fastestLap && r.carId === results.fastestLap.carId ? 'purple' : ''}`}>{formatLapTime(r.bestLap)}</td>
-                    <td className="r">{r.pitStops}</td>
+                    <td className={`r ${!isQuali && results.fastestLap && r.carId === results.fastestLap.carId ? 'purple' : ''}`}>
+                      {isQuali ? (idx === 0 ? 'POLE' : r.bestLap && results.fastestLap?.time ? `+${(r.bestLap - results.fastestLap.time).toFixed(3)}` : 'NO TIME') : formatLapTime(r.bestLap)}
+                    </td>
+                    <td className="r">{isQuali ? (r.bestLap ? 'QUALIFIED' : 'NO TIME') : r.pitStops}</td>
                   </tr>
                 ))}
               </tbody>
@@ -152,11 +204,33 @@ export function GameOver({ results, onRestart, onExitToMenu }: GameOverProps) {
         <LapChart times={times} />
 
         <footer className="m-foot">
-          <button type="button" className="m-btn m-btn-primary" onClick={onRestart} autoFocus>
-            {isRace ? 'Race again' : 'Go again'}
-          </button>
+          {isQuali ? (
+            <button
+              type="button"
+              className="m-btn m-btn-primary"
+              onClick={() => {
+                useGameStore.getState().setSettings({ mode: 'race' });
+                onRestart();
+              }}
+              autoFocus
+            >
+              Start Grand Prix (P{pos})
+            </button>
+          ) : (
+            <button type="button" className="m-btn m-btn-primary" onClick={onRestart} autoFocus>
+              {isRace ? 'Race again' : 'Go again'}
+            </button>
+          )}
+          {isQuali && (
+            <button type="button" className="m-btn" onClick={onRestart}>
+              Qualify again
+            </button>
+          )}
           <button type="button" className="m-btn" onClick={() => setReplayActive(true)}>
             Watch replay
+          </button>
+          <button type="button" className="m-btn" onClick={handleExportTelemetry}>
+            {exported ? 'Telemetry Exported!' : 'Export CSV'}
           </button>
           <button type="button" className="m-btn" onClick={onExitToMenu}>
             Back to lobby

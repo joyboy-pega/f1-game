@@ -31,6 +31,9 @@ export interface VehicleEnvironment {
   fuelKg?: number; // 0..110 kg fuel mass (V3)
   aeroPreset?: 'low' | 'medium' | 'high';
   regulations?: '2022' | '2026';
+  diffOnThrottle?: number; // 50..100% on-throttle diff lock
+  rideHeightM?: number;    // 0.020..0.045m ride height
+  tirePressureBar?: number;// 1.2..1.8 bar tyre pressure
 }
 
 export interface VehicleState {
@@ -99,8 +102,10 @@ export function stepVehicle(
     aeroParams = AERO_HIGH;
   }
   aeroForces(s.vx, { drs: env.regulations === '2026' ? false : s.drsOpen, draft: env.draft, dirtyAir: env.dirtyAir, damage: env.damage }, aeroScratch, aeroParams);
-  const downFront = aeroScratch.downFront;
-  const downRear = aeroScratch.downRear;
+  const rh = env.rideHeightM ?? 0.030;
+  const groundEffectRatio = Math.pow(0.030 / Math.max(0.020, rh), 0.35);
+  const downFront = aeroScratch.downFront * groundEffectRatio;
+  const downRear = aeroScratch.downRear * groundEffectRatio;
   const aeroDrag = aeroScratch.drag;
 
   // 3. Dynamic vertical axle loads (with longitudinal load transfer)
@@ -115,7 +120,9 @@ export function stepVehicle(
   const fzRear = Math.max(200, staticFzRear + downRear + dFzLong);
 
   // 4. Drive & braking forces
-  const effectiveGrip = env.surfaceGrip * env.tyreGrip;
+  const pressure = env.tirePressureBar ?? 1.50;
+  const pressureGripMod = 1.0 - Math.abs(pressure - 1.50) * 0.06;
+  const effectiveGrip = env.surfaceGrip * env.tyreGrip * pressureGripMod;
   const fxMaxFront = peakForce(TYRE, fzFront / 2, effectiveGrip) * 2;
   const fxMaxRear = peakForce(TYRE, fzRear / 2, effectiveGrip) * 2;
 
@@ -191,7 +198,9 @@ export function stepVehicle(
   const dVy = ayInertial - s.vx * s.yawRate;
 
   // Yaw acceleration
-  const torqueZ = A_COG_TO_FRONT * (fyFront * cosDelta + fxFront * sinDelta) - B_COG_TO_REAR * fyRear;
+  const diffLock = (env.diffOnThrottle ?? 70) / 100;
+  const diffYawResist = (diffLock - 0.70) * 600 * s.yawRate * input.throttle;
+  const torqueZ = A_COG_TO_FRONT * (fyFront * cosDelta + fxFront * sinDelta) - B_COG_TO_REAR * fyRear - diffYawResist;
   const aeroYawDamping = -0.5 * AIR_DENSITY * u * 45.0 * s.yawRate;
   const yawAcc = (torqueZ + aeroYawDamping) / CAR.yawInertiaKgM2;
 

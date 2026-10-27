@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MultiplayerRoom } from '@/lib/game/multiplayer/room';
+import { multiplayerRoom as room } from '@/lib/game/multiplayer/room';
 import type { PlayerInfo, RoomSettings } from '@/lib/game/multiplayer/protocol';
 import { trackCatalog } from '@/lib/game/track';
 import { WEATHER_LABEL } from './format';
@@ -13,18 +13,12 @@ interface MultiplayerLobbyProps {
 }
 
 export function MultiplayerLobby({ onStartRace, onBack }: MultiplayerLobbyProps) {
-  const [room] = useState(() => new MultiplayerRoom());
-  const [roomCode, setRoomCode] = useState('');
+  const [roomCode, setRoomCode] = useState(room.roomId);
   const [joinCode, setJoinCode] = useState('');
-  const [inLobby, setInLobby] = useState(false);
-  const [isHost, setIsHost] = useState(false);
-  const [players, setPlayers] = useState<PlayerInfo[]>([]);
-  const [settings, setSettings] = useState<RoomSettings>({
-    trackId: 'buddh',
-    totalLaps: 5,
-    weather: 'sunny',
-    aiCount: 8,
-  });
+  const [inLobby, setInLobby] = useState(room.state !== 'idle');
+  const [isHost, setIsHost] = useState(room.role === 'host');
+  const [players, setPlayers] = useState<PlayerInfo[]>(room.players);
+  const [settings, setSettings] = useState<RoomSettings>(room.settings);
   const [isReady, setIsReady] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -40,9 +34,11 @@ export function MultiplayerLobby({ onStartRace, onBack }: MultiplayerLobbyProps)
     });
     return () => {
       unsub();
-      room.close();
+      if (room.state === 'idle' || room.state === 'lobby') {
+        room.close();
+      }
     };
-  }, [room, onStartRace]);
+  }, [onStartRace]);
 
   const handleCreate = () => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();

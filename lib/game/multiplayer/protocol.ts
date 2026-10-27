@@ -78,12 +78,24 @@ export interface PongPacket {
   serverTimestamp: number;
 }
 
+export interface JoinPacket {
+  type: 'join';
+  player: PlayerInfo;
+}
+
+export interface LeavePacket {
+  type: 'leave';
+  peerId: string;
+}
+
 export type MultiplayerPacket =
   | ClientInputPacket
   | ServerSnapshotPacket
   | RoomSyncPacket
   | PingPacket
-  | PongPacket;
+  | PongPacket
+  | JoinPacket
+  | LeavePacket;
 
 export function serializePacket(packet: MultiplayerPacket): string {
   return JSON.stringify(packet);

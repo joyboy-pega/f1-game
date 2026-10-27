@@ -97,6 +97,10 @@ export function trackCatalog(): readonly TrackCatalogEntry[] {
   return CATALOG;
 }
 
+export function getTrackCatalogEntry(id: string): TrackCatalogEntry {
+  return CATALOG.find((c) => c.id === id) ?? CATALOG[0];
+}
+
 export function trackIds(): string[] {
   return CATALOG.map((c) => c.id);
 }

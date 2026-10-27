@@ -189,6 +189,33 @@ describe('R13: Multiplayer Room State Machine & AI Fallback', () => {
     room.close();
   });
 
+  it('adds remote player and assigns car ID upon receiving join packet', () => {
+    const room = new MultiplayerRoom();
+    room.createRoom('TEST03', { driverName: 'Host' });
+    expect(room.players).toHaveLength(1);
+
+    room.handlePacket({
+      type: 'join',
+      player: {
+        id: 'peer_joiner',
+        carId: -1,
+        driverName: 'Guest 1',
+        driverCode: 'GST',
+        team: 'Papaya',
+        livery: { body: '#ff8700', accent: '#0072bb', rim: '#1e1e1e', number: 2 },
+        carModel: 'f1',
+        ready: true,
+        isHost: false,
+        latencyMs: 15,
+      },
+    });
+
+    expect(room.players).toHaveLength(2);
+    expect(room.players[1].id).toBe('peer_joiner');
+    expect(room.players[1].carId).toBe(1);
+    room.close();
+  });
+
   it('falls back to AI controller when a connected peer stops sending inputs', () => {
     const room = new MultiplayerRoom();
     room.createRoom('TEST02', { driverName: 'Host' });

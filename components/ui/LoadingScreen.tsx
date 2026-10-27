@@ -2,6 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 
+import { getTrackCatalogEntry } from '@/lib/game/track';
+import { useGameStore } from '@/lib/game/store';
+
 const LOADING_STEPS = [
   'CALIBRATING 120 HZ SUBSTEP DYNAMICS',
   'COMPUTING CIRCUIT SPLINE & CORNER ARCS',
@@ -37,6 +40,9 @@ export function LoadingScreen() {
   }, []);
 
   const progressPct = Math.min(100, Math.round(((stepIdx + 1) / LOADING_STEPS.length) * 100));
+
+  const trackId = useGameStore((s) => s.settings.trackId);
+  const trackInfo = getTrackCatalogEntry(trackId);
 
   return (
     <div
@@ -90,7 +96,7 @@ export function LoadingScreen() {
             className="text-xs uppercase tracking-[0.16em]"
             style={{ color: 'var(--ink-mute, #8d9199)', fontFamily: 'var(--font-mono, monospace)' }}
           >
-            Buddh International Circuit · 5.125 KM · 16 Turns
+            {trackInfo.name} · {(trackInfo.lengthM / 1000).toFixed(3)} KM · {trackInfo.turns} Turns
           </div>
         </div>
 

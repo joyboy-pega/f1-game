@@ -15,6 +15,7 @@ export type SimEvent =
   | { type: 'chequered' }
   | { type: 'finish'; carId: number; position: number }
   | { type: 'penalty'; carId: number; seconds: number; reason: string }
+  | { type: 'engineer'; message: string; sub?: string }
   | { type: 'trackLimits'; carId: number; warnings: number }
   | { type: 'qualifyingComplete'; grid: string[] }
   | { type: 'flag'; flag: 'green' | 'yellow' | 'blue'; sector?: number; carId?: number }

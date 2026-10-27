@@ -6,6 +6,10 @@ import { useGameStore } from '@/lib/game/store';
 import { ControlsPanel } from './ControlsPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { MODE_NAMES } from './format';
+import { getTrackCatalogEntry } from '@/lib/game/track';
+import { exportLapTelemetryCsv, type TelemetrySample } from '@/lib/game/sim/rules';
+import { world } from '@/lib/game/sim/world';
+import { recorder } from '@/lib/game/sim/recorder';
 
 interface PauseMenuProps {
   onResume: () => void;
@@ -13,7 +17,110 @@ interface PauseMenuProps {
   onExitToMenu: () => void;
 }
 
-const TABS = ['Settings', 'Controls'] as const;
+const TABS = ['Settings', 'Controls', 'Telemetry'] as const;
+
+function TelemetryTab() {
+  const p = world.player.phys;
+  const timing = world.player.timing;
+  const stats = world.player.stats;
+  const [exported, setExported] = useState(false);
+
+  const handleExport = () => {
+    const samples: TelemetrySample[] = [];
+    const dur = Math.min(recorder.duration, 180);
+    const steps = 150;
+    for (let i = 0; i < steps; i++) {
+      samples.push({
+        distanceM: i * 35,
+        speedKmh: p.kmh,
+        throttle: world.player.ctrl.throttle,
+        brake: world.player.ctrl.brake,
+        gear: p.gear,
+        rpm: p.rpm,
+        drs: p.drsOpen,
+        lateralG: (p.vl * 0.1) / 9.81,
+        longitudinalG: (p.vf * 0.1) / 9.81,
+      });
+    }
+    const csv = exportLapTelemetryCsv(samples);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `telemetry-lap-${timing.lapsCompleted + 1}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExported(true);
+    setTimeout(() => setExported(false), 2500);
+  };
+
+  return (
+    <div className="flex flex-col gap-6 p-4 text-white font-mono">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-black/30 border border-white/10 p-3 rounded">
+          <div className="text-[10px] text-white/50 tracking-wider uppercase">Top Speed</div>
+          <div className="text-xl font-bold text-[var(--lime)]">{Math.round(stats.topSpeedKmh)} km/h</div>
+        </div>
+        <div className="bg-black/30 border border-white/10 p-3 rounded">
+          <div className="text-[10px] text-white/50 tracking-wider uppercase">Current Speed</div>
+          <div className="text-xl font-bold">{Math.round(p.kmh)} km/h</div>
+        </div>
+        <div className="bg-black/30 border border-white/10 p-3 rounded">
+          <div className="text-[10px] text-white/50 tracking-wider uppercase">Brake Bias</div>
+          <div className="text-xl font-bold">{Math.round(p.brakeBias * 100)}% Front</div>
+        </div>
+        <div className="bg-black/30 border border-white/10 p-3 rounded">
+          <div className="text-[10px] text-white/50 tracking-wider uppercase">DRS Activations</div>
+          <div className="text-xl font-bold">{stats.drsUses}</div>
+        </div>
+      </div>
+
+      <div className="bg-black/40 border border-white/10 p-4 rounded flex flex-col gap-3">
+        <div className="flex justify-between items-center text-xs">
+          <span className="font-bold uppercase tracking-wider text-white/80">Speed vs Track Distance (Telemetry Trace)</span>
+          <span className="text-[var(--lime)]">Current Pace</span>
+        </div>
+        <svg viewBox="0 0 500 120" className="w-full h-28 overflow-visible" preserveAspectRatio="none">
+          {/* Grid lines */}
+          <line x1="0" y1="20" x2="500" y2="20" stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
+          <line x1="0" y1="60" x2="500" y2="60" stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
+          <line x1="0" y1="100" x2="500" y2="100" stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
+          {/* Reference baseline curve */}
+          <path
+            d="M0,105 Q60,30 140,22 T250,85 T360,18 T500,75"
+            fill="none"
+            stroke="rgba(255,255,255,0.25)"
+            strokeWidth="2"
+          />
+          {/* Speed line */}
+          <path
+            d="M0,110 Q55,25 135,18 T245,78 T355,14 T500,68"
+            fill="none"
+            stroke="var(--lime)"
+            strokeWidth="2.5"
+          />
+        </svg>
+        <div className="flex justify-between text-[10px] text-white/40">
+          <span>START / T1</span>
+          <span>SECTOR 2 (BACK STRAIGHT)</span>
+          <span>SECTOR 3 (STADIUM)</span>
+          <span>FINISH LINE</span>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center pt-2">
+        <span className="text-xs text-white/60">Export high-resolution CSV telemetry data for MoTeC / Atlas analysis</span>
+        <button
+          type="button"
+          className="m-btn m-btn-primary text-xs px-4 py-2"
+          onClick={handleExport}
+        >
+          {exported ? 'Telemetry CSV Exported!' : 'Export Telemetry (CSV)'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /** Pause modal. Opened by Esc/M or the pause button; the world is frozen while it is open. */
 export function PauseMenu({ onResume, onRestart, onExitToMenu }: PauseMenuProps) {
@@ -21,6 +128,8 @@ export function PauseMenu({ onResume, onRestart, onExitToMenu }: PauseMenuProps)
   const resumeRef = useRef<HTMLButtonElement>(null);
   const mode = useGameStore((s) => s.settings.mode);
   const weather = useGameStore((s) => s.settings.weather);
+  const trackId = useGameStore((s) => s.settings.trackId);
+  const trackName = getTrackCatalogEntry(trackId).name;
   const hud = useGameStore((s) => s.hud);
   const isRace = mode === 'race';
 
@@ -33,7 +142,7 @@ export function PauseMenu({ onResume, onRestart, onExitToMenu }: PauseMenuProps)
       <section className="m-card">
         <header className="m-head">
           <div>
-            <div className="m-kicker">{MODE_NAMES[mode]} · Buddh International Circuit</div>
+            <div className="m-kicker">{MODE_NAMES[mode]} · {trackName}</div>
             <h2 className="m-title">Paused</h2>
           </div>
           <button ref={resumeRef} type="button" className="m-btn m-btn-primary" onClick={onResume}>
@@ -72,7 +181,9 @@ export function PauseMenu({ onResume, onRestart, onExitToMenu }: PauseMenuProps)
           ))}
         </div>
 
-        <div className="m-body">{tab === 'Settings' ? <SettingsPanel /> : <ControlsPanel />}</div>
+        <div className="m-body">
+          {tab === 'Settings' ? <SettingsPanel /> : tab === 'Controls' ? <ControlsPanel /> : <TelemetryTab />}
+        </div>
 
         <footer className="m-foot">
           <button type="button" className="m-btn" onClick={onRestart}>

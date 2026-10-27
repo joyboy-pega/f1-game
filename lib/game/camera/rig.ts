@@ -8,9 +8,20 @@
 
 import * as THREE from 'three';
 import { consumeCameraShake } from '@/lib/game/fx/shake';
-import { CAR_SCALE } from '@/lib/game/constants';
-import { COCKPIT_EYE as MODEL_COCKPIT_EYE, NOSE_CAM as MODEL_NOSE_CAM, TCAM as MODEL_TCAM } from '@/components/game/car/dimensions';
-import { surfaceHeight } from '@/lib/game/track/surface';
+import { CAR_SCALE, type VehicleModelType } from '@/lib/game/constants';
+import {
+  COCKPIT_EYE as MODEL_COCKPIT_EYE,
+  NOSE_CAM as MODEL_NOSE_CAM,
+  TCAM as MODEL_TCAM,
+  ROADSTER_COCKPIT_EYE,
+  ROADSTER_NOSE_CAM,
+  ROADSTER_TCAM,
+  PEGASUS_COCKPIT_EYE,
+  PEGASUS_NOSE_CAM,
+  PEGASUS_TCAM,
+} from '@/components/game/car/dimensions';
+import { surfaceHeight, surfaceGradeAngle, surfaceCamberAngle } from '@/lib/game/track/surface';
+import { track } from '@/lib/game/track';
 
 export type RigMode = 'chase' | 'tcam' | 'cockpit' | 'hood' | 'intro';
 
@@ -28,15 +39,38 @@ export interface RigCar {
   isBoosting: boolean;
   drsOpen: boolean;
   idx?: number;
+  carModel?: VehicleModelType;
 }
 
 // Anchors come from the car model (car/dimensions.ts, car-local model units: [x lateral, y up, z forward]) so the
 // camera sits where the cockpit really is. Converted to world units with CAR_SCALE; `fwd` is along the car heading.
 // CAR_ROOT_Y is the car group's height above the ground (F1Car places it at y = 0.05).
 const CAR_ROOT_Y = 0.05;
-export const COCKPIT_EYE = { fwd: MODEL_COCKPIT_EYE[2] * CAR_SCALE, h: MODEL_COCKPIT_EYE[1] * CAR_SCALE + CAR_ROOT_Y };
-export const NOSE_CAM = { fwd: MODEL_NOSE_CAM[2] * CAR_SCALE, h: MODEL_NOSE_CAM[1] * CAR_SCALE + CAR_ROOT_Y };
-export const TCAM = { back: -MODEL_TCAM[2] * CAR_SCALE, h: MODEL_TCAM[1] * CAR_SCALE + CAR_ROOT_Y };
+export const COCKPIT_EYE = { fwd: MODEL_COCKPIT_EYE[2] * CAR_SCALE, h: MODEL_COCKPIT_EYE[1] * CAR_SCALE + CAR_ROOT_Y, lat: 0 };
+export const NOSE_CAM = { fwd: MODEL_NOSE_CAM[2] * CAR_SCALE, h: MODEL_NOSE_CAM[1] * CAR_SCALE + CAR_ROOT_Y, lat: 0 };
+export const TCAM = { back: -MODEL_TCAM[2] * CAR_SCALE, h: MODEL_TCAM[1] * CAR_SCALE + CAR_ROOT_Y, lat: 0 };
+
+function getAnchorsForModel(model?: VehicleModelType) {
+  if (model === 'roadster') {
+    return {
+      cockpit: { fwd: ROADSTER_COCKPIT_EYE[2] * CAR_SCALE, h: ROADSTER_COCKPIT_EYE[1] * CAR_SCALE + CAR_ROOT_Y, lat: -ROADSTER_COCKPIT_EYE[0] * CAR_SCALE },
+      nose: { fwd: ROADSTER_NOSE_CAM[2] * CAR_SCALE, h: ROADSTER_NOSE_CAM[1] * CAR_SCALE + CAR_ROOT_Y, lat: 0 },
+      tcam: { back: -ROADSTER_TCAM[2] * CAR_SCALE, h: ROADSTER_TCAM[1] * CAR_SCALE + CAR_ROOT_Y, lat: 0 },
+    };
+  }
+  if (model === 'pegasus') {
+    return {
+      cockpit: { fwd: PEGASUS_COCKPIT_EYE[2] * CAR_SCALE, h: PEGASUS_COCKPIT_EYE[1] * CAR_SCALE + CAR_ROOT_Y, lat: 0 },
+      nose: { fwd: PEGASUS_NOSE_CAM[2] * CAR_SCALE, h: PEGASUS_NOSE_CAM[1] * CAR_SCALE + CAR_ROOT_Y, lat: 0 },
+      tcam: { back: -PEGASUS_TCAM[2] * CAR_SCALE, h: PEGASUS_TCAM[1] * CAR_SCALE + CAR_ROOT_Y, lat: 0 },
+    };
+  }
+  return {
+    cockpit: COCKPIT_EYE,
+    nose: NOSE_CAM,
+    tcam: TCAM,
+  };
+}
 
 const G = 98.1; // 1 g in world units/s^2 (1 unit = 0.1 m)
 const UP = new THREE.Vector3(0, 1, 0);
@@ -302,7 +336,13 @@ export class CameraRig {
     }
 
     const carY = car.idx !== undefined ? surfaceHeight(car.idx, 0) : 0;
-    _eye.set(car.x + this.chaseOff.x.x, Math.max(carY + 15, carY + this.chaseOff.y.x), car.y + this.chaseOff.z.x);
+    const roadPitch = car.idx !== undefined ? surfaceGradeAngle(car.idx) : 0;
+    const T = track.current;
+    const trackYaw = car.idx !== undefined && T && T.ty ? Math.atan2(T.ty[car.idx], T.tx[car.idx]) : car.a;
+    const effRoadPitch = roadPitch * Math.cos(car.a - trackYaw);
+    const pitchH = Math.sin(effRoadPitch) * dist * 0.45;
+
+    _eye.set(car.x + this.chaseOff.x.x, Math.max(carY + 12, carY + this.chaseOff.y.x - pitchH), car.y + this.chaseOff.z.x);
     _look.set(car.x + this.chaseLook.x.x, carY + this.chaseLook.y.x, car.y + this.chaseLook.z.x);
 
     this.fovTarget = Math.min(80, 60 + 18 * sm + (car.isBoosting ? 2 : 0) + (car.drsOpen ? 1 : 0));
@@ -326,31 +366,44 @@ export class CameraRig {
     const lookBack = this.lb * Math.PI;
     const yaw = car.a + this.lead.x + lookBack;
 
+    const anchors = getAnchorsForModel(car.carModel);
+    const roadPitch = car.idx !== undefined ? surfaceGradeAngle(car.idx) : 0;
+    const roadBank = car.idx !== undefined ? surfaceCamberAngle(car.idx) : 0;
+    const T = track.current;
+    const trackYaw = car.idx !== undefined && T && T.ty ? Math.atan2(T.ty[car.idx], T.tx[car.idx]) : car.a;
+    const headingDiff = car.a - trackYaw;
+    const effRoadPitch = roadPitch * Math.cos(headingDiff);
+    const effRoadBank = roadBank * Math.cos(headingDiff);
+
     let eyeFwd: number;
     let eyeH: number;
+    let eyeLat: number;
     let pitchT: number;
     let rollT: number;
     switch (view) {
       case 'cockpit':
-        eyeFwd = COCKPIT_EYE.fwd + this.head.z.x;
-        eyeH = COCKPIT_EYE.h;
-        // Horizon-stable: ignore body pitch/roll, only a faint head tilt into the g.
-        pitchT = -0.03 + clamp(gLon, -2, 1) * 0.012;
-        rollT = -gLat * 0.011 - (car.isDrifting ? car.driftAngle * 0.15 : 0);
+        eyeFwd = anchors.cockpit.fwd + this.head.z.x;
+        eyeH = anchors.cockpit.h;
+        eyeLat = anchors.cockpit.lat;
+        // Natural driver downward viewing angle: frames steering wheel, halo pillar & track
+        pitchT = -0.11 + effRoadPitch + clamp(gLon, -2, 1) * 0.012;
+        rollT = effRoadBank - gLat * 0.011 - (car.isDrifting ? car.driftAngle * 0.15 : 0);
         this.fovTarget = 72 + 9 * smooth01(clamp(s, 0, 1)) + (car.isBoosting ? 1.5 : 0);
         break;
       case 'hood':
-        eyeFwd = NOSE_CAM.fwd;
-        eyeH = NOSE_CAM.h;
-        pitchT = -0.025;
-        rollT = car.isDrifting ? -car.driftAngle * 0.1 : 0;
+        eyeFwd = anchors.nose.fwd;
+        eyeH = anchors.nose.h;
+        eyeLat = anchors.nose.lat;
+        pitchT = -0.025 + effRoadPitch;
+        rollT = effRoadBank + (car.isDrifting ? -car.driftAngle * 0.1 : 0);
         this.fovTarget = 74 + 12 * smooth01(clamp(s, 0, 1));
         break;
       default:
-        eyeFwd = -TCAM.back;
-        eyeH = TCAM.h;
-        pitchT = -0.1;
-        rollT = -gLat * 0.008 - (car.isDrifting ? car.driftAngle * 0.12 : 0);
+        eyeFwd = -anchors.tcam.back;
+        eyeH = anchors.tcam.h;
+        eyeLat = anchors.tcam.lat;
+        pitchT = -0.1 + effRoadPitch;
+        rollT = effRoadBank - gLat * 0.008 - (car.isDrifting ? car.driftAngle * 0.12 : 0);
         this.fovTarget = 66 + 12 * smooth01(clamp(s, 0, 1));
     }
     this.pitchS.step(pitchT, 8, dt);
@@ -358,9 +411,9 @@ export class CameraRig {
 
     const carY = car.idx !== undefined ? surfaceHeight(car.idx, 0) : 0;
     _eye.set(
-      car.x + cos * eyeFwd - sin * this.head.x.x,
+      car.x + cos * eyeFwd - sin * (this.head.x.x + eyeLat),
       carY + eyeH + this.head.y.x,
-      car.y + sin * eyeFwd + cos * this.head.x.x
+      car.y + sin * eyeFwd + cos * (this.head.x.x + eyeLat)
     );
     const p = this.pitchS.x;
     const cp = Math.cos(p);

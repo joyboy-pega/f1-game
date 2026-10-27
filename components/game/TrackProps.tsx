@@ -65,8 +65,10 @@ export function standPlan(): Stand[] {
   const corners = getTrackVisuals().corners;
   const wallAt = (idx: number) => (T.halfWidth ? T.halfWidth[idx] : HW) + 82;
   const out: Stand[] = [{ from: T.pit.boxStartIdx, count: 190, side: (-T.pit.side) as 1 | -1, d0: wallAt(T.pit.boxStartIdx) + 28 }];
+  if (!corners || corners.length === 0) return out;
   const pick = (apexIdx: number, span: number) => {
     const c = corners.reduce((best, k) => (Math.abs(wrapIdx(k.apex) - apexIdx) < Math.abs(wrapIdx(best.apex) - apexIdx) ? k : best), corners[0]);
+    if (!c) return;
     const from = wrapIdx(c.apex) - Math.floor(span / 2);
     out.push({ from, count: span, side: (-c.inside) as 1 | -1, d0: wallAt(wrapIdx(from)) + 30 });
   };
@@ -220,7 +222,11 @@ export function TrackProps() {
     const y = surfaceHeight(0, 0);
     return { x, y, z, rotY: Math.atan2(tx, tz) };
   }, [trackId]);
-  const gantryTex = useMemo(() => getBanner('gantry', 'BUDDH GP', 'INDIAN GRAND PRIX', 1024, 192, '#0a0d12', '#ffffff', '#c8ff2e'), []); // title text is Buddh's; T4 makes it per-track
+  const gantryTex = useMemo(() => {
+    const mainTitle = T.meta.name ? T.meta.name.toUpperCase() : 'GRAND PRIX';
+    const subTitle = T.meta.country ? `${T.meta.country.toUpperCase()} GRAND PRIX` : 'SIMULART TRACKS';
+    return getBanner(`gantry_${trackId}`, mainTitle, subTitle, 1024, 192, '#0a0d12', '#ffffff', '#c8ff2e');
+  }, [trackId, T.meta.name, T.meta.country]);
 
   const plan = useMemo(standPlan, [trackId]);
   const standGeo = useMemo(() => buildStands(plan), [plan]);

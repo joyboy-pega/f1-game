@@ -59,6 +59,13 @@ describe('Qualifying System (PLAN-v3 §8 R2)', () => {
     expect(completedGrid![2]).toBe('player');
     expect(completedGrid![0]).toBe(aiCars[0].driver.code);
     expect(completedGrid![1]).toBe(aiCars[1].driver.code);
+
+    // Verify buildResults formats qualifying classification with gap to pole
+    const results = w.buildResults();
+    expect(results.mode).toBe('qualifying');
+    expect(results.classification[0].gapText).toMatch(/^\d+:\d+\.\d+$/); // Pole lap time formatted
+    expect(results.classification[1].gapText).toMatch(/^\+\d+\.\d{3}$/); // Gap to pole formatted
+    expect(results.classification[2].gapText).toMatch(/^\+\d+\.\d{3}$/);
   });
 
   it('sorts cars by best valid lap time, placing invalid or no-time laps behind valid laps', () => {

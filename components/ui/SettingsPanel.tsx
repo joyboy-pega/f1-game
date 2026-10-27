@@ -6,6 +6,7 @@ import { useGameStore } from '@/lib/game/store';
 import { Field, Seg, Slider, Switch } from './kit';
 import { useMounted } from './format';
 import { DEFAULT_SETTINGS } from '@/lib/game/gameState';
+import { DEFAULT_SETUP } from '@/lib/game/sim/rules';
 
 const CAMERAS: { value: CameraViewMode; label: string }[] = [
   { value: 'chase', label: 'Chase' },
@@ -26,6 +27,7 @@ const WEATHERS: { value: WeatherType; label: string }[] = [
   { value: 'cloudy', label: 'Cloudy' },
   { value: 'rain', label: 'Rain' },
   { value: 'snow', label: 'Snow' },
+  { value: 'dynamic', label: 'Dynamic' },
 ];
 
 /** Live-tunable settings. Used in the pause menu and the lobby; reads and writes the persisted store. */
@@ -98,6 +100,73 @@ export function SettingsPanel() {
       </Field>
       <Field label="Stability assist">
         <Switch checked={s.assists.stabilityControl ?? true} onChange={(v) => setAssist({ stabilityControl: v })} label="Stability control" />
+      </Field>
+
+      <h3 className="k-section-title">Technical Regulations</h3>
+      <Field label="Formula Rules" hint={s.regulations === '2026' ? '2026: Active aero straight mode, overtake boost, 768kg min weight' : '2022-25: Ground-effect venturi floors and conventional DRS flaps'}>
+        <Seg
+          label="Technical Regulations"
+          value={s.regulations ?? '2022'}
+          options={[
+            { value: '2022', label: '2022–25 (DRS)' },
+            { value: '2026', label: '2026 (Active Aero)' },
+          ]}
+          onChange={(v) => set({ regulations: v })}
+        />
+      </Field>
+
+      <h3 className="k-section-title">Car Setup &amp; Aerodynamics</h3>
+      <Field label="Aero / Downforce">
+        <Seg
+          label="Aero preset"
+          value={s.setup?.aeroPreset ?? 'medium'}
+          options={[
+            { value: 'low', label: 'Low (Speed)' },
+            { value: 'medium', label: 'Medium' },
+            { value: 'high', label: 'High (Cornering)' },
+          ]}
+          onChange={(v) => set({ setup: { ...(s.setup ?? DEFAULT_SETUP), aeroPreset: v } })}
+        />
+      </Field>
+      <Field label="Brake Bias" value={`${Math.round(s.setup?.brakeBias ?? 56)}% Front`}>
+        <Slider
+          label="Brake Bias"
+          min={50}
+          max={65}
+          step={1}
+          value={s.setup?.brakeBias ?? 56}
+          onChange={(v) => set({ setup: { ...(s.setup ?? DEFAULT_SETUP), brakeBias: v } })}
+        />
+      </Field>
+      <Field label="Differential Lock" value={`${Math.round(s.setup?.diffOnThrottle ?? 70)}%`}>
+        <Slider
+          label="Differential Lock"
+          min={30}
+          max={90}
+          step={5}
+          value={s.setup?.diffOnThrottle ?? 70}
+          onChange={(v) => set({ setup: { ...(s.setup ?? DEFAULT_SETUP), diffOnThrottle: v } })}
+        />
+      </Field>
+      <Field label="Ride Height" value={`${Math.round((s.setup?.rideHeightM ?? 0.030) * 1000)} mm`}>
+        <Slider
+          label="Ride Height"
+          min={0.025}
+          max={0.045}
+          step={0.001}
+          value={s.setup?.rideHeightM ?? 0.030}
+          onChange={(v) => set({ setup: { ...(s.setup ?? DEFAULT_SETUP), rideHeightM: v } })}
+        />
+      </Field>
+      <Field label="Tyre Pressure" value={`${(s.setup?.tirePressureBar ?? 1.5).toFixed(2)} bar`}>
+        <Slider
+          label="Tyre Pressure"
+          min={1.3}
+          max={1.8}
+          step={0.05}
+          value={s.setup?.tirePressureBar ?? 1.5}
+          onChange={(v) => set({ setup: { ...(s.setup ?? DEFAULT_SETUP), tirePressureBar: v } })}
+        />
       </Field>
 
       <h3 className="k-section-title">Handling</h3>

@@ -47,6 +47,8 @@ export function Camera() {
     rigCar.driftAngle = p.driftAngle;
     rigCar.isBoosting = p.isBoosting;
     rigCar.drsOpen = p.drsOpen;
+    rigCar.idx = p.idx;
+    rigCar.carModel = useGameStore.getState().settings.carModel;
     const intro = world.isRace && (world.phase === 'grid' || world.phase === 'lights');
     let mode: RigMode = viewMode;
     let introP = 0;
@@ -65,7 +67,7 @@ export function Camera() {
     rig.update(cam, rigCar, mode, dt, {
       lookBack: world.player.ctrl.lookBack,
       introP,
-      pole: pole ? { x: pole.x, y: pole.y, a: pole.a } : undefined,
+      pole: pole ? { x: pole.x, y: pole.y, a: pole.a, idx: pole.idx } : undefined,
     });
   });
 

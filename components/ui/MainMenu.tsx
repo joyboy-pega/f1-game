@@ -3,12 +3,14 @@
 import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { Difficulty, GameMode, Livery, TimeOfDay, TyreCompound, WeatherType } from '@/lib/game/constants';
 import { MAX_AI_CARS } from '@/lib/game/constants';
 import { DEFAULT_SETTINGS, formatLapTime, type GameSettings } from '@/lib/game/gameState';
 import { recordKey, useGameStore } from '@/lib/game/store';
 import { ControlsPanel } from './ControlsPanel';
 import { SettingsPanel } from './SettingsPanel';
+import { MultiplayerLobby } from './MultiplayerLobby';
 import { COMPOUNDS, COMPOUND_ORDER, MODE_NAMES, WEATHER_LABEL, useMounted } from './format';
 import { Field, Seg, Slider } from './kit';
 import { TrackPreview } from './TrackPreview';
@@ -56,6 +58,7 @@ export function MainMenu() {
   const records = useGameStore((s) => s.records);
   const set = useGameStore((s) => s.setSettings);
   const s: GameSettings = mounted ? stored : DEFAULT_SETTINGS;
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>('Setup');
 
   const race = s.mode === 'race';
@@ -222,7 +225,7 @@ export function MainMenu() {
                   <Seg<WeatherType>
                     label="Weather"
                     value={s.weather}
-                    options={(['sunny', 'cloudy', 'rain', 'snow'] as WeatherType[]).map((w) => ({ value: w, label: WEATHER_LABEL[w] }))}
+                    options={(['sunny', 'cloudy', 'rain', 'snow', 'dynamic'] as WeatherType[]).map((w) => ({ value: w, label: WEATHER_LABEL[w] }))}
                     onChange={(v) => set({ weather: v })}
                   />
                 </Field>
@@ -369,6 +372,22 @@ export function MainMenu() {
           </div>
         </section>
       </div>
+
+      {s.mode === 'multiplayer' && (
+        <MultiplayerLobby
+          onStartRace={(roomSettings) => {
+            set({
+              mode: 'multiplayer',
+              trackId: roomSettings.trackId,
+              totalLaps: roomSettings.totalLaps,
+              weather: roomSettings.weather,
+              aiCount: roomSettings.aiCount,
+            });
+            router.push('/game');
+          }}
+          onBack={() => set({ mode: 'race' })}
+        />
+      )}
     </main>
   );
 }

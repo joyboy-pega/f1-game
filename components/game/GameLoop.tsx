@@ -10,6 +10,10 @@ import { recorder } from '@/lib/game/sim/recorder';
 import { ghostRecorder } from '@/lib/game/replay/ghost';
 import { devStats } from '@/lib/game/devStats';
 import type { SimEvent } from '@/lib/game/sim/events';
+import { multiplayerRoom } from '@/lib/game/multiplayer/room';
+import type { Pose } from '@/lib/game/sim/interp';
+
+const mpPoseScratch: Pose = { x: 0, y: 0, a: 0 };
 
 const HUD_INTERVAL = 0.1;
 const RESULTS_DELAY_MS = 2500;
@@ -20,6 +24,18 @@ let resultsTimer: ReturnType<typeof setTimeout> | null = null;
 function cancelResultsTimer() {
   if (resultsTimer !== null) clearTimeout(resultsTimer);
   resultsTimer = null;
+}
+
+function scheduleResults(results: ReturnType<typeof world.buildResults>, delayMs = RESULTS_DELAY_MS) {
+  cancelResultsTimer();
+  const raceIdAtFinish = world.raceId;
+  resultsTimer = setTimeout(() => {
+    resultsTimer = null;
+    if (world.raceId !== raceIdAtFinish) return;
+    const s = useGameStore.getState();
+    s.recordRace(results.playerPosition, true);
+    s.setResults(results);
+  }, delayMs);
 }
 
 /** Bridges simulation events to toasts, audio and records. */
@@ -78,21 +94,20 @@ function handleEvent(e: SimEvent) {
       break;
     case 'finish':
       if (e.carId === pid) {
-        cancelResultsTimer();
-        const raceIdAtFinish = world.raceId;
-        resultsTimer = setTimeout(() => {
-          resultsTimer = null;
-          // A restart inside the delay must not show the previous race's results over the new one.
-          if (world.raceId !== raceIdAtFinish) return;
-          const results = world.buildResults();
-          const s = useGameStore.getState();
-          s.recordRace(results.playerPosition, true);
-          s.setResults(results);
-        }, RESULTS_DELAY_MS);
+        scheduleResults(world.buildResults(), RESULTS_DELAY_MS);
       }
       break;
     case 'reset':
       if (e.carId === pid) toast({ id: 'reset', type: 'info', title: 'CAR RESET', duration: 1.2 });
+      break;
+    case 'engineer':
+      toast({
+        id: `eng-${Date.now()}`,
+        type: 'info',
+        title: 'RADIO · RACE ENGINEER',
+        subtitle: e.message,
+        duration: 4.5,
+      });
       break;
     case 'qualifyingComplete': {
       const s = useGameStore.getState();
@@ -105,6 +120,7 @@ function handleEvent(e: SimEvent) {
         subtitle: 'Starting grid set for Grand Prix',
         duration: 4.0,
       });
+      scheduleResults(world.buildResults(), RESULTS_DELAY_MS);
       break;
     }
     case 'flag':
@@ -158,6 +174,7 @@ function handleEvent(e: SimEvent) {
 
 export function GameLoop() {
   const hudTimer = useRef(0);
+  const lastSnapshotTime = useRef(0);
 
   useEffect(() => {
     const unsubscribe = world.events.subscribe(handleEvent);
@@ -182,14 +199,48 @@ export function GameLoop() {
     }
 
     if (input.menuToggleRequested && !st.results) st.setPaused(!st.paused);
-    if (input.cameraCycleRequested) st.cycleCamera();
+    if (input.cameraCycleRequested) {
+      st.cycleCamera();
+      const nextView = useGameStore.getState().settings.cameraView;
+      const label = nextView === 'chase' ? 'CHASE' : nextView === 'tcam' ? 'T-CAM' : nextView === 'cockpit' ? 'COCKPIT' : 'NOSE CAM';
+      st.pushToast({ id: 'cam-cycle', type: 'info', title: `CAMERA: ${label}`, duration: 1.5 });
+    }
     if (input.telemetryToggleRequested) st.toggleTelemetry();
+
+    // Multiplayer room synchronization: send client inputs / receive host snapshot
+    if (world.isMultiplayer) {
+      if (multiplayerRoom.role === 'host') {
+        multiplayerRoom.applyClientInputs(world, performance.now());
+        if (performance.now() - lastSnapshotTime.current >= 40) {
+          multiplayerRoom.broadcastSnapshot(world);
+          lastSnapshotTime.current = performance.now();
+        }
+      } else if (multiplayerRoom.role === 'client') {
+        multiplayerRoom.sendInput(input, world.raceTime);
+      }
+    }
 
     world.paused = st.paused || !!st.results;
     world.updateSettings(st.settings);
     const simT0 = devStats.enabled ? performance.now() : 0;
     world.step(dt, input);
     if (devStats.enabled) devStats.addSim(performance.now() - simT0);
+
+    // Apply remote car positions on client after simulation step (prevents local step overwrite)
+    if (world.isMultiplayer && multiplayerRoom.role === 'client') {
+      for (let i = 0; i < world.cars.length; i++) {
+        const car = world.cars[i];
+        if (!car.isPlayer) {
+          const hasSample = multiplayerRoom.interpolator.sample(car.id, world.raceTime, mpPoseScratch);
+          if (hasSample) {
+            car.prevX = car.phys.x = mpPoseScratch.x;
+            car.prevY = car.phys.y = mpPoseScratch.y;
+            car.prevA = car.phys.a = mpPoseScratch.a;
+          }
+        }
+      }
+    }
+
     recorder.capture(world);
     ghostRecorder.capture(world);
 

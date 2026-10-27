@@ -109,7 +109,11 @@ export class MultiplayerRoom {
       latencyMs: 0,
     };
     this.notifyState('lobby');
-    // Announce join
+    // Announce join with full player info
+    this.send({
+      type: 'join',
+      player: this.localPlayerInfo,
+    });
     this.send({
       type: 'ping',
       timestamp: Date.now(),
@@ -267,9 +271,30 @@ export class MultiplayerRoom {
         }
         break;
       }
+      case 'join': {
+        if (this.role === 'host') {
+          const existing = this.players.find((p) => p.id === packet.player.id);
+          if (!existing) {
+            const assignedCarId = this.players.length;
+            const newPlayer: PlayerInfo = { ...packet.player, carId: assignedCarId, ready: true };
+            this.players.push(newPlayer);
+            this.peerHeartbeats.set(newPlayer.id, Date.now());
+            this.notifyPlayers();
+          }
+          this.broadcastRoomSync();
+        }
+        break;
+      }
+      case 'leave': {
+        if (this.role === 'host') {
+          this.players = this.players.filter((p) => p.id !== packet.peerId);
+          this.notifyPlayers();
+          this.broadcastRoomSync();
+        }
+        break;
+      }
       case 'ping': {
         if (this.role === 'host') {
-          // If new peer pinging, add to players
           this.send({
             type: 'pong',
             pingTimestamp: packet.timestamp,
@@ -290,6 +315,9 @@ export class MultiplayerRoom {
 
   close() {
     if (this.channel) {
+      if (this.role === 'client') {
+        this.send({ type: 'leave', peerId: this.localPeerId });
+      }
       this.channel.close();
       this.channel = null;
     }
@@ -298,3 +326,5 @@ export class MultiplayerRoom {
     this.interpolator.reset();
   }
 }
+
+export const multiplayerRoom = new MultiplayerRoom();

@@ -261,6 +261,14 @@ export interface PhysicsExtras {
   aeroPreset?: 'low' | 'medium' | 'high';
   /** Regulations era (R12). */
   regulations?: '2022' | '2026';
+  /** Differential lock percentage on throttle (50..100%). */
+  diffOnThrottle?: number;
+  /** Static ride height in metres (0.025..0.045m). */
+  rideHeightM?: number;
+  /** Tyre inflation pressure in bar (1.2..1.8 bar). */
+  tirePressureBar?: number;
+  /** 0..1 dirty air downforce loss when following in corners. */
+  dirtyAir?: number;
 }
 
 /**
@@ -466,12 +474,15 @@ export function updateCarPhysics(
     surfaceGrip: surfaceGripFactor,
     tyreGrip: car.tires.overallGrip,
     draft: extra.draft ?? 0,
-    dirtyAir: 0,
+    dirtyAir: extra.dirtyAir ?? 0,
     damage: extra.frontDamage ?? 0,
     inPit: inPitLane,
     fuelKg: extra.fuelKg,
     aeroPreset: extra.aeroPreset,
     regulations: extra.regulations,
+    diffOnThrottle: extra.diffOnThrottle,
+    rideHeightM: extra.rideHeightM,
+    tirePressureBar: extra.tirePressureBar,
   };
 
   stepVehicle(veh, vehInputs, vehEnv, dt);

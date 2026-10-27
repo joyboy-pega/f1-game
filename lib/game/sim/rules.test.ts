@@ -10,6 +10,7 @@ import {
   compoundToBit,
   AERO_PRESET_CONFIG,
   DEFAULT_SETUP,
+  type CarSetup,
   type TelemetrySample,
 } from './rules';
 import { makeCar, GameWorld } from './world';
@@ -132,7 +133,7 @@ describe('R8: Strategy & Race Engineer messages', () => {
     const events = new EventBus();
     const messages: string[] = [];
     events.subscribe((e) => {
-      if (e.type === 'penalty' && e.reason.startsWith('BOX THIS LAP')) messages.push(e.reason);
+      if (e.type === 'engineer' && e.message.startsWith('BOX THIS LAP')) messages.push(e.message);
     });
 
     const engineer = new EngineerManager();
@@ -161,7 +162,7 @@ describe('R8: Strategy & Race Engineer messages', () => {
     const events = new EventBus();
     const messages: string[] = [];
     events.subscribe((e) => {
-      if (e.type === 'penalty' && e.reason.startsWith('RIVAL PITTED')) messages.push(e.reason);
+      if (e.type === 'engineer' && e.message.startsWith('RIVAL PITTED')) messages.push(e.message);
     });
 
     const engineer = new EngineerManager();
@@ -214,6 +215,19 @@ describe('R10: Car Setup Presets', () => {
     expect(DEFAULT_SETUP.aeroPreset).toBe('medium');
     expect(DEFAULT_SETUP.brakeBias).toBe(56);
     expect(DEFAULT_SETUP.diffOnThrottle).toBe(70);
+  });
+
+  it('applies setup parameters across vehicle physics modules', () => {
+    const setup: CarSetup = {
+      aeroPreset: 'high',
+      brakeBias: 60,
+      diffOnThrottle: 90,
+      rideHeightM: 0.025,
+      tirePressureBar: 1.60,
+    };
+    expect(setup.diffOnThrottle).toBeGreaterThan(DEFAULT_SETUP.diffOnThrottle);
+    expect(setup.rideHeightM).toBeLessThan(DEFAULT_SETUP.rideHeightM);
+    expect(setup.tirePressureBar).toBeGreaterThan(DEFAULT_SETUP.tirePressureBar);
   });
 });
 

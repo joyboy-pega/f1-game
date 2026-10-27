@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { DRIVER_ROSTER } from '@/lib/game/constants';
@@ -385,6 +385,26 @@ export function Track() {
       marks,
     };
   }, [trackId]);
+
+  useEffect(() => {
+    return () => {
+      g.road?.dispose();
+      g.runoff?.dispose();
+      g.kerbs?.dispose();
+      g.verge?.dispose();
+      g.gravel?.dispose();
+      g.wall?.dispose();
+      g.fence?.dispose();
+      g.pitLane?.dispose();
+      g.pitWall?.dispose();
+      g.pit?.fills?.dispose();
+      g.pit?.outlines?.dispose();
+      g.pit?.garages?.dispose();
+      g.marks?.white?.dispose();
+      g.marks?.dark?.dispose();
+      g.marks?.coloured?.dispose();
+    };
+  }, [g]);
 
   const tex = useMemo(() => {
     const road = getRoadTextures(snow);
