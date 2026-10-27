@@ -2,7 +2,7 @@ import type { WorldCar } from './types';
 import type { EventBus } from './events';
 import type { TyreCompound } from '../constants';
 import { track } from '../track';
-import { sectorOf } from './race';
+import { sectorOf, timeGap } from './race';
 
 export type EngineMode = 'lean' | 'standard' | 'push';
 export type ERSMode = 'balanced' | 'overtake' | 'recharge';
@@ -110,15 +110,21 @@ export function calculateChampionshipPoints(classification: WorldCar[], fastestL
 export class EngineerManager {
   private boxAlertEmitted = false;
   private lastRivalPittedId = -1;
+  private tyreWearAlertEmitted = false;
+  private gapCooldown = 15;
 
   reset() {
     this.boxAlertEmitted = false;
     this.lastRivalPittedId = -1;
+    this.tyreWearAlertEmitted = false;
+    this.gapCooldown = 15;
   }
 
   update(player: WorldCar, cars: WorldCar[], events: EventBus, dt: number) {
     const p = player;
     if (p.timing.finished) return;
+
+    if (this.gapCooldown > 0) this.gapCooldown -= dt;
 
     // 1. Box this lap notification when pit request is active in final sector
     const sec = sectorOf(p.timing.lastS);
@@ -133,7 +139,19 @@ export class EngineerManager {
       this.boxAlertEmitted = false;
     }
 
-    // 2. Rival pitted alert (car directly ahead or behind enters the pits)
+    // 2. Critical tyre wear pit recommendation
+    if (p.phys.tires.avgWear > 0.65 && !p.pitRequest && !p.inPit && !this.tyreWearAlertEmitted) {
+      this.tyreWearAlertEmitted = true;
+      events.emit({
+        type: 'engineer',
+        message: 'TYRE WEAR CRITICAL · PIT WINDOW RECOMMENDED',
+        sub: 'High degradation · Box soon',
+      });
+    } else if (p.inPit) {
+      this.tyreWearAlertEmitted = false;
+    }
+
+    // 3. Rival pitted alert (car directly ahead or behind enters the pits)
     for (let i = 0; i < cars.length; i++) {
       const c = cars[i];
       if (c.id === p.id) continue;
@@ -145,6 +163,37 @@ export class EngineerManager {
           sub: 'Clear air ahead · Push now',
         });
         break;
+      }
+    }
+
+    // 4. Tactical gap alerts (ahead / behind deltas into DRS or defending range)
+    if (this.gapCooldown <= 0 && cars.length > 1 && !p.inPit && p.timing.lapsCompleted >= 1) {
+      const ahead = cars.find((c) => c.position === p.position - 1 && !c.inPit);
+      const behind = cars.find((c) => c.position === p.position + 1 && !c.inPit);
+
+      if (ahead) {
+        const gap = timeGap(p.timing, ahead.timing);
+        if (gap !== null && gap > 0.05 && gap <= 1.2) {
+          events.emit({
+            type: 'engineer',
+            message: `GAP AHEAD: +${gap.toFixed(1)}s · DRS THREAT`,
+            sub: 'Stay close on corner exit',
+          });
+          this.gapCooldown = 40;
+          return;
+        }
+      }
+
+      if (behind) {
+        const gap = timeGap(behind.timing, p.timing);
+        if (gap !== null && gap > 0.05 && gap <= 1.2) {
+          events.emit({
+            type: 'engineer',
+            message: `CAR BEHIND CLOSING · GAP: +${gap.toFixed(1)}s`,
+            sub: 'Defend into heavy braking zones',
+          });
+          this.gapCooldown = 40;
+        }
       }
     }
   }

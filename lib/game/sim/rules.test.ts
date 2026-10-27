@@ -173,6 +173,51 @@ describe('R8: Strategy & Race Engineer messages', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain('P2 IN PIT LANE');
   });
+
+  it('recommends pit stop when tyre wear exceeds critical threshold', () => {
+    const player = makeCar(0, true, 0, 0, 'soft');
+    const events = new EventBus();
+    const messages: string[] = [];
+    events.subscribe((e) => {
+      if (e.type === 'engineer' && e.message.includes('TYRE WEAR CRITICAL')) messages.push(e.message);
+    });
+
+    const engineer = new EngineerManager();
+    player.phys.tires.avgWear = 0.72;
+
+    engineer.update(player, [player], events, 0.1);
+    events.flush();
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain('PIT WINDOW RECOMMENDED');
+  });
+
+  it('emits gap notifications to rival ahead when in DRS threat range', () => {
+    const player = makeCar(0, true, 0, 0, 'soft');
+    const rival = makeCar(1, false, 0, 0, 'soft');
+    player.position = 2;
+    rival.position = 1;
+    player.timing.lapsCompleted = 2;
+    rival.timing.lapsCompleted = 2;
+    player.timing.lastCheckpoint = 10;
+    rival.timing.lastCheckpoint = 10;
+    player.timing.checkpointTimes = new Float64Array(50);
+    rival.timing.checkpointTimes = new Float64Array(50);
+    player.timing.checkpointTimes[10] = 30.8;
+    rival.timing.checkpointTimes[10] = 30.0; // 0.8s ahead
+
+    const events = new EventBus();
+    const messages: string[] = [];
+    events.subscribe((e) => {
+      if (e.type === 'engineer' && e.message.startsWith('GAP AHEAD')) messages.push(e.message);
+    });
+
+    const engineer = new EngineerManager();
+    // Advance cooldown
+    engineer.update(player, [player, rival], events, 20);
+    events.flush();
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain('+0.8s');
+  });
 });
 
 describe('R9: Championship Points System', () => {
