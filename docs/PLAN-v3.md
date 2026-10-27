@@ -735,6 +735,13 @@ then change physics (V) and AI (A) together, then add content (T6) and visuals (
 Added by the human mid-run: **U1** unit-scale alignment (KMH_PER_UNIT 0.37 → 0.36), ✅ e548d09. Human also asked for no screenshots (they verify visuals), so
 visual acceptance lines are 🟡 until they confirm.
 
+### Post-Audit Architecture & Feature Enhancements (Added 2026-10-27)
+| # | Enhancement | Spec & Implementation | Tests & Verification |
+|---|---|---|---|
+| 37 | **Pit Stop Interactive QTE Mini-Game (R6.1)** | Interactive release reaction mini-game during `inPitService`. Player hits release window via Spacebar or screen tap. Graded as Perfect (`-0.6s`), Clean (`-0.25s`), False Start (`+0.8s`), or Late (`+0.0s`). Broadcast HUD overlay in `components/ui/hud/PitQTEOverlay.tsx` with animated meter, sweet-spot green target window, and dynamic toast alerts. | Unit tests in `lib/game/sim/pit.test.ts`; `npm test` passed. |
+| 38 | **Audio Context Bootstrap Utility (S7.1)** | Extracted cross-browser AudioContext instantiation with `webkitAudioContext` fallback into dedicated typed utility `lib/game/audioBootstrap.ts`. Strict typing, SSR-safe, handles deferred audio resume cleanly. | Unit tests in `lib/game/audioBootstrap.test.ts`; `npm test` passed. |
+| 39 | **WebRTC Signalling Broker & Data Transport (R13.1)** | Abstracted `MultiplayerTransport` interface in `lib/game/multiplayer/webrtcTransport.ts`. Implemented `BroadcastChannelTransport`, `WebRTCTransport`, and `LocalSignallingBroker` for SDP offer/answer and ICE candidate exchange. Low-latency unordered datagrams for physics snapshots. Wired into `MultiplayerRoom`. | Unit tests in `lib/game/multiplayer/webrtcTransport.test.ts`; `npm test` passed. |
+
 If the session runs out mid-task: commit work-in-progress on the task branch (not `main`) with `WIP:` prefix and write
 exactly where you stopped in WORKLOG.
 
