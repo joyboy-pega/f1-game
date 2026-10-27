@@ -7,6 +7,7 @@ import { NoiseBank } from './audio/noise';
 import { Sfx } from './audio/sfx';
 import { SurfaceLayers } from './audio/surface';
 import { createAudioFrame, type AudioFrame } from './audio/types';
+import { createAudioContext, resumeAudioContext } from './audioBootstrap';
 
 /** Static per-bus loudness; the final balance before the master limiter. */
 const BUS_LEVEL = { engine: 0.9, ai: 0.85, tyre: 0.75, amb: 1.0, sfx: 1.0, ui: 0.9 } as const;
@@ -47,7 +48,7 @@ export class AudioManager {
   private lastFrameRef: AudioFrame = createAudioFrame(0);
 
   get ready() {
-    return !!this.core && this.ctx!.state === 'running';
+    return !!this.core && this.ctx?.state === 'running';
   }
   get sfx() {
     return this._sfx;
@@ -68,14 +69,13 @@ export class AudioManager {
   public init() {
     if (typeof window === 'undefined') return;
     if (this.ctx) {
-      if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+      resumeAudioContext(this.ctx);
       return;
     }
-    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctor) return;
+    const ctx = createAudioContext({ latencyHint: 'interactive' });
+    if (!ctx) return;
 
     try {
-      const ctx = new Ctor({ latencyHint: 'interactive' });
       this.ctx = ctx;
 
       const noise = new NoiseBank(ctx);
@@ -118,7 +118,8 @@ export class AudioManager {
 
       // A hidden tab stops rAF, which would freeze the engine drone: suspend instead.
       document.addEventListener('visibilitychange', this.onVisibility);
-    } catch {
+    } catch (err) {
+      console.warn('Failed to initialize AudioContext', err);
       this.ctx = null;
       this.core = null;
     }
@@ -126,8 +127,8 @@ export class AudioManager {
 
   private onVisibility = () => {
     if (!this.ctx) return;
-    if (document.hidden) this.ctx.suspend().catch(() => {});
-    else this.ctx.resume().catch(() => {});
+    if (document.hidden) this.ctx.suspend().catch((err) => console.debug('AudioContext suspend deferred', err));
+    else resumeAudioContext(this.ctx);
   };
 
   private masterTarget() {
@@ -171,6 +172,7 @@ export class AudioManager {
   public update(f: AudioFrame) {
     this.lastFrameRef = f;
     if (!this.core || !this.ctx || this.ctx.state !== 'running') return;
+    if (!this._player || !this._surface || !this._ai || !this._ambience || !this._sfx) return;
 
     if (f.paused !== this.paused || f.results !== this.results) {
       this.paused = f.paused;
@@ -183,10 +185,10 @@ export class AudioManager {
     const mix = CAMERA_MIX[f.camera] ?? CAMERA_MIX.chase;
     const p = f.player;
 
-    this._player!.update(p, dt, mix);
-    this._surface!.update(p, dt, mix);
-    this._ai!.update(f, dt);
-    this._ambience!.update({
+    this._player.update(p, dt, mix);
+    this._surface.update(p, dt, mix);
+    this._ai.update(f, dt);
+    this._ambience.update({
       dt,
       idx: p.idx,
       kmh: p.kmh,
@@ -198,7 +200,7 @@ export class AudioManager {
     // Barrier strike: rising edge of guardRailSparks.
     this.wallCooldown -= dt;
     if (p.sparks > 0.4 && this.prevSparks <= 0.05 && this.wallCooldown <= 0 && !f.paused) {
-      this._sfx!.wallHit(clamp01(0.25 + p.kmh / 260));
+      this._sfx.wallHit(clamp01(0.25 + p.kmh / 260));
       this.wallCooldown = 0.35;
     }
     this.prevSparks = p.sparks;
@@ -207,7 +209,7 @@ export class AudioManager {
     if (p.inPit && !f.paused && !f.results) {
       this.pitTimer -= dt;
       if (this.pitTimer <= 0) {
-        this._sfx!.pitLimiterTick();
+        this._sfx.pitLimiterTick();
         this.pitTimer = 0.5;
       }
     } else {
