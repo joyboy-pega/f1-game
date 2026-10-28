@@ -1,6 +1,6 @@
-# Simulart Tracks (Buddh GP)
+# Open Race (Buddh GP)
 
-**Simulart Tracks** is a high-performance browser-based 3D racing simulation game set on the Buddh International Circuit, created by **Arigatoo Club**. Race a full grid of AI rivals around the track, manage tyres, pit stops, DRS and ERS, and watch the race back with TV-style cameras. It runs entirely in the browser on WebGL2, with no install step beyond the dev server.
+**Open Race** is a high-performance browser-based 3D racing simulation game set on the Buddh International Circuit, created by **Arigatoo Club**. Race a full grid of AI rivals around the track, manage tyres, pit stops, DRS and ERS, and watch the race back with TV-style cameras. It runs entirely in the browser on WebGL2, with no install step beyond the dev server.
 
 ## Features
 

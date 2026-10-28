@@ -58,12 +58,12 @@ export function MainMenu() {
   const best = mounted ? records.bestLaps[bestKey] : undefined;
 
   return (
-    <main className="l-root" aria-label="Simulart Tracks lobby">
+    <main className="l-root" aria-label="Open Race lobby">
       <header className="l-top">
         <div className="l-brand">
           <span className="l-flag" aria-hidden="true" />
           <div>
-            <h1>Simulart Tracks</h1>
+            <h1>Open Race</h1>
             <p>by Arigatoo Club · Buddh International Circuit</p>
           </div>
         </div>

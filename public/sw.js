@@ -1,5 +1,5 @@
-// Simulart Tracks — Progressive Web App Service Worker
-const CACHE_NAME = 'simulart-tracks-v1';
+// Open Race — Progressive Web App Service Worker
+const CACHE_NAME = 'open-race-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.webmanifest',

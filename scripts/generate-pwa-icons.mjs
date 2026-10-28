@@ -33,7 +33,7 @@ const svgIcon512 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512
   <polygon points="120,380 90,380 180,210 210,210" fill="#ffffff" opacity="0.9"/>
 
   <!-- Team/Brand Emblem "53" / "S" hint in Anton/Bold style -->
-  <text x="256" y="450" font-family="'Anton', sans-serif" font-size="44" font-weight="900" fill="#ffffff" letter-spacing="6" text-anchor="middle">SIMULART</text>
+  <text x="256" y="450" font-family="'Anton', sans-serif" font-size="44" font-weight="900" fill="#ffffff" letter-spacing="6" text-anchor="middle">OPEN RACE</text>
 </svg>`;
 
 async function run() {

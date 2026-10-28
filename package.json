@@ -1,7 +1,7 @@
 {
   "name": "buddh-circuit-f1",
   "version": "1.0.0",
-  "description": "Simulart Tracks — Browser-based 3D racing simulation game set on the Buddh International Circuit, built with Next.js, React Three Fiber, and Three.js.",
+  "description": "Open Race — Browser-based 3D racing simulation game set on the Buddh International Circuit, built with Next.js, React Three Fiber, and Three.js.",
   "private": true,
   "scripts": {
     "dev": "next dev",
