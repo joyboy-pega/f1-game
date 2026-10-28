@@ -270,17 +270,17 @@ export interface DriverProfile {
 }
 
 export const DRIVER_ROSTER: DriverProfile[] = [
-  { id: 'apx', name: 'Rhys Calder', code: 'CAL', team: 'Apex Dynamics', livery: { body: '#1E41B0', accent: '#FFD700', rim: '#C0C0C0', number: 1 }, skill: { pace: 1.0, cornerBrake: 0.72, accel: 0.97, consistency: 0.95, aggression: 0.8 } },
-  { id: 'nov', name: 'Mateo Varga', code: 'VAR', team: 'Nova Racing', livery: { body: '#00D2BE', accent: '#111111', rim: '#00D2BE', number: 44 }, skill: { pace: 0.98, cornerBrake: 0.75, accel: 0.94, consistency: 0.93, aggression: 0.6 } },
-  { id: 'vel', name: 'Kenji Arata', code: 'ARA', team: 'Velocity GP', livery: { body: '#FF8700', accent: '#0072BB', rim: '#1E1E1E', number: 4 }, skill: { pace: 0.97, cornerBrake: 0.68, accel: 1.0, consistency: 0.9, aggression: 0.85 } },
-  { id: 'tit', name: 'Lucien Moreau', code: 'MOR', team: 'Titan Corsa', livery: { body: '#DC0000', accent: '#FFFFFF', rim: '#DC0000', number: 16 }, skill: { pace: 0.975, cornerBrake: 0.7, accel: 0.96, consistency: 0.88, aggression: 0.75 } },
-  { id: 'pha', name: 'Sofia Lindqvist', code: 'LIN', team: 'Phantom F1', livery: { body: '#006F62', accent: '#CEDC00', rim: '#1E1E1E', number: 14 }, skill: { pace: 0.955, cornerBrake: 0.73, accel: 0.92, consistency: 0.92, aggression: 0.5 } },
-  { id: 'orb', name: 'Dev Malhotra', code: 'MAL', team: 'Orbit Motorsport', livery: { body: '#00A3E0', accent: '#002F6C', rim: '#C0C0C0', number: 63 }, skill: { pace: 0.95, cornerBrake: 0.65, accel: 0.9, consistency: 0.86, aggression: 0.65 } },
-  { id: 'pul', name: 'Oscar Hale', code: 'HAL', team: 'Pulse Racing', livery: { body: '#FD4BC7', accent: '#0090FF', rim: '#FD4BC7', number: 81 }, skill: { pace: 0.94, cornerBrake: 0.62, accel: 0.88, consistency: 0.84, aggression: 0.7 } },
-  { id: 'ion', name: 'Yuki Tanabe', code: 'TAN', team: 'Ion Racing', livery: { body: '#F5F5F5', accent: '#E10600', rim: '#111111', number: 22 }, skill: { pace: 0.935, cornerBrake: 0.7, accel: 0.9, consistency: 0.85, aggression: 0.55 } },
-  { id: 'zen', name: 'Marco Bellini', code: 'BEL', team: 'Zenith Corse', livery: { body: '#6B21A8', accent: '#F59E0B', rim: '#F59E0B', number: 10 }, skill: { pace: 0.93, cornerBrake: 0.69, accel: 0.91, consistency: 0.83, aggression: 0.8 } },
-  { id: 'hel', name: 'Aiden Brooks', code: 'BRO', team: 'Helix Works', livery: { body: '#14532D', accent: '#E5E7EB', rim: '#9CA3AF', number: 27 }, skill: { pace: 0.925, cornerBrake: 0.71, accel: 0.89, consistency: 0.82, aggression: 0.45 } },
-  { id: 'sol', name: 'Priya Raman', code: 'RAM', team: 'Solaris', livery: { body: '#FACC15', accent: '#111827', rim: '#111827', number: 5 }, skill: { pace: 0.92, cornerBrake: 0.67, accel: 0.9, consistency: 0.8, aggression: 0.6 } },
+  { id: 'dis', name: 'Disha', code: 'DIS', team: 'Apex Dynamics', livery: { body: '#1E41B0', accent: '#FFD700', rim: '#C0C0C0', number: 1 }, skill: { pace: 1.0, cornerBrake: 0.72, accel: 0.97, consistency: 0.95, aggression: 0.8 } },
+  { id: 'nir', name: 'Nirav', code: 'NIR', team: 'Nova Racing', livery: { body: '#00D2BE', accent: '#111111', rim: '#00D2BE', number: 44 }, skill: { pace: 0.98, cornerBrake: 0.75, accel: 0.94, consistency: 0.93, aggression: 0.6 } },
+  { id: 'par', name: 'Parth', code: 'PAR', team: 'Velocity GP', livery: { body: '#FF8700', accent: '#0072BB', rim: '#1E1E1E', number: 4 }, skill: { pace: 0.97, cornerBrake: 0.68, accel: 1.0, consistency: 0.9, aggression: 0.85 } },
+  { id: 'joy', name: 'Joy', code: 'JOY', team: 'Titan Corsa', livery: { body: '#DC0000', accent: '#FFFFFF', rim: '#DC0000', number: 16 }, skill: { pace: 0.975, cornerBrake: 0.7, accel: 0.96, consistency: 0.88, aggression: 0.75 } },
+  { id: 'ady', name: 'Adyy', code: 'ADY', team: 'Phantom F1', livery: { body: '#006F62', accent: '#CEDC00', rim: '#1E1E1E', number: 14 }, skill: { pace: 0.955, cornerBrake: 0.73, accel: 0.92, consistency: 0.92, aggression: 0.5 } },
+  { id: 'sha', name: 'Shaurish', code: 'SHA', team: 'Orbit Motorsport', livery: { body: '#00A3E0', accent: '#002F6C', rim: '#C0C0C0', number: 63 }, skill: { pace: 0.95, cornerBrake: 0.65, accel: 0.9, consistency: 0.86, aggression: 0.65 } },
+  { id: 'pat', name: 'Pathu', code: 'PAT', team: 'Pulse Racing', livery: { body: '#FD4BC7', accent: '#0090FF', rim: '#FD4BC7', number: 81 }, skill: { pace: 0.94, cornerBrake: 0.62, accel: 0.88, consistency: 0.84, aggression: 0.7 } },
+  { id: 'peg', name: 'Pegasus', code: 'PEG', team: 'Pegasus', livery: { body: '#F8FAFC', accent: '#DC2626', rim: '#9A6B26', number: 53 }, skill: { pace: 0.935, cornerBrake: 0.7, accel: 0.9, consistency: 0.85, aggression: 0.55 } },
+  { id: 'kev', name: 'Keval', code: 'KEV', team: 'Zenith Corse', livery: { body: '#6B21A8', accent: '#F59E0B', rim: '#F59E0B', number: 10 }, skill: { pace: 0.93, cornerBrake: 0.69, accel: 0.91, consistency: 0.83, aggression: 0.8 } },
+  { id: 'pus', name: 'Pushkar', code: 'PUS', team: 'Helix Works', livery: { body: '#14532D', accent: '#E5E7EB', rim: '#9CA3AF', number: 27 }, skill: { pace: 0.925, cornerBrake: 0.71, accel: 0.89, consistency: 0.82, aggression: 0.45 } },
+  { id: 'ary', name: 'Aryak', code: 'ARY', team: 'Solaris', livery: { body: '#FACC15', accent: '#111827', rim: '#111827', number: 5 }, skill: { pace: 0.92, cornerBrake: 0.67, accel: 0.9, consistency: 0.8, aggression: 0.6 } },
 ];
 
 export const MAX_AI_CARS = DRIVER_ROSTER.length;
