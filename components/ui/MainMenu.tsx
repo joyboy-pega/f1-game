@@ -32,7 +32,7 @@ const PRESETS: { name: string; livery: Omit<Livery, 'number'> }[] = [
   { name: 'Violet', livery: { body: '#6b21a8', accent: '#f59e0b', rim: '#f59e0b' } },
 ];
 
-const TABS = ['Setup', 'Garage', 'Records', 'Options'] as const;
+const TABS = ['Setup', 'Garage', 'Records', 'Options', 'Team'] as const;
 type Tab = (typeof TABS)[number];
 
 function Colour({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
@@ -290,6 +290,32 @@ export function MainMenu() {
                 <h3 className="k-section-title">Controls</h3>
                 <ControlsPanel />
               </>
+            )}
+
+            {tab === 'Team' && (
+              <div className="l-team-section">
+                <div className="l-wip-badge">
+                  <span className="l-wip-tag">WIP</span>
+                  <span className="l-wip-desc">Active Development Crew</span>
+                </div>
+                <h3 className="k-section-title">WIP Team</h3>
+                <div className="l-team-grid">
+                  {[
+                    { name: 'Nirav', code: 'NIR' },
+                    { name: 'Joy', code: 'JOY' },
+                    { name: 'Ady', code: 'ADY' },
+                    { name: 'Disha', code: 'DIS' },
+                  ].map((member) => (
+                    <div key={member.name} className="l-team-card">
+                      <span className="l-team-dot" />
+                      <div className="l-team-info">
+                        <span className="l-team-name">{member.name}</span>
+                        <span className="l-team-code">{member.code}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 

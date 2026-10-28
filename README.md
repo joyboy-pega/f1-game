@@ -99,12 +99,14 @@ The `legacy/` folder holds the original standalone HTML and JavaScript prototype
 
 Open the HTML files directly in a browser to run them. Some pages load libraries from a CDN, so they need an internet connection.
 
-## Developers
+## Team
 
-- **Joy Kujur**
-- **Nirav Thakur**
-- **Advait Patil**
-- **Disha Methani**
+### WIP
+
+- **Nirav**
+- **Joy**
+- **Ady**
+- **Disha**
 
 ## Credits
 
