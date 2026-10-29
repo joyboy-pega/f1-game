@@ -9,7 +9,9 @@ describe('G5: F1 Car Visuals & Geometry Budget', () => {
     expect(geos.flap).toBeDefined();
     expect(geos.steeringWheel).toBeDefined();
     expect(geos.brakeLight).toBeDefined();
-    expect(geos.flapPivot).toEqual([0, 0.99, -1.31]);
+    // Updated with the rear-wing rework that lowered the mainplane/flap stack onto the endplates
+    // (fixed a visible gap between the flap and mainplane) — see f1Geometry.ts buildBody()/getF1Geometries().
+    expect(geos.flapPivot).toEqual([0, 0.85, -1.44]);
   });
 
   it('keeps LOD0 total triangle budget under 10k tris (§7 G5)', () => {

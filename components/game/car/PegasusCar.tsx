@@ -23,7 +23,7 @@ import { getTyreGeometry } from './wheels';
 import { world } from '@/lib/game/sim/world';
 import { renderPose, type Pose } from '@/lib/game/sim/interp';
 import { track } from '@/lib/game/track';
-import { surfaceHeight, surfaceGradeAngle, surfaceCamberAngle } from '@/lib/game/track/surface';
+import { surfaceHeight, surfaceGradeAngle, surfaceCamberAngle, surfaceIndex } from '@/lib/game/track/surface';
 
 export interface PegasusCarProps {
   car: WorldCar;
@@ -325,14 +325,15 @@ export function PegasusCar({ car, interpolate = false }: PegasusCarProps) {
     const dx = posX - T.px[idx];
     const dz = posY - T.py[idx];
     const lat = dx * T.nx[idx] + dz * T.ny[idx];
-    const carY = surfaceHeight(idx, lat) + 0.05;
+    const f = surfaceIndex(idx, posX, posY);
+    const carY = surfaceHeight(f, lat) + 0.05;
 
     g.position.set(posX, carY, posY);
     g.rotation.y = Math.PI / 2 - posA;
 
     // Attitude + road grade/camber + engine vibration
-    const roadPitch = surfaceGradeAngle(idx);
-    const roadBank = surfaceCamberAngle(idx);
+    const roadPitch = surfaceGradeAngle(f);
+    const roadBank = surfaceCamberAngle(f);
     const trackYaw = Math.atan2(T.ty[idx], T.tx[idx]);
     const headingDiff = posA - trackYaw;
     const cosH = Math.cos(headingDiff);

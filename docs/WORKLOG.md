@@ -1359,3 +1359,180 @@ the running game and the golden hash are untouched (full suite below). Folder is
 - `npm run typecheck`: clean (0 errors).
 - `npm run build`: static site generation clean (0 errors).
 - Screenshot verification (`shots/audit-verification.png`): 109 draw calls, 350k triangles, 0 console/runtime errors, 57 fps.
+
+---
+
+## 2026-10-29 — Merge origin/main, roster conflict resolution, visual bug audit (branch `main`)
+
+**Context:** User reported car model, environment and guide-line visual glitches, had uncommitted WIP changes to
+`components/game/car/{F1Car.tsx,f1Geometry.ts,geom.ts,materials.ts,wheels.ts}` + `f1Geometry.test.ts`, and asked to
+pull/merge a teammate's 4 commits from `origin/main` (branding rename to "Open Race", PWA/manifest tweaks, custom
+driver-name roster, Cloudflare Pages static export config).
+
+**Merge (`origin/main` db229de into local `main`, 72 vs 4 commits since common ancestor a57eec9):**
+- Stashed the car-model WIP before merging (it never touched files origin changed, so no interaction risk).
+- Conflict 1, `components/ui/MainMenu.tsx`: HEAD showed the dynamic track name, origin hardcoded "Buddh International
+  Circuit" under the new "Open Race" title. Kept "Open Race" (already the consistent name across README, GEMINI.md,
+  `app/layout.tsx`, `app/manifest.ts`, `package.json`, `PwaRegister.tsx` — all merged cleanly) + the dynamic
+  `trackInfo.name` (correct now that multiple circuits exist; T6 added Monza/Red Bull Ring/Silverstone/Spa/Suzuka).
+- Conflict 2, `lib/game/constants.ts` `DRIVER_ROSTER`: origin renamed the 11 primary drivers to the team's real names
+  (Disha/Nirav/Parth/Joy/Adyy/Shaurish/Pathu/Pegasus/Keval/Pushkar/Aryak) but dropped the 11 "second car" entries that
+  HEAD had added for R4's full 20-car grid (`MAX_AI_CARS = 19` needs ≥19 AI entries). Kept the renamed primaries +
+  HEAD's second cars. Origin also renamed team 8 "Ion Racing" → "Pegasus" (a new real SAE-car livery, #53); its
+  HEAD-side second car (`ion2`) was orphaned onto a now-1-car "Ion Racing" team, so it was rebranded to `peg2` /
+  team "Pegasus" (body colour matched to the team's white; distinct accent/rim/number kept unique) to restore every
+  team to exactly 2 cars.
+- Fallout fixed in the same commit: `lib/game/sim/fullGrid.test.ts` (2-car-team invariant) now passes; stale driver
+  codes in `lib/game/sim/qualifying.test.ts` (`CAL/VAR/MOR/...`) updated to the new roster's codes
+  (`DIS/NIR/JOY/...`) — this was testing grid-order *wiring*, not real driver identities, so the fixture is updated
+  rather than the behaviour.
+
+**Golden hash status:** Verified `lib/game/sim/golden.test.ts` matches recorded golden hash `05aa16f7` cleanly.
+
+**Visual bugs found by code audit (matches user's reports — screenshots not yet taken, per protocol §0.2/R12,
+pending user confirmation):**
+1. **Racing-line guide floats off the road on elevation changes** (`components/game/RacingLine.tsx`): the ribbon's
+   Y was a flat constant (`0.16`) instead of calling `surfaceHeight()` like every other track-relative component
+   (`F1Car.tsx`, `camera/rig.ts`, `TrackProps.tsx`, `InstancedAICars.tsx`, dressing). On flat Buddh this was
+   invisible; on Spa (~102 m elevation) and Red Bull Ring (~65 m) the line sits at a fixed world height and floats
+   above hills / sinks into valleys — exactly "path guide lines show up in the air". Fixed: sample
+   `surfaceHeight(i, ±HALF_WIDTH)` per vertex, +0.16 clearance.
+2. **Trees fold across the road on tight corners** (`lib/game/visuals/dressing.ts` `buildTreeSystem`): trees are
+   placed at a fixed lateral offset (120–440 units) from the centreline along the local normal, with no regard for
+   the local radius of curvature. On any hairpin tighter than ~440 units (44 m) — plausible on the new real circuits'
+   tightest corners — the normal-offset point on the concave (inside) side folds past the corner's centre of
+   curvature and lands on or across the track itself: "trees come between the road". Fixed: compute local signed
+   curvature (`rt.tx/ty` cross product) to find which side is concave, derive an approximate local radius from
+   `rt.smoothCurvature`/`rt.segLen`, and clamp the inside-side offset to 70% of that radius.
+
+**Verification:** `npm run typecheck` clean. `npm test` → 39/39 files, 269/269 tests passed (was 3 failing before
+this session's fixes).
+
+---
+
+## 2026-10-29 (cont.) — Car-model geometry audit, terrain poke-through, shadow/near-plane flicker
+
+User reported the car model as "messed up", "some stuff flying detached from the car", trees/grass crossing the
+road, and (mid-session) constant vertical flicker while driving, worst in T-cam, plus a black part cutting across
+the cockpit. Reviewed the uncommitted WIP diff to `F1Car.tsx`/`f1Geometry.ts`/`geom.ts`/`materials.ts`/`wheels.ts`
+left from a prior session.
+
+**Root cause 1 — inward-facing geometry (the "hollow"/"flying parts" look), `components/game/car/geom.ts`:**
+`loft()` and `wingElement()` wind their triangles by station order; several callers in `f1Geometry.ts` list
+stations nose-first (z decreasing) or right-to-left (x decreasing), which is the natural way to write them but
+produces an inward-wound (negative signed volume) shell. With back-face culling on (the default), an inward shell
+renders see-through from most angles and solid from inside out — reads as hollow panels, or as disconnected shards
+where a correctly-wound part sits behind an inverted one. Verified by computing signed volume
+(`Σ a·(b×c)/6`) of every part the car builds: 6 of ~40 parts were negative (nose/fuselage, roll-hoop spine, both
+sidepods, a floor fence, a pylon). Fix: added `orientOutward()` in `geom.ts` — flips winding when volume < 0 —
+called from both `loft()` and `wingElement()` before creasing. Also found and fixed `planProfile()`: its
+`rotateX(-90deg)` silently mirrored every caller's authored (x, z) planform front-to-back (the twin to
+`sideProfile()`'s already-documented `-90` vs `+90` convention, but it had the wrong sign), which was flipping the
+floor, front wing mainplane, and rear wing mainplane nose-to-tail relative to the body they're meant to sit under —
+the actual source of "stuff flying detached": the floor's T-tray tip was rendering under the diffuser and vice
+versa. Changed to `rotateX(+90deg)` with a compensating translate.
+- Evidence: `components/game/car/__scratch/audit.test.ts` (removed after use) printed signed volume + bounding box
+  for every primitive and every `buildBody()`/`buildCarbon()` part via a `mergeParts` mock; re-ran after the fix —
+  all parts positive.
+
+**Root cause 2 — cockpit z-fighting ("black part keeps coming in between" while driving), `f1Geometry.ts`:**
+Introduced by my own fix for the coaming hovering above the tub (lowered its bottom from y=0.59 to 0.535) without
+moving the halo's lower attachment points, which were tuned against the old, higher coaming: the halo tube's two
+leg ends, its V-pillar strut, and 3 fairing-boot ellipsoids all still terminated at y≈0.52-0.56 — now *inside* the
+lowered coaming and the monocoque top surface it sits on, three near-coincident surfaces fighting for the same
+pixels every frame. Fixed by re-anchoring the halo's lower points to the new coaming's top rim (`haloLegY = 0.595`).
+Also found the liner (cockpit interior shell, 0.285 x 0.54) was larger than the coaming's hole it sits inside
+(0.275 x 0.53) by 0.005 on each side — walls crossing instead of nesting, z-fighting along the whole rim; shrunk to
+0.265 x 0.52.
+
+**Root cause 3 — AI cars (`InstancedAICars.tsx`), several independent bugs found reviewing it against the
+single-mesh player rig it's supposed to mirror:**
+- Body material had `vertexColors: true` but the body geometry carries no `color` attribute (livery is a texture
+  atlas, not vertex colours) — WebGL defaults a missing attribute to 0, so every instance's base colour multiplied
+  to black, visible as excessively dark/flat AI bodywork. Removed `vertexColors`.
+- Rim geometry is modelled with its face on +x only; the single-mesh rig mirrors it per-wheel with `scale.x =
+  -width` on the right side (`flipRim` in `F1Car.tsx`) but the instanced path scaled every wheel the same way, so
+  every right-side AI rim showed its back face. Added the same per-wheel mirror and made the rim material
+  `THREE.DoubleSide` (an instance's negative-scale winding flip isn't compensated per-instance by three.js the way
+  it is for a whole object).
+- Brake light was translated by an extra local offset (`[0, 0.355, -1.472]`) on top of a body matrix, but the
+  geometry (`buildBrakeLight()`) is already authored at that car-space position — every AI car's rain light floated
+  about 1.5 car-lengths behind the car. Removed the extra offset.
+- The rear DRS/active-aero flap wasn't rendered at all on AI cars (present on the player rig only) — added a 6th
+  instanced draw call, hinged the same way as `F1Car.tsx`, tinted with the livery's accent colour per instance.
+
+**Root cause 4 — player chassis pitch sign, `F1Car.tsx`:** the hand-rolled `accelPitch` (from raw throttle/brake)
+had the opposite sign convention from the vehicle model's own `phys.pitch` (and from what `InstancedAICars.tsx`
+already used) — nose dove under acceleration and squatted under braking, backwards, and reacted to throttle/brake
+with no smoothing from the physics layer. Switched to `phys.pitch`/`phys.roll` (still lerped into the chassis at
+the same rate), matching the AI path.
+
+**Root cause 5 — terrain poking through the road ("grass shows on the tracks"), `lib/game/visuals/terrain.ts`:**
+`createTerrainSampler` flattened each terrain *vertex* to its own nearest road sample, but the terrain mesh is
+60x60 quads per quadrant (~35-40 m cells) interpolated linearly across triangles — a vertex outside the flattened
+corridor can still belong to a triangle that spans *into* it, and the old rule never looked at a vertex's
+neighbours. Measured by rasterizing each built terrain mesh and comparing its height against `surfaceHeight()` at
+road + verge points across every circuit: 1.8-8.4% of sampled points had terrain above the road surface, up to
++233 units (23 m) at Suzuka's crossover. Fixed: `createTerrainSampler` now takes a `reach` (the mesh's cell
+diagonal) and flattens a vertex to 0.3 m below the *lowest* road edge within `reach` of it, not just its own
+nearest sample — covering grade, camber (a banked road's low edge), and height crossovers. `buildTerrain` passes
+the actual per-quadrant cell diagonal.
+- Evidence: scratch vitest script rasterized `buildTerrain()`'s returned chunks and diffed against `surfaceHeight`
+  at 21 lateral samples per 2 road-points per circuit (removed after use).
+
+**Root cause 6 — shadow/car flicker while driving, worst in T-cam:**
+- `components/game/Environment.tsx`: the shadow frustum was snapped to texel units in world X/Z, but the sun
+  shines in at an angle — texel-snapping the wrong basis doesn't line the shadow map up with its own texels, so
+  shadow edges on the car (which fills most of the frame in T-cam/cockpit) crawled every frame. Snap in the light's
+  own (right, up, forward) basis instead. Also only followed the player's (x, y); on Spa/Red Bull Ring the car sits
+  hundreds of units above y=0, outside the old fixed-height shadow box — shadows popped in/out on elevation. Now
+  follows track height at the car too.
+- `components/game/GameCanvas.tsx`: camera `near` was 0.5; raised to 1 (the closest on-board geometry, halo/wheel,
+  is still >2 units from the cockpit eye) — depth-buffer precision scales with `near`, and at 0.5 the terrain
+  (0.3 m under the asphalt) z-fought through the road a few hundred metres out, visible as flicker ahead of the car.
+- `lib/game/track/surface.ts`: added `surfaceIndex(idx, x, y)` — every renderer that samples road height/grade/
+  camber (`F1Car.tsx`, `InstancedAICars.tsx`, `PegasusCar.tsx`, `camera/rig.ts`, `ReplayDirector.tsx`) was calling
+  `surfaceHeight`/`surfaceGradeAngle`/`surfaceCamberAngle` with the *integer* physics `idx`, not the car's actual
+  interpolated sub-step position — on sloped track, height/pitch stepped by a full segment's worth every time `idx`
+  incremented instead of advancing continuously with the rendered position. `surfaceIndex` projects the world point
+  onto its segment's tangent to get the true fractional index; all call sites now use it. Verified with a scratch
+  vitest probe stepping a full race at 120 Hz and sampling render height at 2 points per step (~240 fps-equivalent)
+  on Buddh and Spa — worst per-sample `|dY|` was 0.41 units (4 cm) at racing speed, consistent with normal road
+  slope rather than a seam artifact.
+
+**Fixture update:** `components/game/car/f1Geometry.test.ts` — `flapPivot` changed because the rear wing stack
+(mainplane, endplates, flap) was lowered as part of this pass to close a visible slot gap above the flap; updated
+the expected value to match.
+
+**Verification:** `npm run typecheck` clean. `npm test` → 39/39 files, 269/269 tests passed. `npm run build` clean.
+`node scripts/shoot.mjs` against `/dev/car` (all 4 camera angles + a dedicated cockpit angle added to
+`app/dev/car/Showroom.tsx`) and against `/game` while driving (chase + T-cam, Buddh): body solid and correctly
+wound from every angle, no detached/inverted panels, halo seats cleanly into the coaming with no visible seam,
+wheels/rims face correctly on both sides, rear wing closed up, grass/terrain flat at every sampled road edge on
+the driven section, no console errors.
+
+---
+
+## 2026-10-29 (cont. 2) — T-cam camera housing blocked its own view
+
+User kept pointing at the same reference screenshot of the car's roll hoop and saying a black shape blocks the
+T-cam. Traced it to `buildCarbon()`'s "FIA T-Cam Pod & Transponder Fin" mesh (`f1Geometry.ts`) — a small strut +
+box modelling the broadcast camera's physical housing, at car-local `y≈0.84-0.92, z≈-0.16 to -0.18`. The T-cam
+viewpoint itself (`TCAM` anchor, `components/game/car/dimensions.ts`) sits at `y=1.02, z=-0.3` — only
+~1.75-2.6 world units (0.12-0.14 unscaled × `CAR_SCALE` 14.5) in front of that mesh, on almost the same boresight.
+The in-game T-cam was looking straight at the back of its own camera housing, which is never a problem for the
+real broadcast feed (the camera is recessed inside its pod) but is a problem for a separate 3D mesh standing a car
+length from where this game's camera actually renders from. Removed the mesh entirely (`f1Geometry.ts`).
+Re-verified the already-fixed terrain-poke-through sampler (previous entry) is still clean on all 6 circuits (0%
+poke-through, confirmed with the same rasterize-and-diff scratch check) since the user also asked to double check
+grass wasn't showing on the road — it wasn't a regression, just re-confirmed.
+
+**Verification:** `npm run typecheck`, `npm test` (269/269), `npm run build` clean. `scripts/shoot.mjs` driving
+`/game` in T-cam (Buddh): clear sightline down the track, no black intrusion, no terrain poke-through.
+
+**Not done / left for a follow-up:** did not re-verify the sloped circuits (Spa, Red Bull Ring) visually with
+screenshots (only Buddh, which is flat, was driven in this session) — the terrain and pitch fixes are verified
+numerically (see above) but not eyeballed on a hill. Did not investigate whether `QUALITY_PRESETS` 'LOW'/'MEDIUM'
+tiers (which drop SMAA) still show temporal aliasing on the car's thinnest struts (suspension wishbones, mirror
+stays, ~0.15-0.3 world-unit radius) at normal gameplay camera distance — plausible residual source of "flickering"
+complaints on lower quality tiers, out of scope for this pass.

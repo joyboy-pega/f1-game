@@ -11,7 +11,7 @@ import type { WorldCar } from '@/lib/game/sim/types';
 import { createInitialCarState } from '@/lib/game/physics';
 import { useGameStore } from '@/lib/game/store';
 
-const SPACING = 30;
+const SPACING = 50; // cars are ~26 world units wide incl. wings; 30 let neighbours visually overlap
 
 interface Spec {
   livery: Livery;
@@ -58,9 +58,12 @@ const CAMS: Record<string, [number, number, number]> = {
   front: [28, 14, 62],
   rear: [-30, 18, -62],
   side: [70, 12, 4],
+  // -x side of car 0 has no neighbour, so this is the only unobstructed full profile view.
+  left: [-70, 8, 4],
   top: [0.1, 90, 0.1],
   iso: [52, 30, -52],
   close: [24, 11, -30],
+  cockpit: [20, 14, 18],
   chase: [0, 22, -62],
   wheel: [32, 5, 14],
   all: [0, 60, -150],

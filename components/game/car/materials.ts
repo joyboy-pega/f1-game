@@ -46,14 +46,22 @@ export function createCarMaterials() {
       emissiveIntensity: 0,
       side: THREE.DoubleSide,
     });
+  const rimFront = mk();
+  const rimRear = mk();
+  const brakeLight = new THREE.MeshStandardMaterial({
+    color: '#3a0000',
+    roughness: 0.25,
+    emissive: new THREE.Color('#ff1a00'),
+    emissiveIntensity: 0.15,
+  });
   return {
-    rimFront: mk(),
-    rimRear: mk(),
-    brakeLight: new THREE.MeshStandardMaterial({
-      color: '#3a0000',
-      roughness: 0.25,
-      emissive: new THREE.Color('#ff1a00'),
-      emissiveIntensity: 0.15,
-    }),
+    rimFront,
+    rimRear,
+    brakeLight,
+    dispose: () => {
+      rimFront.dispose();
+      rimRear.dispose();
+      brakeLight.dispose();
+    },
   };
 }

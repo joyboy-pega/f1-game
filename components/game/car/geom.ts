@@ -10,11 +10,11 @@ import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/Buff
 
 // ---------------------------------------------------------------------------
 // Livery texture atlas layout (shared by every UV mode below).
-//   canvas 1024 x 512
-//   rows   0..255  : "ring" region — cylindrical wrap of fuselage / engine cover
-//   rows 256..351  : left (+x) side panels, nose points to the canvas left
-//   rows 352..447  : right (-x) side panels, nose points to the canvas right
-//   rows 448..511  : solid colour patches, 64 px wide each (body, accent, dark, white)
+// canvas 1024 x 512
+// rows 0..255   : "ring" region — cylindrical wrap of fuselage / engine cover
+// rows 256..351 : left (+x) side panels, nose points to the canvas left
+// rows 352..447 : right (-x) side panels, nose points to the canvas right
+// rows 448..511 : solid colour patches, 64 px wide each (body, accent, dark, white)
 // ---------------------------------------------------------------------------
 export const ATLAS_W = 1024;
 export const ATLAS_H = 512;
@@ -24,9 +24,11 @@ export const SIDE_L_TOP = 256;
 export const SIDE_R_TOP = 352;
 export const PATCH_TOP = 448;
 export const PATCH_W = 64;
+
 /** Longitudinal span of the livery atlas (car-local z). */
 export const LIVERY_Z0 = -1.55;
 export const LIVERY_Z1 = 1.95;
+
 /** Vertical span mapped onto a side-panel row. */
 export const SIDE_Y0 = 0.1;
 export const SIDE_Y1 = 0.62;
@@ -34,7 +36,33 @@ export const SIDE_Y1 = 0.62;
 export type Patch = 'body' | 'accent' | 'dark' | 'white';
 const PATCH_INDEX: Record<Patch, number> = { body: 0, accent: 1, dark: 2, white: 3 };
 
-export type UvMode = { kind: 'ring' } | { kind: 'side' } | { kind: 'patch'; patch: Patch };
+export type UvMode =
+  | { kind: 'ring' }
+  | { kind: 'side' }
+  | { kind: 'patch'; patch: Patch };
+
+export interface Station {
+  z: number;
+  cx?: number;
+  cy: number;
+  w: number;
+  h: number;
+  /** Superellipse exponent (2 = ellipse, >2 = squared shoulders). */
+  n?: number;
+  /** Bottom width multiplier (<1 = undercut belly, >1 = flat-bottom diffuser). */
+  bw?: number;
+  /** Upper half width multiplier (<1 = narrow shoulders). */
+  tw?: number;
+}
+
+export interface WingStation {
+  x: number;
+  y: number;
+  z: number;
+  chord: number;
+  /** Pitch angle in degrees (positive = leading edge down / trailing edge up). */
+  pitch: number;
+}
 
 // ---------------------------------------------------------------------------
 // Low-level utilities
@@ -42,405 +70,425 @@ export type UvMode = { kind: 'ring' } | { kind: 'side' } | { kind: 'patch'; patc
 
 /** Keep position/normal/uv only, non-indexed, so everything merges cleanly. */
 export function normalize(geo: THREE.BufferGeometry): THREE.BufferGeometry {
-  let g = geo;
-  for (const name of Object.keys(g.attributes)) {
-    if (name !== 'position' && name !== 'normal' && name !== 'uv' && name !== 'color') g.deleteAttribute(name);
+  const g = geo.index ? geo.toNonIndexed() : geo.clone();
+  // Only fall back to a fresh computation when normals are missing: toNonIndexed() already
+  // duplicates an existing normal attribute correctly per vertex, and a geometry that went through
+  // crease()/toCreasedNormals() carries deliberately-blended normals that computeVertexNormals()
+  // would overwrite with flat per-triangle normals (there is no shared-vertex connectivity left to
+  // accumulate over once non-indexed), faceting every part that passes through here.
+  if (!g.getAttribute('normal')) {
+    g.computeVertexNormals();
   }
+
+  const pos = g.getAttribute('position');
   if (!g.getAttribute('uv')) {
-    g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.getAttribute('position').count * 2), 2));
+    g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(pos.count * 2), 2));
   }
-  if (g.index) g = g.toNonIndexed();
-  g.clearGroups();
+
+  for (const name of Object.keys(g.attributes)) {
+    if (name !== 'position' && name !== 'normal' && name !== 'uv') {
+      g.deleteAttribute(name);
+    }
+  }
   return g;
 }
 
-/** Flip triangle winding (needed after a mirroring transform). */
-export function flipWinding(geo: THREE.BufferGeometry): THREE.BufferGeometry {
-  if (geo.index) {
-    const idx = geo.index.array as Uint16Array | Uint32Array;
-    for (let i = 0; i < idx.length; i += 3) {
-      const t = idx[i + 1];
-      idx[i + 1] = idx[i + 2];
-      idx[i + 2] = t;
-    }
-    geo.index.needsUpdate = true;
-    return geo;
-  }
-  for (const name of Object.keys(geo.attributes)) {
-    const attr = geo.getAttribute(name) as THREE.BufferAttribute;
-    const n = attr.itemSize;
-    const arr = attr.array as Float32Array;
-    for (let i = 0; i < attr.count; i += 3) {
-      for (let c = 0; c < n; c++) {
-        const a = (i + 1) * n + c;
-        const b = (i + 2) * n + c;
-        const t = arr[a];
-        arr[a] = arr[b];
-        arr[b] = t;
-      }
-    }
-    attr.needsUpdate = true;
-  }
-  return geo;
-}
-
-/** If a closed mesh has negative signed volume, flip it so normals point outward. */
-export function ensureOutward(geo: THREE.BufferGeometry): THREE.BufferGeometry {
+/**
+ * Flip an indexed closed mesh's triangle winding if it faces inward (negative signed volume).
+ * loft()/wingElement() wind by station order, and callers list stations nose-first (z
+ * decreasing) or right-to-left (x decreasing) as often as not: an inward-wound shell renders
+ * as a see-through, hollow-looking part because the materials cull back faces.
+ */
+function orientOutward(geo: THREE.BufferGeometry): THREE.BufferGeometry {
   const pos = geo.getAttribute('position');
+  const idx = geo.getIndex();
+  if (!idx) return geo;
   const a = new THREE.Vector3();
   const b = new THREE.Vector3();
   const c = new THREE.Vector3();
   let vol = 0;
-  const tri = (i0: number, i1: number, i2: number) => {
-    a.fromBufferAttribute(pos, i0);
-    b.fromBufferAttribute(pos, i1);
-    c.fromBufferAttribute(pos, i2);
+  for (let i = 0; i < idx.count; i += 3) {
+    a.fromBufferAttribute(pos, idx.getX(i));
+    b.fromBufferAttribute(pos, idx.getX(i + 1));
+    c.fromBufferAttribute(pos, idx.getX(i + 2));
     vol += a.dot(b.cross(c));
-  };
-  if (geo.index) {
-    for (let i = 0; i < geo.index.count; i += 3) tri(geo.index.getX(i), geo.index.getX(i + 1), geo.index.getX(i + 2));
-  } else {
-    for (let i = 0; i < pos.count; i += 3) tri(i, i + 1, i + 2);
   }
-  if (vol < 0) flipWinding(geo);
+  if (vol < 0) {
+    for (let i = 0; i < idx.count; i += 3) {
+      const t = idx.getX(i + 1);
+      idx.setX(i + 1, idx.getX(i + 2));
+      idx.setX(i + 2, t);
+    }
+    idx.needsUpdate = true;
+  }
   return geo;
 }
 
-/** Smooth-shade where faces meet at less than `deg` degrees (keeps wing edges crisp). */
-export function crease(geo: THREE.BufferGeometry, deg = 40): THREE.BufferGeometry {
-  const ni = geo.index ? geo.toNonIndexed() : geo;
-  return toCreasedNormals(ni, THREE.MathUtils.degToRad(deg));
+/** Smooth normals up to `angleDeg`, crisp hard edges above it. */
+export function crease(geo: THREE.BufferGeometry, angleDeg = 42): THREE.BufferGeometry {
+  const creased = toCreasedNormals(geo, THREE.MathUtils.degToRad(angleDeg));
+  return normalize(creased);
 }
 
+/** Apply an affine transform in-place and return the geometry. */
 export function xform(
   geo: THREE.BufferGeometry,
-  opts: { pos?: [number, number, number]; rot?: [number, number, number]; scale?: [number, number, number] },
+  pos?: [number, number, number],
+  rot?: [number, number, number],
+  scale?: [number, number, number],
 ): THREE.BufferGeometry {
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(...(opts.rot ?? [0, 0, 0]), 'YXZ'));
-  const p = new THREE.Vector3(...(opts.pos ?? [0, 0, 0]));
-  const s = new THREE.Vector3(...(opts.scale ?? [1, 1, 1]));
-  m.compose(p, q, s);
-  geo.applyMatrix4(m);
-  // Negative scale mirrors the mesh: restore outward winding.
-  if (s.x * s.y * s.z < 0) flipWinding(geo);
+  if (scale) geo.scale(scale[0], scale[1], scale[2]);
+  if (rot) {
+    const m = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2]));
+    geo.applyMatrix4(m);
+  }
+  if (pos) geo.translate(pos[0], pos[1], pos[2]);
   return geo;
 }
 
-// ---------------------------------------------------------------------------
-// UV assignment — write final atlas coordinates into a geometry
-// ---------------------------------------------------------------------------
-
-function setUv(geo: THREE.BufferGeometry, fn: (x: number, y: number, z: number, i: number, u: number, v: number) => [number, number]) {
-  const pos = geo.getAttribute('position');
-  const uv = geo.getAttribute('uv');
-  for (let i = 0; i < pos.count; i++) {
-    const [u, v] = fn(pos.getX(i), pos.getY(i), pos.getZ(i), i, uv.getX(i), uv.getY(i));
-    uv.setXY(i, u, v);
-  }
-  uv.needsUpdate = true;
-}
-
-/** px,py in canvas pixels (origin top-left) -> uv (flipY textures). */
-const px2uv = (px: number, py: number): [number, number] => [px / ATLAS_W, 1 - py / ATLAS_H];
-
-/**
- * Apply a UV mode. For 'ring' the geometry must carry the ring parameter t (0..1 around
- * the section, bottom -> +x side -> top -> -x side) in uv.y — `loft` writes it.
- */
+/** Map vertex positions into the 1024x512 livery UV atlas. */
 export function applyUv(geo: THREE.BufferGeometry, mode: UvMode): THREE.BufferGeometry {
-  if (mode.kind === 'ring') {
-    setUv(geo, (_x, _y, z, _i, _u, t) => {
-      const u = (z - LIVERY_Z0) / (LIVERY_Z1 - LIVERY_Z0);
-      return px2uv(u * ATLAS_W, t * RING_ROWS);
-    });
-  } else if (mode.kind === 'side') {
-    setUv(geo, (x, y, z) => {
-      const f = (z - LIVERY_Z0) / (LIVERY_Z1 - LIVERY_Z0);
-      const vy = THREE.MathUtils.clamp((SIDE_Y1 - y) / (SIDE_Y1 - SIDE_Y0), 0.02, 0.98);
-      if (x > 0.0001) return px2uv((1 - f) * ATLAS_W, SIDE_L_TOP + vy * SIDE_ROW_H);
-      return px2uv(f * ATLAS_W, SIDE_R_TOP + vy * SIDE_ROW_H);
-    });
-  } else {
+  const pos = geo.getAttribute('position');
+  const norm = geo.getAttribute('normal');
+  const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
+
+  const zSpan = LIVERY_Z1 - LIVERY_Z0;
+  const ySpan = SIDE_Y1 - SIDE_Y0;
+
+  if (mode.kind === 'patch') {
     const idx = PATCH_INDEX[mode.patch];
-    const [u, v] = px2uv(idx * PATCH_W + PATCH_W / 2, PATCH_TOP + 32);
-    setUv(geo, () => [u, v]);
+    const u = ((idx + 0.5) * PATCH_W) / ATLAS_W;
+    const v = 1 - (PATCH_TOP + 32) / ATLAS_H;
+    for (let i = 0; i < pos.count; i++) {
+      uv.setXY(i, u, v);
+    }
+    uv.needsUpdate = true;
+    return geo;
   }
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const nx = norm ? norm.getX(i) : x;
+    const ny = norm ? norm.getY(i) : y;
+
+    const zNorm = THREE.MathUtils.clamp((LIVERY_Z1 - z) / zSpan, 0.002, 0.998);
+
+    if (mode.kind === 'ring') {
+      const angle = Math.atan2(x, Math.max(y - 0.12, -0.25)); // -PI..PI wrapped over top
+      const vRing = THREE.MathUtils.clamp(0.5 + angle / (Math.PI * 1.65), 0.01, 0.99);
+      const v = 1 - (vRing * RING_ROWS) / ATLAS_H;
+      uv.setXY(i, zNorm, v);
+    } else {
+      // 'side'
+      const isLeft = x > 0 || (Math.abs(x) < 0.001 && nx >= 0);
+      const yNorm = THREE.MathUtils.clamp(1 - (y - SIDE_Y0) / ySpan, 0.02, 0.98);
+      const rowTop = isLeft ? SIDE_L_TOP : SIDE_R_TOP;
+      const u = isLeft ? zNorm : 1 - zNorm;
+      const v = 1 - (rowTop + yNorm * SIDE_ROW_H) / ATLAS_H;
+      uv.setXY(i, u, v);
+    }
+  }
+
+  uv.needsUpdate = true;
   return geo;
 }
 
-// ---------------------------------------------------------------------------
-// Superellipse-section loft (fuselage, engine cover, sidepods, car bodies)
-// ---------------------------------------------------------------------------
-
-export interface Station {
-  z: number;
-  /** section centre */
-  cx?: number;
-  cy: number;
-  /** half width / half height */
-  w: number;
-  h: number;
-  /** superellipse exponent: 2 = ellipse, higher = boxier. */
-  n?: number;
-  /** lower half width multiplier (< 1 = undercut / tumblehome) */
-  bw?: number;
-  /** upper half width multiplier (< 1 = narrow shoulders) */
-  tw?: number;
+/** Normalize, UV-map, and merge an array of parts into a single draw call. */
+export function mergeParts(
+  parts: { geo: THREE.BufferGeometry; uv?: UvMode }[],
+): THREE.BufferGeometry {
+  const prepared = parts.map(({ geo, uv }) => {
+    const g = normalize(geo);
+    if (uv) {
+      applyUv(g, uv);
+    } else {
+      applyUv(g, { kind: 'patch', patch: 'dark' });
+    }
+    return g;
+  });
+  return mergeGeometries(prepared, false);
 }
 
-export function loft(stationsIn: Station[], segs = 14): THREE.BufferGeometry {
-  const stations = [...stationsIn].sort((a, b) => a.z - b.z);
-  const ringN = segs + 1; // duplicated seam so the ring parameter t can reach 1
+// ---------------------------------------------------------------------------
+// High-level procedural primitives
+// ---------------------------------------------------------------------------
+
+/** Watertight superellipse loft across longitudinal stations. */
+export function loft(stations: Station[], radialSegs = 16): THREE.BufferGeometry {
+  const ringVerts = radialSegs + 1;
+  const numStations = stations.length;
   const positions: number[] = [];
-  const ts: number[] = [];
   const indices: number[] = [];
 
-  for (const st of stations) {
+  for (let s = 0; s < numStations; s++) {
+    const st = stations[s];
+    const cx = st.cx ?? 0;
+    const cy = st.cy;
     const n = st.n ?? 2.4;
-    const e = 2 / n;
-    for (let k = 0; k <= segs; k++) {
-      const t = k / segs;
-      const th = -Math.PI / 2 + t * Math.PI * 2;
-      const c = Math.cos(th);
-      const s = Math.sin(th);
-      const wMul = s < 0 ? (st.bw ?? 1) : (st.tw ?? 1);
-      positions.push(
-        (st.cx ?? 0) + st.w * wMul * Math.sign(c) * Math.pow(Math.abs(c), e),
-        st.cy + st.h * Math.sign(s) * Math.pow(Math.abs(s), e),
-        st.z,
-      );
-      ts.push(t);
+    const bw = st.bw ?? 1.0;
+    const tw = st.tw ?? 1.0;
+    const exp = 2 / n;
+
+    for (let i = 0; i <= radialSegs; i++) {
+      const theta = (i / radialSegs) * Math.PI * 2;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+
+      const sx = Math.sign(cos) * Math.pow(Math.abs(cos), exp);
+      const sy = Math.sign(sin) * Math.pow(Math.abs(sin), exp);
+
+      // Blend bottom/top width multiplier smoothly
+      const widthScale = sin < 0 ? 1 - (1 - bw) * (-sin) : 1 - (1 - tw) * sin;
+      const x = cx + sx * st.w * widthScale;
+      const y = cy + sy * st.h;
+      positions.push(x, y, st.z);
     }
   }
 
-  for (let i = 0; i < stations.length - 1; i++) {
-    for (let k = 0; k < segs; k++) {
-      const a = i * ringN + k;
-      const b = a + 1;
-      const c = (i + 1) * ringN + k + 1;
-      const d = (i + 1) * ringN + k;
-      indices.push(a, b, c, a, c, d);
+  // Skin between stations
+  for (let s = 0; s < numStations - 1; s++) {
+    const r0 = s * ringVerts;
+    const r1 = (s + 1) * ringVerts;
+    for (let i = 0; i < radialSegs; i++) {
+      const a = r0 + i;
+      const b = r0 + i + 1;
+      const c = r1 + i;
+      const d = r1 + i + 1;
+      indices.push(a, b, c, b, d, c);
     }
   }
 
-  // Caps with their own vertices (flat normals).
-  const addCap = (stIdx: number, nz: number) => {
-    const st = stations[stIdx];
-    const base = positions.length / 3;
-    positions.push(st.cx ?? 0, st.cy, st.z);
-    ts.push(0.5);
-    for (let k = 0; k < segs; k++) {
-      const src = (stIdx * ringN + k) * 3;
-      positions.push(positions[src], positions[src + 1], positions[src + 2]);
-      ts.push(k / segs);
-    }
-    for (let k = 0; k < segs; k++) {
-      const v0 = base;
-      const v1 = base + 1 + k;
-      const v2 = base + 1 + ((k + 1) % segs);
-      if (nz > 0) indices.push(v0, v1, v2);
-      else indices.push(v0, v2, v1);
-    }
-  };
-  addCap(0, -1);
-  addCap(stations.length - 1, 1);
+  // Watertight front cap (first station) & rear cap (last station). Winding must face outward
+  // (front cap toward -z, rear cap toward +z) or the nose/tail tip of every lofted part
+  // back-face-culls into a visible hole.
+  const firstCenterIdx = positions.length / 3;
+  const st0 = stations[0];
+  positions.push(st0.cx ?? 0, st0.cy, st0.z);
+  for (let i = 0; i < radialSegs; i++) {
+    indices.push(firstCenterIdx, i + 1, i);
+  }
+
+  const lastCenterIdx = positions.length / 3;
+  const stN = stations[numStations - 1];
+  const lastRingStart = (numStations - 1) * ringVerts;
+  positions.push(stN.cx ?? 0, stN.cy, stN.z);
+  for (let i = 0; i < radialSegs; i++) {
+    indices.push(lastCenterIdx, lastRingStart + i, lastRingStart + i + 1);
+  }
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  const uv = new Float32Array((positions.length / 3) * 2);
-  for (let i = 0; i < ts.length; i++) uv[i * 2 + 1] = ts[i];
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   geo.setIndex(indices);
-  ensureOutward(geo);
-  geo.computeVertexNormals();
-  return geo;
+  return crease(orientOutward(geo), 48);
 }
 
-// ---------------------------------------------------------------------------
-// Wing element: airfoil section lofted across the span
-// ---------------------------------------------------------------------------
-
-export interface WingStation {
-  x: number;
-  /** height of the leading edge */
-  y: number;
-  /** z of the leading edge (nose side) */
-  z: number;
-  chord: number;
-  /** degrees; positive lifts the trailing edge (downforce attitude) */
-  pitch: number;
-}
-
-const AIRFOIL_C = [0, 0.015, 0.06, 0.15, 0.3, 0.5, 0.7, 0.87, 1];
-
-/** camber: how far the mid-chord bows downward (fraction of chord); thick: max thickness fraction. */
-export function wingElement(stations: WingStation[], camber = 0.07, thick = 0.1): THREE.BufferGeometry {
-  const prof: [number, number][] = []; // (c, y) normalised to chord
-  const half = (c: number) => 5 * thick * (0.2969 * Math.sqrt(c) - 0.126 * c - 0.3516 * c * c + 0.2843 * c ** 3 - 0.1015 * c ** 4);
-  const mid = (c: number) => -camber * 4 * c * (1 - c);
-  for (const c of AIRFOIL_C) prof.push([c, mid(c) + half(c) + (c === 1 ? 0.004 : 0)]);
-  for (let i = AIRFOIL_C.length - 2; i >= 1; i--) {
-    const c = AIRFOIL_C[i];
-    prof.push([c, mid(c) - half(c)]);
-  }
-  const ringN = prof.length;
+/** NACA-inspired cambered aerofoil lofted across spanwise WingStations. */
+export function wingElement(
+  stations: WingStation[],
+  thicknessRatio = 0.06,
+  camberRatio = 0.08,
+  profileSegs = 14,
+): THREE.BufferGeometry {
+  const numStations = stations.length;
+  const ringVerts = profileSegs * 2 + 1;
   const positions: number[] = [];
   const indices: number[] = [];
-  for (const st of stations) {
-    const a = THREE.MathUtils.degToRad(st.pitch);
-    const ca = Math.cos(a);
-    const sa = Math.sin(a);
-    for (const [c, yy] of prof) {
-      const dz = -c * st.chord;
-      const dy = yy * st.chord;
-      positions.push(st.x, st.y + dy * ca - dz * sa, st.z + dy * sa + dz * ca);
+
+  for (let s = 0; s < numStations; s++) {
+    const st = stations[s];
+    const pitchRad = THREE.MathUtils.degToRad(st.pitch);
+    const cosP = Math.cos(pitchRad);
+    const sinP = Math.sin(pitchRad);
+
+    for (let i = 0; i < ringVerts; i++) {
+      // Walk from trailing edge (u=1) over upper surface to leading edge (u=0) and back under lower surface (u=1)
+      const norm = i / (ringVerts - 1); // 0..1
+      const isUpper = norm <= 0.5;
+      const t = isUpper ? 1 - norm * 2 : (norm - 0.5) * 2;
+      // Cosine spacing concentrates vertices around the tight leading edge radius
+      const u = 0.5 * (1 - Math.cos(t * Math.PI));
+
+      const yt =
+        5 *
+        thicknessRatio *
+        (0.2969 * Math.sqrt(u) - 0.126 * u - 0.3516 * u * u + 0.2843 * u * u * u - 0.1036 * u * u * u * u);
+      const yc = camberRatio * 4 * u * (1 - u);
+
+      const localY = (yc + (isUpper ? yt : -yt)) * st.chord;
+      const localZ = -u * st.chord; // Trailing edge extends toward -z
+
+      const rotY = localY * cosP - localZ * sinP;
+      const rotZ = localY * sinP + localZ * cosP;
+
+      positions.push(st.x, st.y + rotY, st.z + rotZ);
     }
   }
-  for (let i = 0; i < stations.length - 1; i++) {
-    for (let k = 0; k < ringN; k++) {
-      const a = i * ringN + k;
-      const b = i * ringN + ((k + 1) % ringN);
-      const c = (i + 1) * ringN + ((k + 1) % ringN);
-      const d = (i + 1) * ringN + k;
-      indices.push(a, b, c, a, c, d);
+
+  for (let s = 0; s < numStations - 1; s++) {
+    const r0 = s * ringVerts;
+    const r1 = (s + 1) * ringVerts;
+    for (let i = 0; i < ringVerts - 1; i++) {
+      const a = r0 + i;
+      const b = r0 + i + 1;
+      const c = r1 + i;
+      const d = r1 + i + 1;
+      indices.push(a, b, c, b, d, c);
     }
   }
-  const addCap = (i: number) => {
-    const base = positions.length / 3;
-    let cy = 0;
-    let cz = 0;
-    for (let k = 0; k < ringN; k++) {
-      positions.push(positions[(i * ringN + k) * 3], positions[(i * ringN + k) * 3 + 1], positions[(i * ringN + k) * 3 + 2]);
-      cy += positions[(i * ringN + k) * 3 + 1];
-      cz += positions[(i * ringN + k) * 3 + 2];
+
+  // Cap left and right wingtips
+  for (const [sIdx, flip] of [
+    [0, false],
+    [numStations - 1, true],
+  ] as const) {
+    const base = sIdx * ringVerts;
+    const half = profileSegs;
+    for (let i = 0; i < half - 1; i++) {
+      const u0 = base + i;
+      const u1 = base + i + 1;
+      const l0 = base + (ringVerts - 1 - i);
+      const l1 = base + (ringVerts - 2 - i);
+      if (flip) {
+        indices.push(u0, u1, l0, u1, l1, l0);
+      } else {
+        indices.push(u0, l0, u1, u1, l0, l1);
+      }
     }
-    positions.push(stations[i].x, cy / ringN, cz / ringN);
-    const centre = base + ringN;
-    for (let k = 0; k < ringN; k++) indices.push(centre, base + k, base + ((k + 1) % ringN));
-  };
-  addCap(0);
-  addCap(stations.length - 1);
+  }
+
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setIndex(indices);
-  ensureOutward(geo);
-  const g = geo.toNonIndexed();
-  g.computeVertexNormals(); // non-indexed => flat; fine for thin wing planes
-  return crease(g, 55);
+  return crease(orientOutward(geo), 38);
 }
 
-// ---------------------------------------------------------------------------
-// Extruded profiles
-// ---------------------------------------------------------------------------
-
-type Pt = [number, number];
-
-export function shapeFrom(points: Pt[]): THREE.Shape {
-  const s = new THREE.Shape();
-  s.moveTo(points[0][0], points[0][1]);
-  for (let i = 1; i < points.length; i++) s.lineTo(points[i][0], points[i][1]);
-  s.closePath();
-  return s;
-}
-
+/** Rounded rectangle THREE.Shape centred at origin. */
 export function rrectShape(w: number, h: number, r: number): THREE.Shape {
-  const x = -w / 2;
-  const y = -h / 2;
+  const hw = w / 2;
+  const hh = h / 2;
+  const cr = Math.min(r, hw, hh);
   const s = new THREE.Shape();
-  s.moveTo(x + r, y);
-  s.lineTo(x + w - r, y);
-  s.quadraticCurveTo(x + w, y, x + w, y + r);
-  s.lineTo(x + w, y + h - r);
-  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  s.lineTo(x + r, y + h);
-  s.quadraticCurveTo(x, y + h, x, y + h - r);
-  s.lineTo(x, y + r);
-  s.quadraticCurveTo(x, y, x + r, y);
+  s.moveTo(-hw + cr, -hh);
+  s.lineTo(hw - cr, -hh);
+  s.quadraticCurveTo(hw, -hh, hw, -hh + cr);
+  s.lineTo(hw, hh - cr);
+  s.quadraticCurveTo(hw, hh, hw - cr, hh);
+  s.lineTo(-hw + cr, hh);
+  s.quadraticCurveTo(-hw, hh, -hw, hh - cr);
+  s.lineTo(-hw, -hh + cr);
+  s.quadraticCurveTo(-hw, -hh, -hw + cr, -hh);
   return s;
 }
 
-function extrude(shape: THREE.Shape, depth: number, bevel: number, curveSegs = 3): THREE.ExtrudeGeometry {
-  return new THREE.ExtrudeGeometry(shape, {
-    depth,
+/** Extrude a 2D profile in the side (z, y) plane across width `thickness` centred at `xCenter`. */
+export function sideProfile(
+  pts: [number, number][],
+  thickness: number,
+  xCenter = 0,
+  bevel = 0,
+): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i][0], pts[i][1]);
+  shape.closePath();
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: thickness,
     bevelEnabled: bevel > 0,
     bevelThickness: bevel,
     bevelSize: bevel,
     bevelSegments: 1,
-    curveSegments: curveSegs,
-    steps: 1,
+    curveSegments: 4,
   });
+  geo.translate(0, 0, -thickness / 2);
+  // rotateY(+90deg) maps shape-local x -> world -z, flipping every caller's authored z (front/rear)
+  // sign; -90deg preserves it so callers can write real car-space z directly, matching loft()/S().
+  geo.rotateY(-Math.PI / 2);
+  geo.translate(xCenter, 0, 0);
+  return crease(geo, 38);
 }
 
-/**
- * Side profile: shape points are (z, y); extruded across x, centred on `x`.
- * `thickness` is the total width in x.
- */
-export function sideProfile(shapeOrPts: THREE.Shape | Pt[], thickness: number, x = 0, bevel = 0.004): THREE.BufferGeometry {
-  const shape = Array.isArray(shapeOrPts) ? shapeFrom(shapeOrPts) : shapeOrPts;
-  const depth = Math.max(0.001, thickness - bevel * 2);
-  const g = extrude(shape, depth, bevel);
-  // shape-x -> world z, shape-y -> world y, extrusion (shape-z) -> world -x (right-handed)
-  const m = new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0), new THREE.Vector3(-1, 0, 0));
-  g.applyMatrix4(m);
-  g.translate(x + depth / 2, 0, 0);
-  return crease(g, 50);
+/** Extrude a planform (x, z) polygon or THREE.Shape vertically across `height` at base `yBottom`. */
+export function planProfile(
+  ptsOrShape: [number, number][] | THREE.Shape,
+  height: number,
+  yBottom = 0,
+  bevel = 0,
+): THREE.BufferGeometry {
+  let shape: THREE.Shape;
+  if (ptsOrShape instanceof THREE.Shape) {
+    shape = ptsOrShape;
+  } else {
+    shape = new THREE.Shape();
+    shape.moveTo(ptsOrShape[0][0], ptsOrShape[0][1]);
+    for (let i = 1; i < ptsOrShape.length; i++) shape.lineTo(ptsOrShape[i][0], ptsOrShape[i][1]);
+    shape.closePath();
+  }
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: height,
+    bevelEnabled: bevel > 0,
+    bevelThickness: bevel,
+    bevelSize: bevel,
+    bevelSegments: 1,
+    curveSegments: 5,
+  });
+  // rotateX(+90deg) maps shape-local y -> world +z so callers' authored (x, z) planforms keep
+  // their front/rear sign (-90deg mirrored the floor nose-to-tail); the extrusion then runs
+  // downward, so lift it by `height` to sit on `yBottom`.
+  geo.rotateX(Math.PI / 2);
+  geo.translate(0, yBottom + height, 0);
+  return crease(geo, 40);
 }
 
-/**
- * Plan-view profile: shape points are (x, z); extruded downward from `yTop` by `thickness`.
- */
-export function planProfile(shapeOrPts: THREE.Shape | Pt[], thickness: number, yTop: number, bevel = 0.004): THREE.BufferGeometry {
-  const shape = Array.isArray(shapeOrPts) ? shapeFrom(shapeOrPts) : shapeOrPts;
-  const depth = Math.max(0.001, thickness - bevel * 2);
-  const g = extrude(shape, depth, bevel);
-  // shape-x -> x, shape-y -> z, extrusion -> -y (right-handed basis, so winding is preserved)
-  const m = new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0));
-  g.applyMatrix4(m);
-  g.translate(0, yTop - bevel, 0);
-  return crease(g, 50);
-}
-
-/** Cylinder from point A to point B (suspension arms, struts). */
-export function strut(a: [number, number, number], b: [number, number, number], radius = 0.011, radial = 5): THREE.BufferGeometry {
+/** Cylinder / aero strut between two 3D points `a` and `b`. */
+export function strut(
+  a: [number, number, number],
+  b: [number, number, number],
+  radius: number,
+  radialSegs = 6,
+): THREE.BufferGeometry {
   const va = new THREE.Vector3(...a);
   const vb = new THREE.Vector3(...b);
-  const len = va.distanceTo(vb);
-  const g = new THREE.CylinderGeometry(radius, radius, len, radial, 1, false);
-  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), vb.clone().sub(va).normalize());
-  const m = new THREE.Matrix4().compose(va.clone().add(vb).multiplyScalar(0.5), q, new THREE.Vector3(1, 1, 1));
-  g.applyMatrix4(m);
-  return g;
+  const diff = new THREE.Vector3().subVectors(vb, va);
+  const len = diff.length();
+  const mid = new THREE.Vector3().addVectors(va, vb).multiplyScalar(0.5);
+
+  const geo = new THREE.CylinderGeometry(radius, radius, len, radialSegs, 1, false);
+  const q = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    diff.normalize(),
+  );
+  geo.applyQuaternion(q);
+  geo.translate(mid.x, mid.y, mid.z);
+  return crease(geo, 50);
 }
 
-export function ellipsoid(rx: number, ry: number, rz: number, pos: [number, number, number], wSeg = 10, hSeg = 7): THREE.BufferGeometry {
-  const g = new THREE.SphereGeometry(1, wSeg, hSeg);
-  g.scale(rx, ry, rz);
-  g.translate(...pos);
-  return g;
+/** Ellipsoid primitive scaled by (rx, ry, rz) at `center`. */
+export function ellipsoid(
+  rx: number,
+  ry: number,
+  rz: number,
+  center: [number, number, number],
+  wSegs = 12,
+  hSegs = 8,
+): THREE.BufferGeometry {
+  const geo = new THREE.SphereGeometry(1, wSegs, hSegs);
+  geo.scale(rx, ry, rz);
+  geo.translate(center[0], center[1], center[2]);
+  return crease(geo, 55);
 }
 
-export function box(sx: number, sy: number, sz: number, pos: [number, number, number], rot: [number, number, number] = [0, 0, 0]): THREE.BufferGeometry {
-  const g = new THREE.BoxGeometry(sx, sy, sz);
-  return xform(g, { pos, rot });
-}
-
-/** Normalise every part, assign UVs, merge into one draw-call geometry. */
-export function mergeParts(parts: { geo: THREE.BufferGeometry; uv?: UvMode }[]): THREE.BufferGeometry {
-  const list = parts.map((p) => {
-    const g = normalize(p.geo);
-    if (!g.getAttribute('normal')) g.computeVertexNormals();
-    if (p.uv) applyUv(g, p.uv);
-    else applyUv(g, { kind: 'patch', patch: 'dark' });
-    return g;
-  });
-  const merged = mergeGeometries(list, false);
-  if (!merged) throw new Error('mergeParts failed (attribute mismatch)');
-  merged.computeBoundingSphere();
-  merged.computeBoundingBox();
-  return merged;
-}
-
-export function triCount(g: THREE.BufferGeometry): number {
-  return Math.round((g.index ? g.index.count : g.getAttribute('position').count) / 3);
+/** Box primitive centred at `center`, optionally rotated. */
+export function box(
+  w: number,
+  h: number,
+  d: number,
+  center: [number, number, number] = [0, 0, 0],
+  rot: [number, number, number] = [0, 0, 0],
+): THREE.BufferGeometry {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  return xform(geo, center, rot);
 }

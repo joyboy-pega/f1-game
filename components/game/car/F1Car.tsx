@@ -16,7 +16,7 @@ import { createCarMaterials, getSharedMaterials } from './materials';
 import { getRimGeometry, getTyreGeometry } from './wheels';
 import { PegasusCar } from './PegasusCar';
 import { track } from '@/lib/game/track';
-import { surfaceHeight, surfaceGradeAngle, surfaceCamberAngle } from '@/lib/game/track/surface';
+import { surfaceHeight, surfaceGradeAngle, surfaceCamberAngle, surfaceIndex } from '@/lib/game/track/surface';
 
 export interface F1CarProps {
   car: WorldCar;
@@ -27,198 +27,283 @@ export interface F1CarProps {
 /**
  * Renders one world car. Reads `car.phys` every frame; never re-renders from sim state.
  * Contract: root group placed at (phys.x, 0.05, phys.y), rotation.y = PI/2 - phys.a,
- * uniform CAR_SCALE. Supports modern F1, Tesla Roadster, and Formula Student Pegasus #53.
+ * uniform CAR_SCALE. Supports modern 2026 F1, Tesla Roadster, and Formula Student Pegasus #53.
  */
 export function F1Car({ car, interpolate = false }: F1CarProps) {
   const carModel = useGameStore((s) => s.settings.carModel);
-  const isPegasus = (car.isPlayer && carModel === 'pegasus') || car.driver.team === 'Pegasus';
+  const isPegasus =
+    (car.isPlayer && carModel === 'pegasus') || car.driver.team === 'Pegasus';
   if (isPegasus) {
     return <PegasusCar car={car} interpolate={interpolate} />;
   }
   const isRoadster = car.isPlayer && carModel === 'roadster';
-  return <CarRig key={isRoadster ? 'roadster' : 'f1'} car={car} roadster={isRoadster} interpolate={interpolate} />;
+  return (
+    <CarRig
+      key={isRoadster ? 'roadster' : 'f1'}
+      car={car}
+      roadster={isRoadster}
+      interpolate={interpolate}
+    />
+  );
 }
 
 // Scratch for the per-frame render pose (cars update one after another, so one shared object is enough).
 const scratchPose: Pose = { x: 0, y: 0, a: 0 };
 
-// Max visual wheel spin per frame (rad): keeps 6-spoke rims from strobing backwards.
-const MAX_SPIN_STEP = 0.5;
-const DEG = Math.PI / 180;
-const FLAP_CLOSED = 25 * DEG;
-const FLAP_OPEN = -3 * DEG;
+interface CarRigProps {
+  car: WorldCar;
+  roadster: boolean;
+  interpolate: boolean;
+}
 
-function CarRig({ car, roadster, interpolate }: { car: WorldCar; roadster: boolean; interpolate: boolean }) {
-  const livery = car.driver.livery;
-  const wheels: WheelSpec[] = roadster ? ROADSTER_WHEELS : F1_WHEELS;
+function CarRig({ car, roadster, interpolate }: CarRigProps) {
+  const rootRef = useRef<THREE.Group>(null);
+  const chassisRef = useRef<THREE.Group>(null);
+  const flapRef = useRef<THREE.Mesh>(null);
+  const steerWheelRef = useRef<THREE.Mesh>(null);
+  const wheelSteerRefs = useRef<(THREE.Group | null)[]>([null, null, null, null]);
+  const wheelSpinRefs = useRef<(THREE.Group | null)[]>([null, null, null, null]);
+  const tyreMeshRefs = useRef<(THREE.Mesh | null)[]>([null, null, null, null]);
 
-  const liveryMat = useMemo(
-    () => getLiveryMaterial({ body: livery.body, accent: livery.accent, rim: livery.rim, number: livery.number }),
-    [livery.body, livery.accent, livery.rim, livery.number]
-  );
-  const shared = getSharedMaterials();
-  const mats = useMemo(() => createCarMaterials(), []);
-  useEffect(() => () => {
-    mats.rimFront.dispose();
-    mats.rimRear.dispose();
-    mats.brakeLight.dispose();
-  }, [mats]);
+  const spinAngleRef = useRef(0);
+  const drsAngleRef = useRef(0);
+  const pitchRef = useRef(0);
+  const rollRef = useRef(0);
+  const frontBrakeHeatRef = useRef(0);
+  const rearBrakeHeatRef = useRef(0);
+  const activeCompoundRef = useRef<TyreCompound>(car.compound ?? 'soft');
 
+  const wheelSpecs: readonly WheelSpec[] = roadster ? ROADSTER_WHEELS : F1_WHEELS;
   const f1 = useMemo(() => (roadster ? null : getF1Geometries()), [roadster]);
   const rd = useMemo(() => (roadster ? getRoadsterGeometries() : null), [roadster]);
-  const rimGeo = useMemo(() => getRimGeometry(livery.rim), [livery.rim]);
-  const tyreGeo0 = useMemo(() => getTyreGeometry(car.compound), [car.compound]);
+  const rimGeo = useMemo(() => getRimGeometry(), []);
+  const initialTyreGeo = useMemo(
+    () => getTyreGeometry(car.compound ?? 'soft'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
-  const root = useRef<THREE.Group>(null);
-  const bodyGroup = useRef<THREE.Group>(null);
-  const flapRef = useRef<THREE.Mesh>(null);
-  const steerRef = useRef<THREE.Mesh>(null);
-  const pivots = useRef<(THREE.Group | null)[]>([]);
-  const spins = useRef<(THREE.Group | null)[]>([]);
-  const tyres = useRef<(THREE.Mesh | null)[]>([]);
+  const sharedMats = useMemo(() => getSharedMaterials(), []);
+  const livery = car.driver.livery;
+  const liveryMat = useMemo(
+    () => getLiveryMaterial(livery),
+    [livery.body, livery.accent, livery.rim, livery.number],
+  );
+  const carMats = useMemo(() => createCarMaterials(), []);
 
-  // Per-car animation state (no allocations in the frame loop).
-  const s = useRef({ compound: car.compound as TyreCompound, glow: 0, flap: FLAP_CLOSED, spin: [0, 0, 0, 0], tail: 0, t: Math.random() * 10 });
+  useEffect(() => {
+    return () => {
+      carMats.dispose?.();
+    };
+  }, [carMats]);
 
-  useFrame((_, dtRaw) => {
-    const g = root.current;
-    if (!g) return;
-    const dt = Math.min(dtRaw, 0.05);
+  useFrame((_, dt) => {
+    const root = rootRef.current;
+    if (!root) return;
+
     const p = car.phys;
-    const a = s.current;
-    a.t += dt;
-
-    // Live sim cars blend between the last two fixed steps; ghost / showroom cars are written directly.
-    let posX = p.x;
-    let posY = p.y;
-    let posA = p.a;
     if (interpolate) {
-      const q = renderPose(car, world.alpha, scratchPose);
-      posX = q.x;
-      posY = q.y;
-      posA = q.a;
+      renderPose(car, world.alpha, scratchPose);
+    } else {
+      scratchPose.x = p.x;
+      scratchPose.y = p.y;
+      scratchPose.a = p.a;
     }
 
-    const T = track.current;
-    const idx = p.idx ?? 0;
-    const dx = posX - T.px[idx];
-    const dz = posY - T.py[idx];
-    const lat = dx * T.nx[idx] + dz * T.ny[idx];
-    const carY = surfaceHeight(idx, lat) + 0.05;
+    // 1. Track elevation, grade (pitch), and banking (camber/roll)
+    const T = track?.current;
+    let carY = 0.05;
+    let roadPitch = 0;
+    let roadBank = 0;
+    let cosH = 1;
+    let sinH = 0;
 
-    g.position.set(posX, carY, posY);
-    g.rotation.y = Math.PI / 2 - posA;
-
-    // Body attitude (dynamic pitch/roll + road grade/camber) + ride-height drop with speed (aero squat).
-    const roadPitch = surfaceGradeAngle(idx);
-    const roadBank = surfaceCamberAngle(idx);
-    const trackYaw = Math.atan2(T.ty[idx], T.tx[idx]);
-    const headingDiff = posA - trackYaw;
-    const cosH = Math.cos(headingDiff);
-    const sinH = Math.sin(headingDiff);
-
-    const speedN = Math.min(1, Math.abs(p.vf) / 900);
-    if (bodyGroup.current) {
-      bodyGroup.current.rotation.x = (p.pitch || 0) - roadPitch * cosH + roadBank * sinH;
-      bodyGroup.current.rotation.z = (p.roll || 0) + roadBank * cosH + roadPitch * sinH;
-      bodyGroup.current.position.y = -0.016 * speedN * speedN;
+    if (T && T.px) {
+      const idx = p.idx ?? 0;
+      const dx = scratchPose.x - T.px[idx];
+      const dz = scratchPose.y - T.py[idx];
+      const lat = dx * T.nx[idx] + dz * T.ny[idx];
+      const f = surfaceIndex(idx, scratchPose.x, scratchPose.y);
+      carY = surfaceHeight(f, lat) + 0.05;
+      roadPitch = surfaceGradeAngle(f);
+      roadBank = surfaceCamberAngle(f);
+      const trackYaw = Math.atan2(T.ty[idx], T.tx[idx]);
+      const headingDiff = scratchPose.a - trackYaw;
+      cosH = Math.cos(headingDiff);
+      sinH = Math.sin(headingDiff);
     }
 
-    // Wheels
-    const steerAngle = -p.steer * 0.45;
-    const base = p.vf * dt;
-    for (let i = 0; i < wheels.length; i++) {
-      const w = wheels[i];
-      const slip = w.front ? p.wheelSlipFront : p.wheelSlipRear;
-      const rate = (base / (w.radius * CAR_SCALE)) * (1 - Math.min(1, Math.max(0, slip || 0)) * 0.7);
-      const step = rate > MAX_SPIN_STEP ? MAX_SPIN_STEP : rate < -MAX_SPIN_STEP ? -MAX_SPIN_STEP : rate;
-      a.spin[i] = (a.spin[i] + step) % (Math.PI * 2);
-      const sp = spins.current[i];
-      if (sp) sp.rotation.x = a.spin[i];
-      const pv = pivots.current[i];
-      if (pv && w.front) pv.rotation.y = steerAngle;
+    root.position.set(scratchPose.x, carY, scratchPose.y);
+    root.rotation.set(0, Math.PI / 2 - scratchPose.a, 0);
+
+    // 2. Braking dive / acceleration squat and cornering roll on the chassis. rotation.x > 0 is
+    // nose-down here, which is the vehicle model's pitch convention (brake > 0), while an uphill
+    // grade needs nose-up — the previous hand-rolled pitch had both signs inverted (squatting
+    // under braking, diving uphill). Same terms as InstancedAICars so player and AI agree.
+    if (chassisRef.current) {
+      const netPitch = (p.pitch || 0) - roadPitch * cosH + roadBank * sinH;
+      const netRoll = (p.roll || 0) + roadBank * cosH + roadPitch * sinH;
+
+      pitchRef.current = THREE.MathUtils.lerp(pitchRef.current, netPitch, Math.min(1, dt * 14));
+      rollRef.current = THREE.MathUtils.lerp(rollRef.current, netRoll, Math.min(1, dt * 14));
+      chassisRef.current.rotation.set(pitchRef.current, 0, rollRef.current);
     }
 
-    // Tyre compound may change at runtime (pit stops).
-    if (a.compound !== car.compound) {
-      a.compound = car.compound;
-      const geo = getTyreGeometry(car.compound);
-      for (let i = 0; i < tyres.current.length; i++) {
-        const m = tyres.current[i];
-        if (m) m.geometry = geo;
+    // 3. Steering angle (front wheels + cockpit butterfly steering wheel)
+    const steerAngle = THREE.MathUtils.clamp(p.steer ?? car.ctrl?.steer ?? 0, -0.45, 0.45);
+    // Sim steer sign is opposite the three.js wheel yaw convention (matches the cockpit wheel below).
+    const wheelAngle = -steerAngle;
+    if (steerWheelRef.current) {
+      steerWheelRef.current.rotation.z = -steerAngle * 2.4;
+    }
+
+    // 4. Wheel spin & dynamic pit-stop tyre compound swap
+    const currentCompound: TyreCompound = car.compound ?? 'soft';
+    const swapTyreGeo =
+      currentCompound !== activeCompoundRef.current
+        ? getTyreGeometry(currentCompound)
+        : null;
+    if (swapTyreGeo) {
+      activeCompoundRef.current = currentCompound;
+    }
+
+    const avgRadius = wheelSpecs[0]?.radius ?? 0.36;
+    spinAngleRef.current = (spinAngleRef.current + ((p.vf ?? 0) * dt) / avgRadius) % (Math.PI * 200);
+
+    for (let i = 0; i < wheelSpecs.length; i++) {
+      const spec = wheelSpecs[i];
+      const steerGrp = wheelSteerRefs.current[i];
+      const spinGrp = wheelSpinRefs.current[i];
+      const tyreMesh = tyreMeshRefs.current[i];
+
+      if (steerGrp && spec.front) {
+        const ackermann = (spec.left && wheelAngle > 0) || (!spec.left && wheelAngle < 0) ? 1.08 : 0.94;
+        steerGrp.rotation.y = wheelAngle * ackermann;
+      }
+      if (spinGrp) {
+        spinGrp.rotation.x = spinAngleRef.current;
+      }
+      if (tyreMesh && swapTyreGeo) {
+        tyreMesh.geometry = swapTyreGeo;
       }
     }
 
-    // Brake discs: heat up fast under hard braking at speed, cool slowly.
-    const heat = Math.min(1, p.brakeInput * 1.4) * Math.min(1, Math.abs(p.vf) / 260);
-    const k = heat > a.glow ? 1 - Math.exp(-dt / 0.12) : 1 - Math.exp(-dt / 1.4);
-    a.glow += (heat - a.glow) * k;
-    const gl = a.glow * a.glow * 3.2;
-    mats.rimFront.emissiveIntensity = gl * (0.55 + 0.45 * (p.brakeBias ?? 0.5));
-    mats.rimRear.emissiveIntensity = gl * (1 - 0.35 * (p.brakeBias ?? 0.5));
+    // 5. 2026 Active-Aero / DRS Flap rotation around hinge pivot
+    if (flapRef.current) {
+      const targetDrs = p.drsOpen ? -0.42 : 0;
+      drsAngleRef.current = THREE.MathUtils.lerp(drsAngleRef.current, targetDrs, Math.min(1, dt * 16));
+      flapRef.current.rotation.x = drsAngleRef.current;
+    }
 
-    // Tail light: steady red on the brakes, 4 Hz blink in rain/snow.
-    const weather = useGameStore.getState().settings.weather;
-    const wet = weather === 'rain' || weather === 'snow';
-    let lamp = 0.35 + p.brakeInput * 3.2;
-    if (wet && p.brakeInput < 0.05) lamp = Math.floor(a.t * 8) % 2 === 0 ? 3.2 : 0.2;
-    mats.brakeLight.emissiveIntensity = lamp;
+    // 6. Brake Disc Thermal Glow & Rear Rain/ERS LED Intensity
+    const brakeInput = p.brakeInput ?? car.ctrl?.brake ?? 0;
+    const speedNorm = THREE.MathUtils.clamp((p.vf ?? 0) / 70, 0, 1);
+    const targetFrontHeat = brakeInput > 0.05 ? brakeInput * speedNorm * 2.8 : 0;
+    const targetRearHeat = brakeInput > 0.05 ? brakeInput * speedNorm * 1.8 : 0;
 
-    // DRS flap (physics only seeds the angle, so animate it here).
-    const target = p.drsOpen ? FLAP_OPEN : FLAP_CLOSED;
-    a.flap += (target - a.flap) * Math.min(1, 16 * dt);
-    p.drsFlapAngle = a.flap;
-    if (flapRef.current) flapRef.current.rotation.x = a.flap;
+    frontBrakeHeatRef.current = THREE.MathUtils.lerp(
+      frontBrakeHeatRef.current,
+      targetFrontHeat,
+      Math.min(1, dt * (targetFrontHeat > frontBrakeHeatRef.current ? 10 : 3.5)),
+    );
+    rearBrakeHeatRef.current = THREE.MathUtils.lerp(
+      rearBrakeHeatRef.current,
+      targetRearHeat,
+      Math.min(1, dt * (targetRearHeat > rearBrakeHeatRef.current ? 10 : 3.5)),
+    );
 
-    if (steerRef.current) steerRef.current.rotation.z = -p.steer * 1.8;
+    carMats.rimFront.emissiveIntensity = frontBrakeHeatRef.current;
+    carMats.rimRear.emissiveIntensity = rearBrakeHeatRef.current;
+
+    const isBraking = brakeInput > 0.05;
+    const isHarvesting = (car.ctrl?.throttle ?? 0) < 0.25 && (p.vf ?? 0) > 35;
+    const pulse = isHarvesting ? (Math.sin(performance.now() * 0.022) > 0 ? 1.8 : 0.15) : 0.15;
+    carMats.brakeLight.emissiveIntensity = isBraking ? 3.2 : pulse;
   });
 
-  const setPivot = (i: number) => (el: THREE.Group | null) => {
-    pivots.current[i] = el;
-  };
-  const setSpin = (i: number) => (el: THREE.Group | null) => {
-    spins.current[i] = el;
-  };
-  const setTyre = (i: number) => (el: THREE.Mesh | null) => {
-    tyres.current[i] = el;
-  };
-
   return (
-    <group ref={root} scale={CAR_SCALE}>
-      <group ref={bodyGroup}>
+    <group ref={rootRef} scale={CAR_SCALE}>
+      <group ref={chassisRef}>
         {f1 && (
           <>
+            {/* Primary Livery Bodywork */}
             <mesh geometry={f1.body} material={liveryMat} castShadow receiveShadow />
-            <mesh geometry={f1.carbon} material={shared.carbon} castShadow receiveShadow />
-            <mesh ref={flapRef} geometry={f1.flap} material={liveryMat} position={f1.flapPivot} castShadow />
-            <group position={[0, 0.6, 0.3]} rotation={[0.6, Math.PI, 0]}>
-              <mesh ref={steerRef} geometry={f1.steeringWheel} material={shared.carbon} />
+
+            {/* Carbon Fibre Floor, Wings, Halo, Suspension & Hub Uprights */}
+            <mesh geometry={f1.carbon} material={sharedMats.carbon} castShadow receiveShadow />
+
+            {/* 2026 Active-Aero / DRS Rear Wing Flap */}
+            <mesh
+              ref={flapRef}
+              geometry={f1.flap}
+              material={liveryMat}
+              position={f1.flapPivot}
+              castShadow
+            />
+
+            {/* Cockpit Butterfly Steering Wheel (angled toward driver at [0, 0.585, 0.28]) */}
+            <group position={[0, 0.585, 0.285]} rotation={[-0.38, 0, 0]}>
+              <mesh ref={steerWheelRef} geometry={f1.steeringWheel} material={sharedMats.carbon} />
             </group>
-            <mesh geometry={f1.brakeLight} material={mats.brakeLight} position={[0, 0.355, -1.472]} />
+
+            {/* Central FIA Rain Light + 2026 Dual Rear Endplate LED Strips */}
+            <mesh geometry={f1.brakeLight} material={carMats.brakeLight} />
           </>
         )}
+
         {rd && (
           <>
             <mesh geometry={rd.body} material={liveryMat} castShadow receiveShadow />
-            <mesh geometry={rd.trim} material={shared.carbon} castShadow receiveShadow />
-            <mesh geometry={rd.glass} material={shared.glass} />
-            <mesh geometry={rd.lamps} material={shared.lamp} />
-            <mesh geometry={rd.tailLight} material={mats.brakeLight} />
+            <mesh geometry={rd.trim} material={sharedMats.carbon} castShadow receiveShadow />
+            <mesh geometry={rd.glass} material={sharedMats.glass} />
+            <mesh geometry={rd.lamps} material={sharedMats.lamp} />
+            <mesh geometry={rd.tailLight} material={carMats.brakeLight} />
             <group position={[0.22, 0.54, 0.18]} rotation={[0.4, 0, 0]}>
-              <mesh ref={steerRef} geometry={rd.yoke} material={shared.carbon} />
+              <mesh ref={steerWheelRef} geometry={rd.yoke} material={sharedMats.carbon} />
             </group>
           </>
         )}
       </group>
 
-      {wheels.map((w, i) => (
-        <group key={i} ref={setPivot(i)} position={[w.x, w.y, w.z]}>
-          <group ref={setSpin(i)}>
-            <mesh ref={setTyre(i)} geometry={tyreGeo0} material={shared.tyre} scale={[w.width, w.radius, w.radius]} castShadow />
-            <mesh geometry={rimGeo} material={w.front ? mats.rimFront : mats.rimRear} scale={[w.width, w.radius, w.radius]} />
+      {/* 4 Corner Wheels (Steer Group -> Spin Group -> Scaled Tyre + Rim + Aero Cover). Siblings of
+          chassisRef, not children: suspension decouples the wheels from chassis pitch/roll/dive, so
+          they must not inherit that rotation or they'd tilt rigidly with the body under braking,
+          cornering and road camber instead of tracking the road at each contact patch. */}
+      {wheelSpecs.map((w, i) => {
+        const flipRim = w.left ? 1 : -1;
+        return (
+          <group
+            key={i}
+            position={[w.x, w.radius, w.z]}
+            ref={(el) => {
+              wheelSteerRefs.current[i] = el;
+            }}
+          >
+            <group
+              ref={(el) => {
+                wheelSpinRefs.current[i] = el;
+              }}
+            >
+              <mesh
+                ref={(el) => {
+                  tyreMeshRefs.current[i] = el;
+                }}
+                geometry={initialTyreGeo}
+                material={sharedMats.tyre}
+                scale={[w.width, w.radius, w.radius]}
+                castShadow
+                receiveShadow
+              />
+              <mesh
+                geometry={rimGeo}
+                material={w.front ? carMats.rimFront : carMats.rimRear}
+                scale={[w.width * flipRim, w.radius, w.radius]}
+                castShadow
+              />
+            </group>
           </group>
-        </group>
-      ))}
+        );
+      })}
     </group>
   );
 }
