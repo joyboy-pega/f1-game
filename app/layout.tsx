@@ -3,16 +3,16 @@ import { PwaRegister } from '@/components/PwaRegister';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Simulart Tracks — by Arigatoo Club',
+  title: 'Open Race — by Arigatoo Club',
   description:
-    'Simulart Tracks: A browser Formula racing game by Arigatoo Club featuring full grid AI, telemetry, custom liveries, and authentic circuits.',
-  keywords: ['Simulart Tracks', 'Arigatoo Club', 'F1', 'Racing Game', 'Three.js', 'Next.js', 'React Three Fiber', 'PWA'],
+    'Open Race: A browser Formula racing game by Arigatoo Club featuring full grid AI, telemetry, custom liveries, and authentic circuits.',
+  keywords: ['Open Race', 'Arigatoo Club', 'F1', 'Racing Game', 'Three.js', 'Next.js', 'React Three Fiber', 'PWA'],
   authors: [{ name: 'Arigatoo Club' }],
-  applicationName: 'Simulart Tracks',
+  applicationName: 'Open Race',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Simulart Tracks',
+    title: 'Open Race',
   },
   icons: {
     icon: '/icon.svg',

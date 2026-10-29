@@ -90,7 +90,7 @@ export function LoadingScreen() {
             className="text-4xl sm:text-5xl font-normal tracking-wide uppercase m-0 leading-none"
             style={{ fontFamily: 'var(--font-display, Anton, sans-serif)' }}
           >
-            SIMULART TRACKS
+            OPEN RACE
           </h1>
           <div
             className="text-xs uppercase tracking-[0.16em]"

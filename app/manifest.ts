@@ -1,10 +1,12 @@
 import type { MetadataRoute } from 'next';
 
+export const dynamic = 'force-static';
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Simulart Tracks — by Arigatoo Club',
-    short_name: 'Simulart Tracks',
-    description: 'Simulart Tracks: Browser Formula Racing & SAE Pegasus #53 Simulation',
+    name: 'Open Race — by Arigatoo Club',
+    short_name: 'Open Race',
+    description: 'Open Race: Browser Formula Racing & SAE Pegasus #53 Simulation',
     start_url: '/',
     id: '/',
     scope: '/',

@@ -644,3 +644,82 @@
 .l-root {
   overflow-x: hidden;
 }
+
+/* ==========================================================================
+   Team WIP Section
+   ========================================================================== */
+.l-team-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.l-wip-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 107, 26, 0.08);
+  border: 1px solid rgba(255, 107, 26, 0.28);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+.l-wip-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  background: var(--orange);
+  color: #000;
+  letter-spacing: 0.12em;
+}
+.l-wip-desc {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.l-team-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.l-team-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  transition: border-color 0.15s ease;
+}
+.l-team-card:hover {
+  border-color: var(--lime);
+}
+.l-team-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lime);
+  box-shadow: 0 0 8px var(--lime);
+  flex-shrink: 0;
+}
+.l-team-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.l-team-name {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-text);
+  letter-spacing: 0.03em;
+}
+.l-team-code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-mute);
+  letter-spacing: 0.12em;
+}

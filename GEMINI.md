@@ -1,4 +1,4 @@
-# Simulart Tracks (by Arigatoo Club) — Antigravity Agent Rules
+# Open Race (by Arigatoo Club) — Antigravity Agent Rules
 
 > This file is the **Antigravity** (`GEMINI.md`) rules file for this project.
 > It works alongside `AGENTS.md` (Next.js agent rules auto-written by `next dev`).
@@ -8,7 +8,7 @@
 
 ## Project Identity
 
-- **Game Name:** **Simulart Tracks**
+- **Game Name:** **Open Race**
 - **Creator / Studio:** **Arigatoo Club**
 - **Description:** Browser-based racing simulation game.
 - **Stack:** **Next.js 16** (App Router, fully client-side) · **React Three Fiber 9** · **Three.js r186 (WebGL2)** · **Zustand** · **Vitest**.

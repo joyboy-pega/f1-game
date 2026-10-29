@@ -67,7 +67,7 @@ export function PwaRegister() {
           fontFamily: 'var(--font-mono, monospace)',
           clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)',
         }}
-        title="Install Simulart Tracks app to your device"
+        title="Install Open Race app to your device"
       >
         <span className="text-sm">📲</span>
         <span>Install App</span>
