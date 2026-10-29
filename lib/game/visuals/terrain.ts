@@ -52,13 +52,26 @@ export interface TerrainSampler {
 
 /**
  * Creates a spatial sampler for terrain height.
- * - Enforces flattened corridor (terrain = road height − 0.3 m = −3.0 units within wall distance).
+ * - Enforces a flattened corridor 0.3 m (3.0 units) below the lowest road edge nearby.
  * - Smoothly blends into procedural rolling terrain beyond the walls.
  * - Rises into distant natural ridges on the outer periphery.
+ *
+ * `reach` is the terrain mesh's cell diagonal. The mesh is only this sampler's values at its
+ * vertices, linearly interpolated across triangles ~35-40 m wide, so a road point can lie inside a
+ * triangle whose vertices are up to `reach` away. Every such vertex must therefore be (a) inside
+ * the flattened zone and (b) below every road edge within `reach` of it — covering grade, camber
+ * (the low edge of a banked road is below the centreline) and crossovers (Suzuka's bridge). With
+ * only the old nearest-sample, vertex-local rule, grass rose through the asphalt on 2-8% of road
+ * points on every circuit (up to +23 m under Suzuka's crossover).
  */
-export function createTerrainSampler(rt: TrackRuntime = track.current): TerrainSampler {
+export function createTerrainSampler(rt: TrackRuntime = track.current, reach = 0): TerrainSampler {
   const N = rt.N;
   const CELL = 500;
+  const WALL = 82; // wall sits at halfWidth + 82 units; the verge ribbon runs out to it
+  // Lowest point of each cross-section out to the walls (camber tilts one edge down).
+  const edgeLow = new Float32Array(N);
+  for (let i = 0; i < N; i++) edgeLow[i] = rt.pz[i] - Math.abs(rt.camber?.[i] ?? 0) * (rt.halfWidth[i] + WALL);
+  const searchCells = Math.max(3, Math.ceil((reach + 400) / CELL) + 1);
   const grid = new Map<string, number[]>();
 
   // Build spatial lookup for centerline samples
@@ -82,9 +95,8 @@ export function createTerrainSampler(rt: TrackRuntime = track.current): TerrainS
       let bestDist = 1e9;
       let bestIdx = 0;
 
-      // Search 7x7 cells (~3500 units radius)
-      for (let dx = -3; dx <= 3; dx++) {
-        for (let dz = -3; dz <= 3; dz++) {
+      for (let dx = -searchCells; dx <= searchCells; dx++) {
+        for (let dz = -searchCells; dz <= searchCells; dz++) {
           const arr = grid.get(`${cellX + dx},${cellZ + dz}`);
           if (!arr) continue;
           for (const i of arr) {
@@ -97,12 +109,28 @@ export function createTerrainSampler(rt: TrackRuntime = track.current): TerrainS
         }
       }
 
-      // Track road height and corridor bounds at nearest centerline sample
       const roadH = rt.pz[bestIdx];
       const hw = rt.halfWidth[bestIdx];
-      // Wall is at halfWidth + 82 units. 0.3 m = 3.0 world units below road surface.
-      const wallDist = hw + 82;
-      const corridorH = roadH - 3.0;
+      const wallDist = hw + WALL;
+      const flatDist = wallDist + reach;
+
+      // Corridor height: 0.3 m (3.0 units) under the lowest road edge any triangle through this
+      // vertex could span (see the doc comment). Only computed near the road.
+      let corridorH = roadH - 3.0;
+      if (bestDist <= flatDist + 380) {
+        let low = edgeLow[bestIdx];
+        for (let dx = -searchCells; dx <= searchCells; dx++) {
+          for (let dz = -searchCells; dz <= searchCells; dz++) {
+            const arr = grid.get(`${cellX + dx},${cellZ + dz}`);
+            if (!arr) continue;
+            for (const i of arr) {
+              if (edgeLow[i] >= low) continue;
+              if (Math.hypot(rt.px[i] - x, rt.py[i] - z) <= reach + rt.halfWidth[i] + WALL) low = edgeLow[i];
+            }
+          }
+        }
+        corridorH = low - 3.0;
+      }
 
       // Natural landscape elevation
       // Broad rolling hills (~1 km wavelength) + medium swells (~300 m wavelength)
@@ -117,19 +145,17 @@ export function createTerrainSampler(rt: TrackRuntime = track.current): TerrainS
 
       const naturalH = roadH + broad + detail + ridgeH;
 
-      // Corridor blend:
-      // Inside wall (dist <= wallDist): pure flattened corridor (roadH - 3.0)
-      // Between wall and wall + 380: smooth cubic blend to natural landscape
-      if (bestDist <= wallDist) {
+      // Flat out to flatDist (wall + one mesh cell), then a smooth cubic blend to natural landscape.
+      if (bestDist <= flatDist) {
         return { height: corridorH, dist: bestDist, nearestIdx: bestIdx };
       }
 
-      const blendEnd = wallDist + 380;
+      const blendEnd = flatDist + 380;
       if (bestDist >= blendEnd) {
         return { height: naturalH, dist: bestDist, nearestIdx: bestIdx };
       }
 
-      const t = smoothstep(wallDist, blendEnd, bestDist);
+      const t = smoothstep(flatDist, blendEnd, bestDist);
       const h = corridorH * (1 - t) + naturalH * t;
       return { height: h, dist: bestDist, nearestIdx: bestIdx };
     },
@@ -155,7 +181,6 @@ export interface TerrainData {
  * Total triangles: ~29k (<= 150k tris budget).
  */
 export function buildTerrain(rt: TrackRuntime = track.current, snow = false): TerrainData {
-  const sampler = createTerrainSampler(rt);
   const bounds = getTrackVisuals().bounds;
 
   // Margin around track: 15,000 world units = 1.5 km
@@ -178,6 +203,7 @@ export function buildTerrain(rt: TrackRuntime = track.current, snow = false): Te
   // Grid resolution per quadrant: 60x60 quads = 61x61 vertices (3,721 vertices, 7,200 tris)
   const SEGS = 60;
   const chunks: TerrainChunkData[] = [];
+  const sampler = createTerrainSampler(rt, Math.hypot((x1 - x0) / 2 / SEGS, (z1 - z0) / 2 / SEGS));
 
   for (const [qMinX, qMaxX, qMinZ, qMaxZ] of quadrants) {
     const geo = new THREE.BufferGeometry();

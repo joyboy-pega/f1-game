@@ -106,8 +106,8 @@ describe('Qualifying System (PLAN-v3 §8 R2)', () => {
   });
 
   it('replaces pseudo-qualifying and sets race starting grid to match qualifying result', () => {
-    // 1. Establish qualifying order
-    const qualifyingGrid = ['CAL', 'VAR', 'player', 'MOR', 'LIN', 'MAL', 'HAL', 'TAN', 'BEL', 'BRO'];
+    // 1. Establish qualifying order (driver codes per the current DRIVER_ROSTER, PLAN-v3 merge 2026-10-29)
+    const qualifyingGrid = ['DIS', 'NIR', 'player', 'JOY', 'ADY', 'SHA', 'PAT', 'PEG', 'KEV', 'PUS'];
 
     // 2. Setup Grand Prix race with the qualifyingGrid result
     const w = new GameWorld();
@@ -124,16 +124,16 @@ describe('Qualifying System (PLAN-v3 §8 R2)', () => {
     expect(w.player.position).toBe(3);
 
     // Grid order must equal qualifying order (PLAN-v3 §8 R2 acceptance criteria)
-    expect(w.cars[0].driver.code).toBe('CAL'); // Pole position (P1)
-    expect(w.cars[1].driver.code).toBe('VAR'); // P2
+    expect(w.cars[0].driver.code).toBe('DIS'); // Pole position (P1)
+    expect(w.cars[1].driver.code).toBe('NIR'); // P2
     expect(w.cars[2].isPlayer).toBe(true);     // P3 (Player)
-    expect(w.cars[3].driver.code).toBe('MOR'); // P4
-    expect(w.cars[4].driver.code).toBe('LIN'); // P5
-    expect(w.cars[5].driver.code).toBe('MAL'); // P6
-    expect(w.cars[6].driver.code).toBe('HAL'); // P7
-    expect(w.cars[7].driver.code).toBe('TAN'); // P8
-    expect(w.cars[8].driver.code).toBe('BEL'); // P9
-    expect(w.cars[9].driver.code).toBe('BRO'); // P10
+    expect(w.cars[3].driver.code).toBe('JOY'); // P4
+    expect(w.cars[4].driver.code).toBe('ADY'); // P5
+    expect(w.cars[5].driver.code).toBe('SHA'); // P6
+    expect(w.cars[6].driver.code).toBe('PAT'); // P7
+    expect(w.cars[7].driver.code).toBe('PEG'); // P8
+    expect(w.cars[8].driver.code).toBe('KEV'); // P9
+    expect(w.cars[9].driver.code).toBe('PUS'); // P10
   });
 
   it('runs short format 12-minute qualifying and decrements session countdown timer', () => {

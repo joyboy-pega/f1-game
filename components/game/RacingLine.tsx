@@ -7,10 +7,11 @@ import { track } from '@/lib/game/track';
 import { useGameStore } from '@/lib/game/store';
 import { getRacingLine } from '@/lib/game/sim/racingLine';
 import { world } from '@/lib/game/sim/world';
+import { surfaceHeight } from '@/lib/game/track/surface';
 
 const POINTS = 44; // ~1000 units of line ahead (spline points are ~24 units apart)
 const HALF_WIDTH = 1.9;
-const Y = 0.16;
+const CLEARANCE = 0.16; // above the road surface, so it never z-fights but still hugs elevation/camber (T3)
 
 // Segment colours: full throttle / lift / brake
 const GREEN: [number, number, number] = [0.1, 0.9, 0.35];
@@ -77,10 +78,10 @@ export function RacingLine() {
       const pz = lineY[i];
       const o = k * 6;
       positions[o] = px - nx * HALF_WIDTH;
-      positions[o + 1] = Y;
+      positions[o + 1] = surfaceHeight(i, -HALF_WIDTH) + CLEARANCE;
       positions[o + 2] = pz - nz * HALF_WIDTH;
       positions[o + 3] = px + nx * HALF_WIDTH;
-      positions[o + 4] = Y;
+      positions[o + 4] = surfaceHeight(i, HALF_WIDTH) + CLEARANCE;
       positions[o + 5] = pz + nz * HALF_WIDTH;
 
       // Fade out along the distance so the far end dissolves into the track

@@ -52,7 +52,16 @@ export function Environment() {
     gl.toneMappingExposure = L.exposure;
   }, [gl, L.exposure]);
 
-  // Keep the sun and its shadow frustum snapped to shadow texels (P4/G4) around the player.
+  // Light-space basis for texel snapping: the sun shines in at an angle, so snapping world X/Z (as
+  // before) does not line the shadow map up with its own texels and shadow edges on the car still
+  // crawled every frame — read as constant flicker from the T-cam/cockpit, where the car fills the view.
+  const lightBasis = useMemo(() => {
+    const fwd = new THREE.Vector3(-sunDir[0], -sunDir[1], -sunDir[2]).normalize();
+    const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
+    const up = new THREE.Vector3().crossVectors(right, fwd).normalize();
+    return { fwd, right, up, centre: new THREE.Vector3() };
+  }, [sunDir]);
+
   useFrame(() => {
     const p = world.player.phys;
     const light = sunLightRef.current;
@@ -64,17 +73,22 @@ export function Environment() {
     const shadowRes = shadowMapSize || 2048;
     const texelSize = (bounds * 2) / shadowRes;
 
-    // Snapping player position to texel units eliminates shadow edge shimmering/swimming
-    const snappedX = Math.floor(p.x / texelSize) * texelSize;
-    const snappedZ = Math.floor(p.y / texelSize) * texelSize;
+    // Follow the car's elevation too: on hilly circuits (Spa, Red Bull Ring) the car sits hundreds
+    // of units above y = 0, outside the old fixed-height shadow box, so its shadows popped in and out.
+    const T = track.current;
+    const i = p.idx ?? 0;
+    const groundY = T.pz ? T.pz[((i % T.N) + T.N) % T.N] : 0;
+
+    const { fwd, right, up, centre } = lightBasis;
+    centre.set(p.x, groundY, p.y);
+    const a = Math.floor(centre.dot(right) / texelSize) * texelSize;
+    const b = Math.floor(centre.dot(up) / texelSize) * texelSize;
+    const d = centre.dot(fwd);
+    centre.copy(right).multiplyScalar(a).addScaledVector(up, b).addScaledVector(fwd, d);
 
     light.target = target;
-    target.position.set(snappedX, 0, snappedZ);
-    light.position.set(
-      snappedX + sunDir[0] * 500,
-      sunDir[1] * 500,
-      snappedZ + sunDir[2] * 500
-    );
+    target.position.copy(centre);
+    light.position.set(centre.x + sunDir[0] * 500, centre.y + sunDir[1] * 500, centre.z + sunDir[2] * 500);
   });
 
   return (

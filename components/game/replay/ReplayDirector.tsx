@@ -8,7 +8,7 @@ import { track } from '@/lib/game/track';
 import { standPlan } from '@/components/game/TrackProps';
 import { CameraRig } from '@/lib/game/camera/rig';
 import { findNearestTrackPoint } from '@/lib/game/physics';
-import { surfaceHeight } from '@/lib/game/track/surface';
+import { surfaceHeight, surfaceIndex } from '@/lib/game/track/surface';
 import { replay, resetReplay, type ReplayCamMode } from '@/lib/game/replay/state';
 import { REC_COMPOUNDS, makeCarSample, recorder } from '@/lib/game/sim/recorder';
 import { useGameStore } from '@/lib/game/store';
@@ -142,7 +142,7 @@ export function ReplayDirector() {
       return;
     }
 
-    const carY = tp.idx !== undefined ? surfaceHeight(tp.idx, 0) : 0;
+    const carY = tp.idx !== undefined ? surfaceHeight(surfaceIndex(tp.idx, tp.x, tp.y), 0) : 0;
 
     if (kind === 'heli') {
       replay.camLabel = 'HELI';

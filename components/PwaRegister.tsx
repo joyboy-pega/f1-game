@@ -12,8 +12,9 @@ export function PwaRegister() {
   const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
-    // Register Service Worker
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    // Register Service Worker (production only: in dev a stale cached page served by an old SW
+    // hydrates against freshly-rebuilt HTML/JS and throws a hydration mismatch on every reload).
+    if (process.env.NODE_ENV === 'production' && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/sw.js')
         .then((reg) => {

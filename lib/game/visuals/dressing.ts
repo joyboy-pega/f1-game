@@ -269,9 +269,56 @@ export function buildTreeSystem(rt: TrackRuntime = track.current, density = 1.0)
   const dummy = new THREE.Object3D();
   const N = rt.N;
 
+  // Coarse spatial grid of the whole centreline, for a *global* nearest-track-point check below.
+  // The local curvature clamp a candidate point goes through (per index `i`) only accounts for how
+  // sharply the track bends right there; it says nothing about a hairpin or chicane's apex sitting
+  // close to a *different*, far-away-in-index-but-nearby-in-space stretch of the same track (classic
+  // on Suzuka's figure-eight crossover and Buddh's infield). A tree placed outside its own local
+  // wall can still land in the middle of that other stretch of road. Verified by measuring every
+  // placed tree against the track's true nearest point, not just index `i`: before this grid check,
+  // Buddh and Suzuka each had a double-digit count of trees sitting inside the road surface.
+  const CELL = 300;
+  const grid = new Map<string, number[]>();
+  for (let k = 0; k < N; k += 2) {
+    const key = `${Math.floor(rt.px[k] / CELL)},${Math.floor(rt.py[k] / CELL)}`;
+    const arr = grid.get(key);
+    if (arr) arr.push(k);
+    else grid.set(key, [k]);
+  }
+  /** Signed clearance (world units) from (x, z) to the nearest track edge: negative = on the road. */
+  function clearanceToTrack(x: number, z: number): number {
+    const cx = Math.floor(x / CELL);
+    const cz = Math.floor(z / CELL);
+    let best = Infinity;
+    let bestI = -1;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        const arr = grid.get(`${cx + dx},${cz + dz}`);
+        if (!arr) continue;
+        for (const k of arr) {
+          const d = Math.hypot(rt.px[k] - x, rt.py[k] - z);
+          if (d < best) {
+            best = d;
+            bestI = k;
+          }
+        }
+      }
+    }
+    if (bestI < 0) return Infinity;
+    return best - (rt.halfWidth[bestI] + 82); // 82 = wall standoff, matches terrain.ts/standPlan
+  }
+
   // Place trees along track periphery outside the barriers
   for (let i = 0; i < N; i += 6) {
     if (rand() > density * 0.75) continue;
+
+    // Local radius of curvature (world units): offsetting further than this on the inside of a
+    // tight corner (e.g. a hairpin) folds the point across the centreline and onto the track
+    // itself, so inside placements must be capped by it.
+    const j = (i + 1) % N;
+    const signedTurn = rt.tx[i] * rt.ty[j] - rt.ty[i] * rt.tx[j];
+    const insideSide: 1 | -1 = signedTurn > 0 ? 1 : -1;
+    const radius = rt.segLen[i] / (rt.smoothCurvature[i] + 1e-4); // smoothed: robust to per-sample digitisation noise
 
     for (const side of [-1, 1] as const) {
       // Avoid pit lane inner side
@@ -279,11 +326,20 @@ export function buildTreeSystem(rt: TrackRuntime = track.current, density = 1.0)
 
       const hw = rt.halfWidth[i];
       // Trees sit well outside the wall (120 to 500 units away)
-      const dist = hw + 120 + rand() * 320;
-      const [x, z] = frameAt(i);
+      let dist = hw + 120 + rand() * 320;
+      // On the concave side of a tight corner, clamp so the offset point can't fold past the
+      // local centre of curvature and land back on (or across) the road.
+      if (side === insideSide) dist = Math.min(dist, radius * 0.7);
+
       const [cx, cz, tx, tz, nx, nz] = frameAt(i);
       const treeX = cx + nx * (side * dist) + (rand() - 0.5) * 40;
       const treeZ = cz + nz * (side * dist) + (rand() - 0.5) * 40;
+
+      // Global check (see clearanceToTrack doc comment above): skip a candidate that the local
+      // curvature clamp missed because it's close to a *different* stretch of track, rather than
+      // placing it on the road.
+      if (clearanceToTrack(treeX, treeZ) < 0) continue;
+
       const groundY = surfaceHeight(i, side * dist);
 
       const scale = 0.85 + rand() * 0.45;

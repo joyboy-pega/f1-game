@@ -20,7 +20,7 @@ import {
   PEGASUS_NOSE_CAM,
   PEGASUS_TCAM,
 } from '@/components/game/car/dimensions';
-import { surfaceHeight, surfaceGradeAngle, surfaceCamberAngle } from '@/lib/game/track/surface';
+import { surfaceHeight, surfaceGradeAngle, surfaceCamberAngle, surfaceIndex } from '@/lib/game/track/surface';
 import { track } from '@/lib/game/track';
 
 export type RigMode = 'chase' | 'tcam' | 'cockpit' | 'hood' | 'intro';
@@ -335,8 +335,8 @@ export class CameraRig {
       this.chaseLook.step(lx, 6, lz, 10, dt);
     }
 
-    const carY = car.idx !== undefined ? surfaceHeight(car.idx, 0) : 0;
-    const roadPitch = car.idx !== undefined ? surfaceGradeAngle(car.idx) : 0;
+    const carY = car.idx !== undefined ? surfaceHeight(surfaceIndex(car.idx, car.x, car.y), 0) : 0;
+    const roadPitch = car.idx !== undefined ? surfaceGradeAngle(surfaceIndex(car.idx, car.x, car.y)) : 0;
     const T = track.current;
     const trackYaw = car.idx !== undefined && T && T.ty ? Math.atan2(T.ty[car.idx], T.tx[car.idx]) : car.a;
     const effRoadPitch = roadPitch * Math.cos(car.a - trackYaw);
@@ -367,8 +367,8 @@ export class CameraRig {
     const yaw = car.a + this.lead.x + lookBack;
 
     const anchors = getAnchorsForModel(car.carModel);
-    const roadPitch = car.idx !== undefined ? surfaceGradeAngle(car.idx) : 0;
-    const roadBank = car.idx !== undefined ? surfaceCamberAngle(car.idx) : 0;
+    const roadPitch = car.idx !== undefined ? surfaceGradeAngle(surfaceIndex(car.idx, car.x, car.y)) : 0;
+    const roadBank = car.idx !== undefined ? surfaceCamberAngle(surfaceIndex(car.idx, car.x, car.y)) : 0;
     const T = track.current;
     const trackYaw = car.idx !== undefined && T && T.ty ? Math.atan2(T.ty[car.idx], T.tx[car.idx]) : car.a;
     const headingDiff = car.a - trackYaw;
@@ -409,7 +409,7 @@ export class CameraRig {
     this.pitchS.step(pitchT, 8, dt);
     this.rollS.step(rollT, 8, dt);
 
-    const carY = car.idx !== undefined ? surfaceHeight(car.idx, 0) : 0;
+    const carY = car.idx !== undefined ? surfaceHeight(surfaceIndex(car.idx, car.x, car.y), 0) : 0;
     _eye.set(
       car.x + cos * eyeFwd - sin * (this.head.x.x + eyeLat),
       carY + eyeH + this.head.y.x,
@@ -428,8 +428,8 @@ export class CameraRig {
     const pole = o.pole ?? car;
     const fx = Math.cos(pole.a);
     const fz = Math.sin(pole.a);
-    const poleY = pole.idx !== undefined ? surfaceHeight(pole.idx, 0) : 0;
-    const carY = car.idx !== undefined ? surfaceHeight(car.idx, 0) : 0;
+    const poleY = pole.idx !== undefined ? surfaceHeight(surfaceIndex(pole.idx, pole.x, pole.y), 0) : 0;
+    const carY = car.idx !== undefined ? surfaceHeight(surfaceIndex(car.idx, car.x, car.y), 0) : 0;
     // Start: just ahead of pole, over the infield edge, looking back along the grid.
     const side = 1;
     const ax = pole.x + fx * 150 - fz * side * 210;

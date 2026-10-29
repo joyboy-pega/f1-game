@@ -54,7 +54,10 @@ export function GameCanvas() {
       <Canvas
         shadows={shadows}
         dpr={initialDpr}
-        camera={{ position: [0, 30, -100], fov: 65, near: 0.5, far: 14000 }}
+        // near 1 (was 0.5): depth precision scales with near, and at 0.5 the terrain 0.3 m under the
+        // asphalt z-fought through it a few hundred metres out. The closest on-board geometry (halo,
+        // steering wheel) is still >2 units from the cockpit eye.
+        camera={{ position: [0, 30, -100], fov: 65, near: 1, far: 14000 }}
         gl={{
           antialias: false,
           powerPreference: 'high-performance',

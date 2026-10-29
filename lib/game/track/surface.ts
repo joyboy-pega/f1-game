@@ -22,6 +22,19 @@ export function wrapIndex(f: number, N: number): [number, number, number] {
 }
 
 /**
+ * Fractional spline index of world point (x, y) near integer sample `idx`: projects the point onto
+ * the local tangent. Renderers must query the surface with this, not the integer `phys.idx`, or
+ * height/pitch step by grade * segLen every time idx ticks over (visible as constant vertical
+ * judder of the car and on-board cameras on any sloped section).
+ */
+export function surfaceIndex(idx: number, x: number, y: number, rt: TrackRuntime = track.current): number {
+  const i = ((idx % rt.N) + rt.N) % rt.N;
+  const along = (x - rt.px[i]) * rt.tx[i] + (y - rt.py[i]) * rt.ty[i];
+  const len = rt.segLen[i] || 1;
+  return i + Math.max(-1, Math.min(1, along / len));
+}
+
+/**
  * Surface height (world units, Y-up) at fractional spline index `f` and lateral offset `lateral`.
  * At lateral = 0, returns the centerline elevation.
  */

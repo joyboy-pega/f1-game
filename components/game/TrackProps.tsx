@@ -59,18 +59,39 @@ const TIERS = 6;
 const TIER_D = 9;
 const TIER_H = 5.5;
 
+/** Shortest wrapped distance (in spline indices, 0..N/2) between index `a` and the closed span [from, from+count). */
+function wrappedGapToSpan(N: number, a: number, from: number, count: number): number {
+  const wa = wrapIdx(a);
+  const wf = wrapIdx(from);
+  const we = wrapIdx(from + count);
+  // Inside the span: gap 0.
+  if (wf <= we ? wa >= wf && wa <= we : wa >= wf || wa <= we) return 0;
+  const d1 = Math.abs(wa - wf);
+  const d2 = Math.abs(wa - we);
+  return Math.min(d1, N - d1, d2, N - d2);
+}
+
 /** Where the grandstands go: the whole main straight opposite the pits, plus outside key corners. */
 export function standPlan(): Stand[] {
   const T = track.current;
   const corners = getTrackVisuals().corners;
   const wallAt = (idx: number) => (T.halfWidth ? T.halfWidth[idx] : HW) + 82;
-  const out: Stand[] = [{ from: T.pit.boxStartIdx, count: 190, side: (-T.pit.side) as 1 | -1, d0: wallAt(T.pit.boxStartIdx) + 28 }];
+  const pitStand: Stand = { from: T.pit.boxStartIdx, count: 190, side: (-T.pit.side) as 1 | -1, d0: wallAt(T.pit.boxStartIdx) + 28 };
+  const out: Stand[] = [pitStand];
   if (!corners || corners.length === 0) return out;
+  // Minimum gap (spline indices) a corner stand must keep from the pit straight's stand, or the two
+  // end up flush against each other — on Buddh, Turn 1's stand started just 3 indices after the pit
+  // stand's wrapped end, both on the same side: one continuous-looking grandstand rendered as two
+  // separate 6-tier structures, doubled crowd instances and all ("duplicate crowd").
+  const MIN_GAP = 60;
   const pick = (apexIdx: number, span: number) => {
     const c = corners.reduce((best, k) => (Math.abs(wrapIdx(k.apex) - apexIdx) < Math.abs(wrapIdx(best.apex) - apexIdx) ? k : best), corners[0]);
     if (!c) return;
     const from = wrapIdx(c.apex) - Math.floor(span / 2);
-    out.push({ from, count: span, side: (-c.inside) as 1 | -1, d0: wallAt(wrapIdx(from)) + 30 });
+    const side = (-c.inside) as 1 | -1;
+    if (side === pitStand.side && wrappedGapToSpan(T.N, from, pitStand.from, pitStand.count) < MIN_GAP) return;
+    if (side === pitStand.side && wrappedGapToSpan(T.N, from + span, pitStand.from, pitStand.count) < MIN_GAP) return;
+    out.push({ from, count: span, side, d0: wallAt(wrapIdx(from)) + 30 });
   };
   pick(122, 70); // Turn 1
   pick(755, 60); // Turn 4
