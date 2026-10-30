@@ -6,7 +6,7 @@ import { GameWorld, FIXED_DT } from './world';
 import { createBrain } from './ai';
 
 export function raceSettings(patch: Partial<GameSettings> = {}): GameSettings {
-  return { ...DEFAULT_SETTINGS, mode: 'race', totalLaps: 2, aiCount: 5, gridPosition: 3, ...patch };
+  return { ...DEFAULT_SETTINGS, mode: 'race', totalLaps: 2, aiCount: 5, gridPosition: 3, drivingModel: 'hardcore', ...patch };
 }
 
 /** Let the AI controller drive the player too, so a full race can run headless. */

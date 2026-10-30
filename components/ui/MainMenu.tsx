@@ -249,6 +249,24 @@ export function MainMenu() {
                     onChange={(v) => set({ startCompound: v })}
                   />
                 </Field>
+                <Field
+                  label="Driving mechanics"
+                  hint={
+                    (s.drivingModel ?? 'casual') === 'hardcore'
+                      ? 'Hardcore: Realistic simulation physics'
+                      : 'Casual: Arcade handling, drifting & easy steering (default)'
+                  }
+                >
+                  <Seg<'casual' | 'hardcore'>
+                    label="Driving mechanics"
+                    value={s.drivingModel ?? 'casual'}
+                    options={[
+                      { value: 'casual', label: 'Casual' },
+                      { value: 'hardcore', label: 'Hardcore' },
+                    ]}
+                    onChange={(v) => set({ drivingModel: v })}
+                  />
+                </Field>
               </>
             )}
 

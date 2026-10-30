@@ -182,6 +182,8 @@ export const DEFAULT_INPUT_SETTINGS: InputSettings = {
 
 export type QualityChoice = 'AUTO' | 'LOW' | 'MEDIUM' | 'HIGH';
 
+export type DrivingModel = 'casual' | 'hardcore';
+
 export interface GameSettings {
   /** Circuit id (lib/game/track registry). */
   trackId: string;
@@ -193,6 +195,7 @@ export interface GameSettings {
   weather: WeatherType;
   timeOfDay: TimeOfDay;
   carModel: VehicleModelType;
+  drivingModel?: DrivingModel;
   cameraView: CameraViewMode;
   startCompound: TyreCompound;
   driverName: string;
@@ -228,6 +231,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   weather: 'sunny',
   timeOfDay: 'day',
   carModel: 'f1',
+  drivingModel: 'casual',
   cameraView: 'chase',
   startCompound: 'soft',
   driverName: 'You',

@@ -170,6 +170,24 @@ export function SettingsPanel() {
       </Field>
 
       <h3 className="k-section-title">Handling</h3>
+      <Field
+        label="Driving mechanics"
+        hint={
+          (s.drivingModel ?? 'casual') === 'hardcore'
+            ? 'Hardcore: Realistic 2-DOF bicycle dynamics, Pacejka tyre curves & weight transfer'
+            : 'Casual: Arcade handling, responsive drifting & easy steering (default)'
+        }
+      >
+        <Seg<'casual' | 'hardcore'>
+          label="Driving mechanics"
+          value={s.drivingModel ?? 'casual'}
+          options={[
+            { value: 'casual', label: 'Casual' },
+            { value: 'hardcore', label: 'Hardcore' },
+          ]}
+          onChange={(v) => set({ drivingModel: v })}
+        />
+      </Field>
       <Field label="Steering sens." value={`${s.steeringSensitivity.toFixed(2)}x`}>
         <Slider label="Steering sensitivity" min={0.6} max={1.6} step={0.05} value={s.steeringSensitivity} onChange={(v) => set({ steeringSensitivity: v })} />
       </Field>

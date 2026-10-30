@@ -425,6 +425,7 @@ export class GameWorld {
       extras.diffOnThrottle = car.isPlayer ? this.settings.setup?.diffOnThrottle : undefined;
       extras.rideHeightM = car.isPlayer ? this.settings.setup?.rideHeightM : undefined;
       extras.tirePressureBar = car.isPlayer ? this.settings.setup?.tirePressureBar : undefined;
+      extras.drivingModel = this.settings.drivingModel;
 
       if (car.fuelKg > 0) {
         const deltaFuel = (0.0015 + 0.0263 * Math.max(0, car.ctrl.throttle)) * dt;

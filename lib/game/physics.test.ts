@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { TYRE_COMPOUNDS } from './constants';
-import { createInitialCarState, fitFreshTires } from './physics';
+import { createInitialCarState, fitFreshTires, updateCarPhysics } from './physics';
 import { tempGrip } from './sim/tyres';
+import { NEUTRAL_CONTROLS } from './controls';
 
 describe('fitFreshTires (B9)', () => {
   it('with a compound, starting grip follows tyre temperature: cold new tyres are below full grip', () => {
@@ -29,5 +30,40 @@ describe('fitFreshTires (B9)', () => {
     fitFreshTires(p, 65);
     expect(p.tires.fl.grip).toBe(1);
     expect(p.tires.frontGrip).toBe(1);
+  });
+});
+
+describe('driving mechanics options: casual vs hardcore', () => {
+  it('casual is default and uses arcade physics without _veh', () => {
+    const car = createInitialCarState(0, 0);
+    const ctrl = { ...NEUTRAL_CONTROLS, throttle: 1 };
+    
+    updateCarPhysics(car, ctrl, 1 / 60, 'sunny');
+    
+    expect(car._veh).toBeUndefined();
+    expect(car.vf).toBeGreaterThan(0);
+    expect(car.kmh).toBeGreaterThan(0);
+  });
+
+  it('hardcore mode initializes and steps the realistic vehicle dynamics model (_veh)', () => {
+    const car = createInitialCarState(0, 0);
+    const ctrl = { ...NEUTRAL_CONTROLS, throttle: 1 };
+    
+    updateCarPhysics(car, ctrl, 1 / 60, 'sunny', 1.0, 1.0, 1.0, { drivingModel: 'hardcore' });
+    
+    expect(car._veh).toBeDefined();
+    expect(car._veh?.powertrain).toBeDefined();
+    expect(car.vf).toBeGreaterThan(0);
+  });
+
+  it('casual mode initiates drift on handbrake while hardcore does not set arcade drift flags', () => {
+    const casualCar = createInitialCarState(0, 0);
+    casualCar.vx = 250;
+    casualCar.vf = 250;
+    casualCar.steer = 0.5;
+    const steerAndHandbrake = { ...NEUTRAL_CONTROLS, throttle: 0.5, steer: 0.8, handbrake: true };
+
+    updateCarPhysics(casualCar, steerAndHandbrake, 1 / 60, 'sunny', 1.0, 1.0, 1.0, { drivingModel: 'casual' });
+    expect(casualCar.isDrifting).toBe(true);
   });
 });

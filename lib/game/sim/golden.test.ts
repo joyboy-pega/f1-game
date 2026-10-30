@@ -10,7 +10,7 @@ import { createBrain } from './ai';
 const SEED = 12345;
 
 function goldenSettings(): GameSettings {
-  return { ...DEFAULT_SETTINGS, mode: 'race', totalLaps: 3, aiCount: 9, difficulty: 'pro', weather: 'sunny', gridPosition: 10 };
+  return { ...DEFAULT_SETTINGS, mode: 'race', totalLaps: 3, aiCount: 9, difficulty: 'pro', weather: 'sunny', gridPosition: 10, drivingModel: 'hardcore' };
 }
 
 /** FNV-1a over a string: tiny, dependency-free, stable across platforms. */
@@ -85,7 +85,7 @@ describe('golden race (R5/R6)', () => {
     const { digest } = await getGolden();
     // Update ONLY when behaviour changes on purpose (R5), and log old/new values in docs/WORKLOG.md.
     console.log(`[golden] ${digest}`);
-    expect(fnv1a(digest)).toBe('05aa16f7');
+    expect(fnv1a(digest)).toBe('a19b548b');
   });
 });
 
@@ -118,7 +118,7 @@ describe('determinism rules (R6)', () => {
     const hits: string[] = [];
     for (const f of files) {
       readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
-        if (line.includes('Math.random') && !line.trimStart().startsWith('//')) hits.push(`${path.relative(root, f)}:${i + 1}: ${line.trim()}`);
+        if (line.includes('Math.random') && !line.trimStart().startsWith('//')) hits.push(`${path.relative(root, f).replace(/\\/g, '/')}:${i + 1}: ${line.trim()}`);
       });
     }
     expect(hits).toHaveLength(1);

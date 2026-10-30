@@ -100,7 +100,7 @@ function treadmill(car: CarPhysicsState) {
 }
 
 function step(car: CarPhysicsState, c: ControlState) {
-  const r = updateCarPhysics(car, c, DT, 'sunny');
+  const r = updateCarPhysics(car, c, DT, 'sunny', 1.0, 1.0, 1.0, { drivingModel: 'hardcore' });
   treadmill(car);
   return r;
 }
