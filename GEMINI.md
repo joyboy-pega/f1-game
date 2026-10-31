@@ -12,7 +12,7 @@
 - **Creator / Studio:** **Arigatoo Club**
 - **Description:** Browser-based racing simulation game.
 - **Stack:** **Next.js 16** (App Router, fully client-side) · **React Three Fiber 9** · **Three.js r186 (WebGL2)** · **Zustand** · **Vitest**.
-- **Repo:** `https://github.com/joyboy-pega/f1-game`
+- **Repo:** `https://github.com/joyboy-pega/open-race`
 - **Dev server:** `http://localhost:3000` (`npm run dev` — Turbopack).
 
 ---

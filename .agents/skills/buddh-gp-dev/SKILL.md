@@ -32,7 +32,7 @@ description: >-
 
 ## Git Conventions
 
-- Remote: `https://github.com/joyboy-pega/f1-game`
+- Remote: `https://github.com/joyboy-pega/open-race`
 - Branch: `main`
 - Commit format: `<type>(<scope>): <description>`
   - Types: `feat`, `fix`, `perf`, `docs`, `refactor`, `test`, `chore`
@@ -49,7 +49,7 @@ description: >-
 The project is Vercel-ready:
 - `vercel.json` is present at the root
 - No custom build config needed
-- Import `joyboy-pega/f1-game` at vercel.com → Deploy
+- Import `joyboy-pega/open-race` at vercel.com → Deploy
 - All routes are static (no server-side features)
 
 ## Key File Map
