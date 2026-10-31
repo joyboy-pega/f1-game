@@ -14,6 +14,7 @@ import {
   type SignallingBroker,
   type TransportType,
   BroadcastChannelTransport,
+  OnlinePeerTransport,
   WebRTCTransport,
 } from './webrtcTransport';
 import { SnapshotInterpolator } from './interpolator';
@@ -52,6 +53,7 @@ export class MultiplayerRoom {
   private clientInputs = new Map<string, ControlState>();
   private countdownTimer = 0;
   private seq = 0;
+  private joinRetryTimer: number | null = null;
 
   constructor() {
     this.localPeerId = 'peer_' + Math.random().toString(36).substring(2, 8);
@@ -77,7 +79,12 @@ export class MultiplayerRoom {
     for (const l of this.listeners) l.onSettingsChange?.({ ...this.settings });
   }
 
-  createRoom(roomId: string, initialPlayer: Partial<PlayerInfo>, mode: TransportType = 'broadcast', broker?: SignallingBroker) {
+  createRoom(
+    roomId: string,
+    initialPlayer: Partial<PlayerInfo>,
+    mode: TransportType = typeof window !== 'undefined' ? 'online' : 'broadcast',
+    broker?: SignallingBroker
+  ) {
     this.roomId = roomId;
     this.role = 'host';
     this.setupTransport(roomId, mode, broker);
@@ -100,7 +107,12 @@ export class MultiplayerRoom {
     this.broadcastRoomSync();
   }
 
-  joinRoom(roomId: string, player: Partial<PlayerInfo>, mode: TransportType = 'broadcast', broker?: SignallingBroker) {
+  joinRoom(
+    roomId: string,
+    player: Partial<PlayerInfo>,
+    mode: TransportType = typeof window !== 'undefined' ? 'online' : 'broadcast',
+    broker?: SignallingBroker
+  ) {
     this.roomId = roomId;
     this.role = 'client';
     this.setupTransport(roomId, mode, broker);
@@ -126,6 +138,22 @@ export class MultiplayerRoom {
       type: 'ping',
       timestamp: Date.now(),
     });
+
+    // Retry sending join until room sync confirms guest is listed or connected
+    if (this.joinRetryTimer) clearInterval(this.joinRetryTimer);
+    this.joinRetryTimer = setInterval(() => {
+      if (this.role === 'client' && this.state === 'lobby' && this.players.length <= 1 && this.localPlayerInfo) {
+        this.send({
+          type: 'join',
+          player: this.localPlayerInfo,
+        });
+      } else if (this.players.length >= 2 || this.state !== 'lobby') {
+        if (this.joinRetryTimer) {
+          clearInterval(this.joinRetryTimer);
+          this.joinRetryTimer = null;
+        }
+      }
+    }, 1000) as unknown as number;
   }
 
   private localPlayerInfo: PlayerInfo | null = null;
@@ -240,13 +268,30 @@ export class MultiplayerRoom {
     }
   }
 
-  setupTransport(roomId: string, mode: TransportType = 'broadcast', broker?: SignallingBroker) {
+  setupTransport(
+    roomId: string,
+    mode: TransportType = typeof window !== 'undefined' ? 'online' : 'broadcast',
+    broker?: SignallingBroker
+  ) {
     if (this.transport) {
       this.transport.close();
       this.transport = null;
     }
 
-    if (mode === 'webrtc' && typeof RTCPeerConnection !== 'undefined') {
+    if (mode === 'online') {
+      this.transport = new OnlinePeerTransport({
+        isHost: this.role === 'host',
+        roomId,
+        localPeerId: this.localPeerId,
+        onConnected: () => {
+          if (this.role === 'host') {
+            this.broadcastRoomSync();
+          } else if (this.localPlayerInfo) {
+            this.send({ type: 'join', player: this.localPlayerInfo });
+          }
+        },
+      });
+    } else if (mode === 'webrtc' && typeof RTCPeerConnection !== 'undefined') {
       this.transport = new WebRTCTransport({
         isHost: this.role === 'host',
         roomId,
@@ -364,6 +409,10 @@ export class MultiplayerRoom {
   }
 
   close() {
+    if (this.joinRetryTimer) {
+      clearInterval(this.joinRetryTimer);
+      this.joinRetryTimer = null;
+    }
     if (this.transport) {
       if (this.role === 'client') {
         this.send({ type: 'leave', peerId: this.localPeerId });

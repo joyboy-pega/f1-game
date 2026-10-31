@@ -70,6 +70,15 @@ export function MainMenu() {
   const trackInfo = catalog.find((t) => t.id === s.trackId) ?? catalog[0];
   const best = mounted ? records.bestLaps[bestKey] : undefined;
 
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get('room') || params.get('join');
+    if (roomParam) {
+      set({ mode: 'multiplayer' });
+    }
+  }, [set]);
+
   return (
     <main className="l-root" aria-label="Open Race lobby">
       <header className="l-top">

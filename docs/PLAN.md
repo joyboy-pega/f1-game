@@ -83,6 +83,8 @@ controls.poll() ──► GameLoop (useFrame) ──► world.step(dt)  ── f
 
 ---
 
+| **WS-M** Multiplayer | Lead | `lib/game/multiplayer/**`, `components/ui/MultiplayerLobby.tsx` | True online P2P multiplayer using `peerjs` (free PeerJS cloud signaling `0.peerjs.com`) with invite link sharing, lobby synchronization, and 2-player grid launch. |
+
 ## 4. Workstreams in flight
 
 All run as isolated git worktrees branched from `343001f`, each with its own dev port (3101–3108), and commit on their own branch.

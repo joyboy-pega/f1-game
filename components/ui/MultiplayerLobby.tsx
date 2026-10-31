@@ -65,6 +65,30 @@ export function MultiplayerLobby({ onStartRace, onBack }: MultiplayerLobbyProps)
   const [driverName, setDriverName] = useState<string>(myPlayer?.driverName ?? (isHost ? 'Host Driver' : 'Challenger'));
   const [driverCode, setDriverCode] = useState<string>(myPlayer?.driverCode ?? (isHost ? 'HST' : 'CHL'));
 
+  const getInviteUrl = () => {
+    if (typeof window === 'undefined') return '';
+    return `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = (params.get('room') || params.get('join'))?.trim().toUpperCase();
+    if (roomParam && !inLobby) {
+      setRoomCode(roomParam);
+      setIsHost(false);
+      room.joinRoom(roomParam, {
+        driverName: driverName || 'Challenger',
+        driverCode: driverCode || 'CHL',
+        team: selectedTeam,
+        carModel: selectedCar,
+        livery: getPresetLivery(selectedTeam, 2),
+      });
+      setInLobby(true);
+      setIsReady(true);
+    }
+  }, []);
+
   useEffect(() => {
     const unsub = room.subscribe({
       onStateChange: (state) => {
@@ -100,7 +124,13 @@ export function MultiplayerLobby({ onStartRace, onBack }: MultiplayerLobbyProps)
 
   const handleJoin = () => {
     if (!joinCode.trim()) return;
-    const code = joinCode.trim().toUpperCase();
+    let code = joinCode.trim();
+    if (code.includes('?room=')) {
+      code = code.split('?room=')[1].split('&')[0];
+    } else if (code.includes('?join=')) {
+      code = code.split('?join=')[1].split('&')[0];
+    }
+    code = code.trim().toUpperCase();
     setRoomCode(code);
     setIsHost(false);
     room.joinRoom(code, {
@@ -145,10 +175,13 @@ export function MultiplayerLobby({ onStartRace, onBack }: MultiplayerLobbyProps)
     room.setReady(next);
   };
 
-  const handleCopyCode = () => {
-    navigator.clipboard?.writeText(roomCode);
+  const handleCopyLink = () => {
+    const url = getInviteUrl();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+    }
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   const handleStart = () => {
@@ -239,16 +272,15 @@ export function MultiplayerLobby({ onStartRace, onBack }: MultiplayerLobbyProps)
                   JOIN A RACE (RACER)
                 </h3>
                 <p className="text-xs text-white/60 leading-relaxed">
-                  Enter the 6-character room code from the host to enter the grid and pick your car.
+                  Paste the invite link or 6-character room code from your friend to join the race.
                 </p>
                 <div className="flex gap-2 mt-auto">
                   <input
                     type="text"
-                    maxLength={6}
-                    placeholder="CODE"
+                    placeholder="PASTE INVITE LINK OR CODE"
                     value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    className="flex-1 bg-black/50 border border-white/20 px-3 py-2 font-mono uppercase tracking-widest text-sm focus:outline-none focus:border-[var(--lime)]"
+                    onChange={(e) => setJoinCode(e.target.value)}
+                    className="flex-1 bg-black/50 border border-white/20 px-3 py-2 font-mono uppercase tracking-wider text-xs focus:outline-none focus:border-[var(--lime)]"
                   />
                   <button
                     onClick={handleJoin}
@@ -262,30 +294,50 @@ export function MultiplayerLobby({ onStartRace, onBack }: MultiplayerLobbyProps)
           </div>
         ) : (
           <div className="flex flex-col gap-5">
-            {/* Room Code & Status Header */}
-            <div className="flex flex-wrap items-center justify-between p-3.5 bg-white/5 border border-white/10 gap-2">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-mono text-white/60">ROOM CODE:</span>
-                <span className="text-2xl font-mono font-bold tracking-widest text-[var(--lime)]">{roomCode}</span>
-                <span className="text-xs font-mono px-2 py-0.5 bg-white/10 text-white/80 rounded">
-                  {players.length} / 20 Players
-                </span>
+            {/* Direct Invite Link & Status Header */}
+            <div className="p-4 bg-white/5 border border-white/10 flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--lime)]/20 text-[var(--lime)] font-bold uppercase rounded border border-[var(--lime)]/30">
+                    🟢 ONLINE WEBRTC P2P
+                  </span>
+                  <span className="text-xs font-mono px-2 py-0.5 bg-white/10 text-white/80 rounded">
+                    {players.length} / 20 Players
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[10px] font-mono px-2.5 py-1 font-bold uppercase ${
+                      players.length >= 2
+                        ? 'bg-[var(--lime)]/20 text-[var(--lime)] border border-[var(--lime)]'
+                        : 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
+                    }`}
+                  >
+                    {players.length >= 2 ? '✓ Ready (2+ Players)' : '⏳ Waiting for Player 2'}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span
-                  className={`text-[10px] font-mono px-2 py-1 font-bold uppercase ${
-                    players.length >= 2 ? 'bg-[var(--lime)]/20 text-[var(--lime)] border border-[var(--lime)]' : 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
-                  }`}
-                >
-                  {players.length >= 2 ? '✓ Ready (2+ Players)' : '⏳ Need 2 Players Min'}
-                </span>
+
+              {/* Direct Invite Link Box */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-black/50 border border-white/15 p-3">
+                <div className="flex flex-col min-w-0 pr-2">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-white/60">
+                    Direct Invite Link (No code needed to join)
+                  </span>
+                  <span className="text-xs font-mono text-[var(--lime)] truncate font-semibold select-all">
+                    {getInviteUrl()}
+                  </span>
+                </div>
                 <button
-                  onClick={handleCopyCode}
-                  className="text-xs font-mono px-3 py-1 bg-white/10 hover:bg-white/20 border border-white/20 transition-colors cursor-pointer"
+                  onClick={handleCopyLink}
+                  className="shrink-0 px-4 py-2 bg-[var(--lime)] text-black font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
                 >
-                  {copied ? 'Copied!' : 'Copy Code'}
+                  {copied ? '✓ Link Copied!' : '📋 Copy Invite Link'}
                 </button>
               </div>
+              <p className="text-[11px] font-mono text-white/50">
+                Share this link with your opponent. When they open it, they will instantly drop into this race room with their custom car and livery.
+              </p>
             </div>
 
             {/* Room Theme & Circuit Settings (Host Editable, synced live to joined racers) */}
