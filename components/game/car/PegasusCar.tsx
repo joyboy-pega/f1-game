@@ -349,7 +349,7 @@ export function PegasusCar({ car, interpolate = false }: PegasusCarProps) {
 
     // Steering & Head tracking
     const steerAngle = -p.steer * 0.45;
-    if (steerRef.current) steerRef.current.rotation.z = -p.steer * 1.8;
+    if (steerRef.current) steerRef.current.rotation.z = p.steer * 1.8;
     if (headRef.current) headRef.current.rotation.y = steerAngle * 0.45;
 
     // Wheels

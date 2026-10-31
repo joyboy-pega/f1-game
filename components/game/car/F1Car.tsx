@@ -151,10 +151,10 @@ function CarRig({ car, roadster, interpolate }: CarRigProps) {
 
     // 3. Steering angle (front wheels + cockpit butterfly steering wheel)
     const steerAngle = THREE.MathUtils.clamp(p.steer ?? car.ctrl?.steer ?? 0, -0.45, 0.45);
-    // Sim steer sign is opposite the three.js wheel yaw convention (matches the cockpit wheel below).
+    // Sim steer sign is opposite the three.js wheel yaw convention.
     const wheelAngle = -steerAngle;
     if (steerWheelRef.current) {
-      steerWheelRef.current.rotation.z = -steerAngle * 2.4;
+      steerWheelRef.current.rotation.z = steerAngle * 2.4;
     }
 
     // 4. Wheel spin & dynamic pit-stop tyre compound swap
