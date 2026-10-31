@@ -208,32 +208,36 @@ export function buildMarshalPosts(rt: TrackRuntime = track.current): MarshalPost
 
     const hw = rt.halfWidth[i];
     const lat = side * (hw + 90);
-    const [cx, cz, tx, tz] = frameAt(i);
+    const [cx, cz, tx, tz, nx, nz] = frameAt(i);
+    const posX = cx + nx * lat;
+    const posZ = cz + nz * lat;
     const groundY = surfaceHeight(i, lat);
     const yaw = Math.atan2(tx, tz);
 
     // Marshal cabin platform (elevated 1.4 m)
     const platY = groundY + 14;
     // 4 legs
-    postBuilder.box(cx - 3, groundY + 7, cz - 3, 0.8, 14, 0.8, yaw, DARK_STEEL);
-    postBuilder.box(cx + 3, groundY + 7, cz - 3, 0.8, 14, 0.8, yaw, DARK_STEEL);
-    postBuilder.box(cx - 3, groundY + 7, cz + 3, 0.8, 14, 0.8, yaw, DARK_STEEL);
-    postBuilder.box(cx + 3, groundY + 7, cz + 3, 0.8, 14, 0.8, yaw, DARK_STEEL);
+    postBuilder.box(posX - 3, groundY + 7, posZ - 3, 0.8, 14, 0.8, yaw, DARK_STEEL);
+    postBuilder.box(posX + 3, groundY + 7, posZ - 3, 0.8, 14, 0.8, yaw, DARK_STEEL);
+    postBuilder.box(posX - 3, groundY + 7, posZ + 3, 0.8, 14, 0.8, yaw, DARK_STEEL);
+    postBuilder.box(posX + 3, groundY + 7, posZ + 3, 0.8, 14, 0.8, yaw, DARK_STEEL);
 
     // Platform floor
-    postBuilder.box(cx, platY, cz, 16, 1.2, 16, yaw, [0.4, 0.42, 0.45, 1]);
+    postBuilder.box(posX, platY, posZ, 16, 1.2, 16, yaw, [0.4, 0.42, 0.45, 1]);
 
     // Safety railings
-    postBuilder.box(cx, platY + 6, cz + 7.5, 15, 11, 0.8, yaw, GREY);
-    postBuilder.box(cx, platY + 6, cz - 7.5, 15, 11, 0.8, yaw, GREY);
-    postBuilder.box(cx - 7.5, platY + 6, cz, 0.8, 11, 15, yaw, GREY);
+    postBuilder.box(posX, platY + 6, posZ + 7.5, 15, 11, 0.8, yaw, GREY);
+    postBuilder.box(posX, platY + 6, posZ - 7.5, 15, 11, 0.8, yaw, GREY);
+    postBuilder.box(posX - 7.5, platY + 6, posZ, 0.8, 11, 15, yaw, GREY);
 
     // Roof canopy
-    postBuilder.box(cx, platY + 22, cz, 20, 1.0, 20, yaw, [0.2, 0.45, 0.75, 1]); // Blue marshal roof
+    postBuilder.box(posX, platY + 22, posZ, 20, 1.0, 20, yaw, [0.2, 0.45, 0.75, 1]); // Blue marshal roof
 
     // Digital LED light panel on the track-facing side of the post
     const panelLat = side * (hw + 83);
-    const [px, pz] = [cx - tx * 4, cz - tz * 4];
+    const panX = cx + nx * panelLat;
+    const panZ = cz + nz * panelLat;
+    const [px, pz] = [panX - tx * 4, panZ - tz * 4];
     const panelY = groundY + 16;
     panelBuilder.box(px, panelY, pz, 1.2, 8, 14, yaw, [0.05, 0.05, 0.05, 1]); // Panel housing
     // Active LED screen surface (green racing status by default)

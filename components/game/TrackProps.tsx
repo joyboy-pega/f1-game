@@ -395,10 +395,7 @@ export function TrackProps() {
         <CrowdMesh key={i} crowd={c} sprite={crowdSprite} />
       ))}
 
-      {/* G3 dressing: trees (cross-billboards, single instanced mesh) */}
-      {trees.matrices.length > 0 && (
-        <TreeMesh geometry={trees.geometry} matrices={trees.matrices} texture={treeTex} />
-      )}
+      {/* G3 dressing: trees removed per request */}
 
       {/* G3 dressing: brake marker boards */}
       {brakeBoards && (
@@ -421,17 +418,7 @@ export function TrackProps() {
         </mesh>
       )}
 
-      {/* G3 dressing: marshal observation posts & LED flag light panels */}
-      {marshals.posts && (
-        <mesh geometry={marshals.posts} receiveShadow>
-          <meshStandardMaterial vertexColors roughness={0.7} metalness={0.4} />
-        </mesh>
-      )}
-      {marshals.lightPanels && (
-        <mesh geometry={marshals.lightPanels}>
-          <meshStandardMaterial vertexColors emissive="#00ff00" emissiveIntensity={1.5} roughness={0.3} toneMapped={false} />
-        </mesh>
-      )}
+      {/* G3 dressing: marshal observation posts removed from track per request */}
 
       {/* G3 dressing: paddock & hospitality buildings */}
       {paddock && (
