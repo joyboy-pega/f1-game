@@ -170,7 +170,7 @@ describe('R13: Snapshot Interpolator & Jitter Buffering', () => {
 });
 
 describe('R13: Multiplayer Room State Machine & AI Fallback', () => {
-  it('initializes room and transitions states from lobby to countdown', () => {
+  it('enforces minimum 2 players before host can start countdown', () => {
     const room = new MultiplayerRoom();
     expect(room.state).toBe('idle');
 
@@ -180,11 +180,58 @@ describe('R13: Multiplayer Room State Machine & AI Fallback', () => {
     expect(room.players).toHaveLength(1);
     expect(room.players[0].isHost).toBe(true);
 
-    room.updateSettings({ trackId: 'monza', totalLaps: 3 });
+    // With 1 player: cannot start
+    expect(room.canStartRace).toBe(false);
+    expect(room.startCountdown()).toBe(false);
+    expect(room.state).toBe('lobby');
+
+    // Host updates theme and track settings
+    room.updateSettings({ trackId: 'monza', totalLaps: 3, weather: 'rain', timeOfDay: 'sunset' });
     expect(room.settings.trackId).toBe('monza');
     expect(room.settings.totalLaps).toBe(3);
+    expect(room.settings.weather).toBe('rain');
+    expect(room.settings.timeOfDay).toBe('sunset');
 
-    room.startCountdown();
+    // Host updates their car selection
+    room.updatePlayer({ carModel: 'roadster', team: 'Velocity GP' });
+    expect(room.players[0].carModel).toBe('roadster');
+    expect(room.players[0].team).toBe('Velocity GP');
+
+    // Second player joins
+    room.handlePacket({
+      type: 'join',
+      player: {
+        id: 'peer_guest2',
+        carId: -1,
+        driverName: 'Racer Two',
+        driverCode: 'RC2',
+        team: 'Nova Racing',
+        livery: { body: '#00D2BE', accent: '#111111', rim: '#00D2BE', number: 44 },
+        carModel: 'pegasus',
+        ready: true,
+        isHost: false,
+        latencyMs: 12,
+      },
+    });
+
+    // Now 2 players are in the lobby: can start race!
+    expect(room.players).toHaveLength(2);
+    expect(room.canStartRace).toBe(true);
+
+    // Second player customizes car via player_update
+    room.handlePacket({
+      type: 'player_update',
+      player: {
+        id: 'peer_guest2',
+        carModel: 'f1',
+        team: 'Titan Corsa',
+      },
+    });
+    expect(room.players[1].carModel).toBe('f1');
+    expect(room.players[1].team).toBe('Titan Corsa');
+
+    // Owner starts the race
+    expect(room.startCountdown()).toBe(true);
     expect(room.state).toBe('countdown');
     room.close();
   });
@@ -256,5 +303,88 @@ describe('R13: Multiplayer Room State Machine & AI Fallback', () => {
     // Should now gracefully fall back to AI controller
     expect(world.cars[1].ai).not.toBeNull();
     room.close();
+  });
+
+  it('connects 2 real peers: blocks 1-player start, syncs car/theme choices, and starts countdown once 2 racers are in', async () => {
+    const hostRoom = new MultiplayerRoom();
+    const clientRoom = new MultiplayerRoom();
+    const roomId = 'SYNC99';
+
+    let clientRaceStarted = false;
+    let hostRaceStarted = false;
+
+    hostRoom.subscribe({
+      onStateChange: (state) => {
+        if (state === 'countdown' || state === 'racing') hostRaceStarted = true;
+      },
+    });
+
+    clientRoom.subscribe({
+      onStateChange: (state) => {
+        if (state === 'countdown' || state === 'racing') clientRaceStarted = true;
+      },
+    });
+
+    // 1. Host creates room
+    hostRoom.createRoom(roomId, {
+      driverName: 'HostRacer',
+      driverCode: 'HST',
+      team: 'Titan Corsa',
+      carModel: 'f1',
+    });
+
+    // Host cannot start alone (minimum 2 players)
+    expect(hostRoom.canStartRace).toBe(false);
+    expect(hostRoom.startCountdown()).toBe(false);
+
+    // Host configures theme & track
+    hostRoom.updateSettings({
+      trackId: 'spa',
+      weather: 'rain',
+      timeOfDay: 'sunset',
+      totalLaps: 3,
+    });
+
+    // 2. Client joins room
+    clientRoom.joinRoom(roomId, {
+      driverName: 'ChallengerTwo',
+      driverCode: 'CH2',
+      team: 'Velocity GP',
+      carModel: 'roadster',
+    });
+
+    // Small delay for BroadcastChannel message dispatch
+    await new Promise((r) => setTimeout(r, 60));
+
+    // Both rooms should have 2 players
+    expect(hostRoom.players).toHaveLength(2);
+    expect(hostRoom.canStartRace).toBe(true);
+
+    // Client updates their car choice in the lobby
+    clientRoom.updatePlayer({
+      carModel: 'pegasus',
+      team: 'Pegasus',
+    });
+
+    await new Promise((r) => setTimeout(r, 60));
+
+    // Host received client's updated car model
+    const guestOnHost = hostRoom.players.find((p) => p.id === clientRoom.localPeerId);
+    expect(guestOnHost?.carModel).toBe('pegasus');
+
+    // Host starts countdown (now allowed with 2 players)
+    expect(hostRoom.startCountdown()).toBe(true);
+
+    await new Promise((r) => setTimeout(r, 60));
+
+    // Both host and client are transitioned to countdown!
+    expect(hostRaceStarted).toBe(true);
+    expect(clientRaceStarted).toBe(true);
+    expect(clientRoom.settings.trackId).toBe('spa');
+    expect(clientRoom.settings.weather).toBe('rain');
+    expect(clientRoom.settings.timeOfDay).toBe('sunset');
+
+    hostRoom.close();
+    clientRoom.close();
   });
 });

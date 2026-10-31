@@ -1,5 +1,5 @@
 import type { ControlState } from '../controls';
-import type { Livery, TyreCompound, VehicleModelType, WeatherType } from '../constants';
+import type { Livery, TimeOfDay, TyreCompound, VehicleModelType, WeatherType } from '../constants';
 
 export interface PlayerInfo {
   id: string; // peer id
@@ -18,6 +18,7 @@ export interface RoomSettings {
   trackId: string;
   totalLaps: number;
   weather: WeatherType;
+  timeOfDay?: TimeOfDay;
   aiCount: number;
 }
 
@@ -88,6 +89,11 @@ export interface LeavePacket {
   peerId: string;
 }
 
+export interface PlayerUpdatePacket {
+  type: 'player_update';
+  player: Partial<PlayerInfo> & { id: string };
+}
+
 export type MultiplayerPacket =
   | ClientInputPacket
   | ServerSnapshotPacket
@@ -95,7 +101,8 @@ export type MultiplayerPacket =
   | PingPacket
   | PongPacket
   | JoinPacket
-  | LeavePacket;
+  | LeavePacket
+  | PlayerUpdatePacket;
 
 export function serializePacket(packet: MultiplayerPacket): string {
   return JSON.stringify(packet);

@@ -11,6 +11,7 @@ import { recordKey, useGameStore } from '@/lib/game/store';
 import { ControlsPanel } from './ControlsPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { MultiplayerLobby } from './MultiplayerLobby';
+import { multiplayerRoom as room } from '@/lib/game/multiplayer/room';
 import { COMPOUNDS, COMPOUND_ORDER, MODE_NAMES, WEATHER_LABEL, useMounted } from './format';
 import { Field, Seg, Slider } from './kit';
 import { TrackPreview } from './TrackPreview';
@@ -419,13 +420,19 @@ export function MainMenu() {
 
       {s.mode === 'multiplayer' && (
         <MultiplayerLobby
-          onStartRace={(roomSettings) => {
+          onStartRace={(roomSettings, players) => {
+            const me = players.find((p) => p.id === room.localPeerId) || players[0];
             set({
               mode: 'multiplayer',
               trackId: roomSettings.trackId,
               totalLaps: roomSettings.totalLaps,
               weather: roomSettings.weather,
-              aiCount: roomSettings.aiCount,
+              timeOfDay: roomSettings.timeOfDay ?? 'day',
+              aiCount: Math.max(0, 20 - players.length),
+              carModel: me?.carModel ?? 'f1',
+              livery: me?.livery ?? s.livery,
+              driverName: me?.driverName ?? s.driverName,
+              driverCode: me?.driverCode ?? s.driverCode,
             });
             router.push('/game');
           }}

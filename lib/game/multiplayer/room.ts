@@ -40,6 +40,7 @@ export class MultiplayerRoom {
     trackId: 'buddh',
     totalLaps: 5,
     weather: 'sunny',
+    timeOfDay: 'day',
     aiCount: 8,
   };
   players: PlayerInfo[] = [];
@@ -129,15 +130,28 @@ export class MultiplayerRoom {
 
   private localPlayerInfo: PlayerInfo | null = null;
 
-  setReady(ready: boolean) {
+  get canStartRace(): boolean {
+    return this.role === 'host' && this.players.length >= 2;
+  }
+
+  updatePlayer(patch: Partial<PlayerInfo>) {
     const p = this.players.find((x) => x.id === this.localPeerId);
     if (p) {
-      p.ready = ready;
+      Object.assign(p, patch);
       this.notifyPlayers();
       if (this.role === 'host') {
         this.broadcastRoomSync();
+      } else {
+        this.send({
+          type: 'player_update',
+          player: { id: this.localPeerId, ...patch },
+        });
       }
     }
+  }
+
+  setReady(ready: boolean) {
+    this.updatePlayer({ ready });
   }
 
   updateSettings(patch: Partial<RoomSettings>) {
@@ -147,11 +161,16 @@ export class MultiplayerRoom {
     this.broadcastRoomSync();
   }
 
-  startCountdown() {
-    if (this.role !== 'host') return;
+  startCountdown(): boolean {
+    if (this.role !== 'host') return false;
+    if (this.players.length < 2) {
+      console.warn('[Multiplayer] Cannot start race with fewer than 2 players');
+      return false;
+    }
     this.notifyState('countdown');
     this.countdownTimer = 3.0;
     this.broadcastRoomSync();
+    return true;
   }
 
   sendInput(controls: ControlState, simTimestamp: number) {
@@ -297,8 +316,22 @@ export class MultiplayerRoom {
             this.players.push(newPlayer);
             this.peerHeartbeats.set(newPlayer.id, Date.now());
             this.notifyPlayers();
+          } else {
+            Object.assign(existing, packet.player);
+            this.notifyPlayers();
           }
           this.broadcastRoomSync();
+        }
+        break;
+      }
+      case 'player_update': {
+        if (this.role === 'host') {
+          const target = this.players.find((p) => p.id === packet.player.id);
+          if (target) {
+            Object.assign(target, packet.player);
+            this.notifyPlayers();
+            this.broadcastRoomSync();
+          }
         }
         break;
       }
